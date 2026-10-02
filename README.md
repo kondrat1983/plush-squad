@@ -27,6 +27,13 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - `vendor/phaser.min.js` — Phaser 3.90 (MIT)
 - `sw.js`, `manifest.json` — offline + install
 
-## Roadmap ideas
-- v0.3: more opponents (cow, snake…), world map, XP unlocks
-- v0.4: "+ Toy": photo → background removal in-browser → new hero
+## Versions
+- **v0.3** — rivals map (Timmy the Tiger → Moo the Cow → Sly the Snake → boss Professor Hoot), 1–3 stars per rival,
+  rival-specific moves (Moo-Quake, Milk Break, Shield, Tail Whip, Hypno, Pop Quiz), status effects (dizzy, shield),
+  new Jack moves unlocked by level: Dumpling Snack (Lv2), Six-Seven Dance (Lv3), Tail Spin (Lv4).
+- **v0.2** — Phaser rewrite of the pillow duel: particles, hit-stop, screen shake, synthesized sound, PWA.
+
+## Roadmap
+- v0.4 "+ Toy": photo of any plush → in-browser background removal → new hero / rival
+- v0.5 Real-life quests & daily streak, sticker collection
+- v0.6 Two players on one iPad, then online duels via link
