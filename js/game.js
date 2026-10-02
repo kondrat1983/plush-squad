@@ -332,6 +332,7 @@
       this.tweens.add({ targets: tp, scale: 1.06, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       button(this, bx, byy + (PORTRAIT ? 150 : 150), PORTRAIT ? 480 : 420, 100, '+ ADD A TOY', C.cream, () => { A.init(); A.startMusic(); fade(this, 'studio'); }, { size: 40 });
       muteButton(this);
+      txt(this, 24, H - 26, 'v0.4.1', 24, '#6a72d6', { ox: 0, st: 0, shadow: false, weight: '500' });
       this.input.keyboard && this.input.keyboard.once('keydown-SPACE', () => this.go());
     }
     go() { A.init(); A.startMusic(); A.whoosh(); fade(this, 'map'); }

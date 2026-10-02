@@ -31,7 +31,14 @@ html,body{margin:0;height:100%;background:#1d2163;overflow:hidden;overscroll-beh
 <script src="js/game.js"></script>
 <script>
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.hostname)) {
-  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  var hadController = !!navigator.serviceWorker.controller, reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    // a new version just took over: reload once so the player sees it right away
+    if (hadController && !reloaded) { reloaded = true; location.reload(); }
+  });
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) { reg.update(); }).catch(function () {});
+  });
 }
 </script>
 </body>
