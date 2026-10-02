@@ -23,17 +23,22 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - `index.html` — page shell, PWA meta
 - `js/game.js` — the game (Boot → Title → Battle scenes)
 - `js/audio.js` — all sounds & music are synthesized live with Web Audio (no audio files)
-- `assets/` — Jack photo cut-outs, Fluent Emoji 3D art (MIT, © Microsoft), Poppins font (OFL)
+- `js/toys.js` — toy types, elements, personalities and the hero generator (no AI text, just rules)
+- `js/toyworker.js` — on-device background removal + type guess (transformers.js, `vendor/tjs`)
+- `assets/` — Jack photo cut-outs, Fluent Emoji 3D art (MIT, © Microsoft), Poppins font (OFL), `arch_emb.json` (pre-computed type embeddings)
 - `vendor/phaser.min.js` — Phaser 3.90 (MIT)
 - `sw.js`, `manifest.json` — offline + install
 
 ## Versions
+- **v0.4** — **+ Toy**: take a photo of any plush → the background is removed on the device (ormbg, Apache-2.0) →
+  "who is it?" is guessed on the device (MobileCLIP S0, Apple sample-code licence) from 44 types → a hero is built from rules:
+  type → signature move, main colour → element move, a random personality → extra move, name you can edit.
+  Toys live in **My Squad**: play as any toy, or duel your own toys. Nothing is uploaded; models (~90 MB) download once from Hugging Face.
 - **v0.3** — rivals map (Timmy the Tiger → Moo the Cow → Sly the Snake → boss Professor Hoot), 1–3 stars per rival,
   rival-specific moves (Moo-Quake, Milk Break, Shield, Tail Whip, Hypno, Pop Quiz), status effects (dizzy, shield),
   new Jack moves unlocked by level: Dumpling Snack (Lv2), Six-Seven Dance (Lv3), Tail Spin (Lv4).
 - **v0.2** — Phaser rewrite of the pillow duel: particles, hit-stop, screen shake, synthesized sound, PWA.
 
 ## Roadmap
-- v0.4 "+ Toy": photo of any plush → in-browser background removal → new hero / rival
 - v0.5 Real-life quests & daily streak, sticker collection
 - v0.6 Two players on one iPad, then online duels via link
