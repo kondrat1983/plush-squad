@@ -74,6 +74,16 @@
     win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(f, i === 5 ? 0.7 : 0.18, { type: 'square', vol: 0.09, delay: i * 0.13 })); },
     lose() { [392, 370, 349, 330].forEach((f, i) => this.tone(f, i === 3 ? 0.8 : 0.3, { type: 'triangle', vol: 0.2, delay: i * 0.28, slide: i === 3 ? 0.8 : 1 })); },
     tick() { this.tone(1400 + Math.random() * 200, 0.04, { type: 'square', vol: 0.04 }); },
+    moo() { this.tone(180, 0.9, { type: 'sawtooth', vol: 0.14, slide: 0.7, attack: 0.15 }); this.tone(182, 0.9, { type: 'triangle', vol: 0.2, slide: 0.68, attack: 0.15 }); },
+    hiss() { this.noise(0.9, { type: 'highpass', f: 3500, vol: 0.25, attack: 0.1 }); },
+    hoot() { [0, 0.32].forEach(d => { this.tone(420, 0.25, { vol: 0.25, delay: d, slide: 0.85, attack: 0.03 }); }); },
+    gulp() { this.tone(300, 0.12, { vol: 0.3, slide: 0.5 }); this.tone(260, 0.12, { vol: 0.3, slide: 0.5, delay: 0.16 }); },
+    dance() { [523, 659, 784, 659, 880, 784, 1047].forEach((f, i) => this.tone(f, 0.12, { type: 'square', vol: 0.07, delay: i * 0.11 })); },
+    dizzy() { for (let i = 0; i < 6; i++) this.tone(900 + (i % 2) * 300, 0.12, { type: 'sine', vol: 0.12, delay: i * 0.09, slide: 0.8 }); },
+    block() { this.tone(1800, 0.3, { type: 'triangle', vol: 0.16 }); this.tone(2400, 0.25, { type: 'sine', vol: 0.1, delay: 0.02 }); },
+    stomp() { this.tone(70, 0.6, { vol: 0.6, slide: 0.5 }); this.noise(0.5, { f: 200, vol: 0.5, slide: 0.4 }); },
+    starDing(i) { this.tone(1047 * Math.pow(1.26, i), 0.4, { type: 'triangle', vol: 0.2 }); },
+    spin() { this.noise(0.5, { f: 800, slide: 3, q: 2, vol: 0.25, attack: 0.05 }); },
     levelUp() { [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.2, delay: i * 0.09 })); },
 
     // ---- lullaby
