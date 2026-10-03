@@ -10,6 +10,7 @@
   const W = PORTRAIT ? 1080 : Math.round(clamp(1080 * ASPECT, 1440, 2340));
   const H = PORTRAIT ? Math.round(clamp(1080 / ASPECT, 1500, 2340)) : 1080;
   const DEBUG = /[?&]debug/.test(location.search);
+  const VERSION = '0.7';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -19,10 +20,18 @@
   const Save = {
     data: { xp: 0, wins: 0, muted: false, stars: {}, toys: [], hero: 'jack' },
     load() { try { Object.assign(this.data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {} },
-    store() { try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (e) {} },
+    store() { try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (e) {} if (window.PSOnSave) { try { window.PSOnSave(this.data); } catch (e) {} } },
   };
   Save.load(); A.muted = !!Save.data.muted; if (!Save.data.stars) Save.data.stars = {}; if (!Array.isArray(Save.data.toys)) Save.data.toys = []; if (!Save.data.hero) Save.data.hero = 'jack';
-  ['diff', 'caps', 'boosts', 'seen'].forEach((k, i) => { if (Save.data[k] == null) Save.data[k] = ['normal', 0, {}, {}][i]; });
+  ['diff', 'caps', 'boosts', 'seen', 'stats', 'ach', 'costumes'].forEach((k, i) => { if (Save.data[k] == null) Save.data[k] = ['normal', 0, {}, {}, {}, {}, {}][i]; });
+  if (!Save.data.costume) Save.data.costume = 'none';
+  // Halloween event: October + first week of November (or ?halloween to test)
+  const NOW = new Date();
+  const EVENT_ON = /[?&]halloween/.test(location.search) || NOW.getMonth() === 9 || (NOW.getMonth() === 10 && NOW.getDate() <= 7);
+  // plugins (js/extra.js, js/net.js) add scenes and listen to game events
+  const PLUGINS = window.PSPlugins || [];
+  let PS = null;
+  function emit(name, data, scene) { PLUGINS.forEach(p => { try { p.onEvent && p.onEvent(name, data || {}, scene, PS); } catch (e) { console.warn('plugin', e); } }); }
 
   // ---------- difficulty
   const DIFFS = {
@@ -104,25 +113,32 @@
     return new Promise((res) => {
       if (scene.textures.exists(key)) scene.textures.remove(key);
       const img = new Image();
-      img.onload = () => { scene.textures.addImage(key, img); res(true); };
+      if (/^https?:/.test(url)) img.crossOrigin = 'anonymous';
+      img.onload = () => { if (scene.textures.exists(key)) scene.textures.remove(key); scene.textures.addImage(key, img); res(true); };
       img.onerror = () => res(false);
       img.src = url;
     });
   }
   // image helper: 'i:name' = frame of the icons atlas, otherwise a texture key
-  function img(scene, x, y, key) { return key && key.startsWith('i:') ? scene.add.image(x, y, 'icons', key.slice(2)) : scene.add.image(x, y, key); }
+  function img(scene, x, y, key) {
+    if (key && key.startsWith('i:')) return scene.add.image(x, y, 'icons', key.slice(2));
+    if (key && key.startsWith('j:')) return scene.add.image(x, y, 'icons2', key.slice(2));
+    return scene.add.image(x, y, key);
+  }
   function iconScale(key, size) { // scale so the icon is ~size px
     if (!key) return 1;
-    if (key.startsWith('i:')) return size / 144;
-    const base = { comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
+    if (key.startsWith('i:') || key.startsWith('j:')) return size / 144;
+    const base = { polandball: 486, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
     return size / base;
   }
 
   // ---------- shared scenery
   const SPACE = 1;
+  const SPOOKY = 2;
+  const groundKey = w => w === SPACE ? 'ground2' : w === SPOOKY ? 'ground3' : 'ground';
   function sky(scene, world = 0) {
-    const sp = world === SPACE;
-    scene.add.image(W / 2, H / 2, sp ? 'sky2' : 'sky');
+    const sp = world === SPACE, spook = world === SPOOKY;
+    scene.add.image(W / 2, H / 2, sp ? 'sky2' : spook ? 'sky3' : 'sky');
     const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(0.55);
     scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : 1); i++) {
@@ -131,6 +147,7 @@
       scene.tweens.add({ targets: s, alpha: 0.08, duration: 900 + Math.random() * 2200, yoyo: true, repeat: -1, delay: Math.random() * 2000, ease: 'Sine.inOut' });
     }
     if (sp) spaceDecor(scene, scene.scene.key === 'battle' ? 15000 : 7000);
+    else if (spook) spookyDecor(scene);
     else for (let i = 0; i < 5; i++) {
       const cl = scene.add.image(Math.random() * W, H * (0.08 + Math.random() * 0.42), 'cloud')
         .setAlpha(0.13 + Math.random() * 0.12).setScale(0.8 + Math.random() * 1.3);
@@ -138,6 +155,17 @@
       scene.tweens.add({ targets: cl, x: cl.x + W * 0.35, duration: sp * 2, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
     scene.time.addEvent({ delay: 4200, loop: true, callback: () => { if (Math.random() < 0.6) shootingStar(scene); } });
+  }
+  // Halloween world: bats flapping across, an orange glow, cobwebs in the corners
+  function spookyDecor(scene) {
+    const wb = scene.add.image(W - 70, 70, 'web').setScale(0.9).setAlpha(0.35).setAngle(10);
+    const wb2 = scene.add.image(70, 70, 'web').setScale(0.7).setAlpha(0.3).setFlipX(true);
+    scene.time.addEvent({ delay: 3500, loop: true, callback: () => {
+      const y = H * (0.08 + Math.random() * 0.35), dir = Math.random() < 0.5 ? 1 : -1;
+      const b = scene.add.image(dir > 0 ? -100 : W + 100, y, 'bat').setScale(0.3).setFlipX(dir < 0).setAlpha(0.85);
+      scene.tweens.add({ targets: b, scaleY: 0.18, duration: 140, yoyo: true, repeat: -1 });
+      scene.tweens.add({ targets: b, x: dir > 0 ? W + 100 : -100, y: y + rnd(-120, 120), duration: 5200, ease: 'Sine.inOut', onComplete: () => b.destroy() });
+    } });
   }
   // Space world: a far planet, a drifting UFO and a rocket that zooms by now and then
   function spaceDecor(scene, rocketEvery = 7000) {
@@ -200,9 +228,11 @@
       this.load.on('progress', p => bar.width = 600 * p);
       ['jack_side', 'jack_upside', 'jack_front', 'tiger', 'cow', 'snake', 'owl', 'moon', 'cloud', 'zzz', 'snow', 'star', 'trophy', 'heart', 'sparkles',
         'dumpling', 'milk', 'books', 'lock', 'dizzy', 'dance', 'crown', 'note', 'shield',
-        'robot', 'ghost', 'dragonboss', 'polandball', 'planet', 'rocket', 'extinguisher', 'comet', 'ufo']
+        'robot', 'ghost', 'dragonboss', 'polandball', 'planet', 'rocket', 'extinguisher', 'comet', 'ufo',
+        'pumpkin', 'bat', 'spider', 'vampire', 'kraken', 'candy', 'lollipop', 'web', 'tophat', 'witchhat', 'gift']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
+      this.load.atlas('icons2', 'assets/icons2.webp', 'assets/icons2.json');
     }
     create() {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -239,6 +269,11 @@
       const neb = (x, y, r, col) => { const ng = cx2.createRadialGradient(x, y, 0, x, y, r); ng.addColorStop(0, col); ng.addColorStop(1, 'rgba(0,0,0,0)'); cx2.fillStyle = ng; cx2.fillRect(0, 0, W, H); };
       neb(W * 0.75, H * 0.25, W * 0.35, 'rgba(255,90,180,0.16)'); neb(W * 0.2, H * 0.45, W * 0.3, 'rgba(90,200,255,0.12)');
       sk2.refresh();
+      const sk3 = this.textures.createCanvas('sky3', W, H), cx3 = sk3.getContext();
+      const gr3 = cx3.createLinearGradient(0, 0, 0, H); gr3.addColorStop(0, '#0d0820'); gr3.addColorStop(0.5, '#2e1450'); gr3.addColorStop(1, '#7a3046');
+      cx3.fillStyle = gr3; cx3.fillRect(0, 0, W, H);
+      const ng3 = cx3.createRadialGradient(W * 0.5, H * 0.75, 0, W * 0.5, H * 0.75, W * 0.6); ng3.addColorStop(0, 'rgba(255,140,60,0.25)'); ng3.addColorStop(1, 'rgba(0,0,0,0)');
+      cx3.fillStyle = ng3; cx3.fillRect(0, 0, W, H); sk3.refresh();
       const st = this.textures.createCanvas('streak', 240, 8), sx = st.getContext();
       const sg = sx.createLinearGradient(0, 0, 240, 0); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(1, 'rgba(255,255,255,1)');
       sx.fillStyle = sg; sx.beginPath(); sx.moveTo(0, 4); sx.lineTo(236, 0); sx.arc(236, 4, 4, -Math.PI / 2, Math.PI / 2); sx.closePath(); sx.fill(); st.refresh();
@@ -265,6 +300,15 @@
         q2.fillStyle = 'rgba(220,210,255,0.25)'; q2.beginPath(); q2.ellipse(x, y - r * 0.12, r * 0.8, r * 0.22, 0, Math.PI, 0); q2.fill();
       }
       q2.restore(); gt2.refresh();
+      // spooky grass for the Halloween world
+      const gt3 = this.textures.createCanvas('ground3', GW, GH), q3 = gt3.getContext();
+      q3.save(); q3.beginPath(); q3.ellipse(GW / 2, RY, GW / 2, RY, 0, Math.PI, 0); q3.lineTo(GW, GH); q3.lineTo(0, GH); q3.closePath(); q3.clip();
+      const qg3 = q3.createLinearGradient(0, 0, 0, GH); qg3.addColorStop(0, '#4a3a6e'); qg3.addColorStop(0.35, '#2c2048'); qg3.addColorStop(1, '#160f2c');
+      q3.fillStyle = qg3; q3.fillRect(0, 0, GW, GH);
+      q3.setLineDash([22, 18]); q3.lineWidth = 5; q3.strokeStyle = 'rgba(255,140,60,0.4)';
+      for (let i = 1; i < 6; i++) { q3.beginPath(); q3.ellipse(GW / 2, RY + i * GH * 0.11, GW / 2 - i * 20, RY, 0, Math.PI, 0); q3.stroke(); }
+      for (let i = -8; i <= 8; i++) { q3.beginPath(); q3.moveTo(GW / 2 + i * GW * 0.035, GH * 0.02); q3.lineTo(GW / 2 + i * GW * 0.11, GH); q3.stroke(); }
+      q3.restore(); gt3.refresh();
       // load saved toy pictures, then go
       Promise.all(Save.data.toys.map(t => IDB.get(t.id).then(url => url && addTexture(this, 'toy_' + t.id, url)).catch(() => {})))
         .then(() => this.go(), () => this.go());
@@ -292,7 +336,7 @@
   const WORLDS = [
     { name: 'PILLOW HILLS', icon: 'moon' },
     { name: 'SPACE', icon: 'rocket' },
-  ];
+  ].concat(EVENT_ON ? [{ name: 'SPOOKY', icon: 'pumpkin', event: true }] : []);
   const RIVALS = [
     { id: 'timmy', name: 'Timmy the Tiger', nick: 'Timmy', short: 'TIMMY', tex: 'tiger', scale: 2.0, color: C.orange, hp: 100, xp: 40,
       intro: 'Timmy waves a paw: "Pillows at dawn, Jack!"', laugh: 'Timmy laughed so hard he gave up.',
@@ -341,9 +385,51 @@
         { type: 'multi', hits: 3, dmg: [6, 10], w: 25, log: 'TAIL SPIN! {a} whirls like a giant tornado!' },
         { type: 'roar', word: 'ROOOAR!', color: 0xff8a3d, sound: 'roar', dmg: [15, 23], w: 20, log: '{a} ROARS and the stars shake!' },
         { type: 'spray', tex: 'i:fire', inhale: true, hitTint: 0xffb36b, word: 'ACHOO!', sound: 'sneeze', dmg: [14, 21], w: 20, log: 'Ah... ah... ACHOO! A fiery sneeze!' }] },
+  ].concat(EVENT_ON ? [
+    // ---- Halloween event world: SPOOKY (open from the start while the event runs)
+    { id: 'pumpkin', world: SPOOKY, event: true, name: 'Pumpkin Pete', nick: 'Pete', short: 'PUMPKIN PETE', tex: 'pumpkin', color: C.orange, hp: 110, xp: 50, reward: 'pumpkin',
+      intro: 'Pumpkin Pete grins: "Trick or treat... or PILLOW FIGHT!"', laugh: 'Pete laughed so hard his candle went out. Happy Halloween!',
+      moves: [{ type: 'throw', tex: 'pumpkin', dmg: [11, 19], w: 35, log: 'PUMPKIN TOSS! {a} throws a mini pumpkin at {d}!' },
+        { type: 'spray', tex: 'j:candy', word: 'CANDY STORM!', sound: 'whoosh', dmg: [10, 18], w: 30, log: '{a} throws a handful of candy at {d}!' },
+        { type: 'roar', word: 'MWAHAHA!', color: 0xff8a3d, sound: 'roar', dmg: [13, 20], w: 20, log: '{a} does his spookiest laugh!' },
+        { type: 'heal', tex: 'lollipop', amt: 20, uses: 1, w: 15, log: '{a} licks a lollipop. Sugar power!' }] },
+    { id: 'batty', world: SPOOKY, event: true, name: 'Batty the Bat', nick: 'Batty', short: 'BATTY', tex: 'bat', color: 0x9a7bd6, hp: 125, xp: 60, reward: 'tophat',
+      intro: 'Batty hangs upside down: "Hey Jack, you nap like me!"', laugh: 'Batty giggled and flew loop-de-loops. Bye!',
+      moves: [{ type: 'hop', word: 'FLAP FLAP!', dmg: [11, 19], w: 35, log: '{a} swoops down on {d}!' },
+        { type: 'dizzy', color: 0x9a7bd6, word: 'SONAR!', uses: 2, w: 15, sound: 'laser', log: '{a} squeaks a sonar song... {d} gets dizzy!' },
+        { type: 'nap', amt: 25, uses: 1, w: 15, log: '{a} hangs upside down for a power nap!' },
+        { type: 'roar', word: 'EEEEK!', color: 0xd8c2ff, sound: 'tickle', dmg: [12, 20], w: 25, log: '{a} squeaks super loud!' }] },
+    { id: 'webster', world: SPOOKY, event: true, name: 'Webster the Spider', nick: 'Webster', short: 'WEBSTER', tex: 'spider', color: 0x7fd6c2, hp: 140, xp: 70, reward: 'witchhat',
+      intro: 'Webster waves all eight legs: "Eight legs = eight tickles!"', laugh: 'Webster got tangled in his own web laughing.',
+      moves: [{ type: 'dizzy', tex: 'web', color: 0xffffff, word: 'STUCK!', uses: 2, w: 20, sound: 'whoosh', log: '{a} throws a sticky web! {d} is stuck!' },
+        { type: 'multi', hits: 4, dmg: [4, 7], w: 30, log: 'EIGHT-LEG TICKLE! {a} tickles {d} again and again!' },
+        { type: 'tickle', dmg: [6, 24], w: 25 },
+        { type: 'shield', w: 15, log: '{a} hides in a web hammock. Next hit only does half!' }] },
+    { id: 'fang', world: SPOOKY, event: true, name: 'Count Fang', nick: 'Count Fang', short: 'COUNT FANG', tex: 'vampire', color: 0xff6b5b, hp: 175, xp: 120, boss: true, reward: 'crown',
+      intro: 'Count Fang swirls his cape: "I vant to... tickle your toes!"', laugh: 'Count Fang laughed until sunrise. Jack is the King of Halloween!',
+      moves: [{ type: 'volley', tex: 'bat', dmg: [13, 21], word: 'BAT ATTACK!', sound: 'laser', w: 30, log: '{a} sends a flock of bats at {d}!' },
+        { type: 'dizzy', color: 0xff6b5b, word: 'HYPNO STARE', uses: 2, w: 15, sound: 'boo', log: '{a} gives {d} the hypno stare...' },
+        { type: 'shield', w: 15, log: '{a} hides behind his cape. Next hit only does half!' },
+        { type: 'heal', tex: 'j:chocolate', amt: 25, uses: 1, w: 10, log: '{a} snacks on Halloween chocolate.' },
+        { type: 'roar', word: 'BLAH BLAH!', color: 0xff6b5b, sound: 'boo', dmg: [14, 22], w: 20, log: '{a} says BLAH so loud the bats fly away!' }] },
+  ] : []);
+  // Halloween costumes (won from the SPOOKY rivals) and the crown
+  const COSTUMES = [
+    { id: 'none', name: 'No hat' },
+    { id: 'pumpkin', name: 'Pumpkin Hat', tex: 'pumpkin', w: 0.42 },
+    { id: 'tophat', name: 'Top Hat', tex: 'tophat', w: 0.45 },
+    { id: 'witchhat', name: 'Witch Hat', tex: 'witchhat', w: 0.55 },
+    { id: 'crown', name: 'Royal Crown', tex: 'crown', w: 0.45 },
   ];
+  // the weekly co-op boss (only when online, see js/net.js)
+  const KRAKEN = { id: 'kraken', name: 'Pillow Kraken', nick: 'Kraken', short: 'PILLOW KRAKEN', tex: 'kraken', color: 0xff9ed8, hp: 220, xp: 60, boss: true, big: 1.1,
+    intro: 'The Pillow Kraken rises from the blanket sea! Everyone hits it together this week!', laugh: 'The Kraken giggles and sinks back into the blanket sea... for now!',
+    moves: [{ type: 'multi', hits: 4, dmg: [5, 9], w: 30, log: 'TENTACLE TICKLES! {a} tickles {d} with four arms!' },
+      { type: 'spray', tex: 'dot', tint: [0x3b2a6e, 0x6a4fb0], word: 'INK!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} squirts pillow ink at {d}!' },
+      { type: 'tickle', dmg: [8, 26], w: 25 },
+      { type: 'roar', word: 'BLUB BLUB!', color: 0xff9ed8, sound: 'boo', dmg: [13, 21], w: 20, log: '{a} bubbles a giant BLUB!' }] };
   const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
-  const isUnlocked = i => i === 0 || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
+  const isUnlocked = i => i === 0 || (RIVALS[i].event && !RIVALS[i - 1].event) || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
   const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
   const worldOpen = w => RIVALS.some((r, i) => (r.world || 0) === w && isUnlocked(i));
   const furthest = () => { let c = 0; RIVALS.forEach((r, i) => { if (isUnlocked(i)) c = i; }); return c; };
@@ -413,7 +499,7 @@
   // round capsule-machine button with a badge (map)
   function capsuleButton(scene, x, y, world) {
     const c = scene.add.container(x, y).setDepth(50);
-    const n = Save.data.caps;
+    const n = Save.data.caps + (Save.data.goldCaps || 0);
     c.add(scene.add.circle(0, 0, 46, n ? C.coral : C.night2).setStrokeStyle(4, n ? 0xffffff : C.seam));
     const g = scene.add.graphics(); drawCapsule(g, 0, 0, 28, 0xffd23f); c.add(g);
     if (n) {
@@ -440,45 +526,70 @@
     create() {
       this._leaving = false;
       this.cameras.main.fadeIn(400, 15, 18, 64);
-      sky(this);
-      this.add.image(W / 2, H + 40, 'ground').setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.55 : 0.6);
-      const moon = this.add.image(PORTRAIT ? W * 0.8 : W * 0.84, PORTRAIT ? H * 0.12 : H * 0.2, 'moon').setScale(PORTRAIT ? 1.1 : 1.3);
+      sky(this, EVENT_ON ? SPOOKY : 0);
+      this.add.image(W / 2, H + 40, EVENT_ON ? 'ground3' : 'ground').setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.55 : 0.6);
+      const moon = this.add.image(PORTRAIT ? W * 0.82 : W * 0.84, PORTRAIT ? 300 : H * 0.2, 'moon').setScale(PORTRAIT ? 0.9 : 1.3);
+      if (EVENT_ON) moon.setTint(0xffa64d);
       this.tweens.add({ targets: moon, angle: 8, y: moon.y + 14, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      const ly = PORTRAIT ? H * 0.17 : H * 0.16;
-      const word = (s, y, size, color, d0) => {
-        const letters = s.split(''); const sp = size * 0.72; const x0 = W / 2 - (letters.length - 1) * sp / 2;
+      const ly = PORTRAIT ? 300 : H * 0.16, fs = PORTRAIT ? 140 : 170;
+      const word = (str, y, size, color, d0) => {
+        const letters = str.split(''); const sp = size * 0.72; const x0 = W / 2 - (letters.length - 1) * sp / 2;
         letters.forEach((ch, i) => {
           const t = txt(this, x0 + i * sp, y - 300, ch, size, color, { stroke: '#0f1240', st: Math.round(size / 6) });
           this.tweens.add({ targets: t, y, duration: 700, delay: d0 + i * 60, ease: 'Bounce.out' });
           this.tweens.add({ targets: t, y: y - 14, duration: 1200, delay: 1600 + i * 110, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         });
       };
-      word('PLUSH', ly, PORTRAIT ? 150 : 170, '#fff3d2', 100);
-      word('SQUAD', ly + (PORTRAIT ? 160 : 180), PORTRAIT ? 150 : 170, '#ffd23f', 450);
-      const jy = PORTRAIT ? H * 0.75 : H * 0.95;
+      word('PLUSH', ly, fs, '#fff3d2', 100);
+      word('SQUAD', ly + fs * 1.07, fs, EVENT_ON ? '#ff8a3d' : '#ffd23f', 450);
+      if (EVENT_ON) {
+        const pk = this.add.image(W / 2 + fs * 2.1, ly + fs * 1.07, 'pumpkin').setScale(fs / 300).setAngle(12);
+        this.tweens.add({ targets: pk, angle: -8, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      }
+      // hero
+      const jy = PORTRAIT ? H - 330 : H * 0.95;
+      const hMax = PORTRAIT ? Math.min(590, jy - 760) : 425;
       const sh = this.add.image(W / 2, jy + 6, 'shadow').setScale(1.3, 1);
       const hero = heroDef(this);
       const heroKey = hero.isJack ? 'jack_front' : hero.tex;
       const jack = this.add.image(W / 2, jy, heroKey).setOrigin(0.5, 1);
-      jack.setScale(Math.min((PORTRAIT ? 590 : 425) / jack.height, (PORTRAIT ? 600 : 520) / jack.width));
-      this.tweens.add({ targets: jack, y: jy - 34, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      jack.setScale(Math.min(hMax / jack.height, (PORTRAIT ? 600 : 520) / jack.width));
+      const hc = COSTUMES.find(c => c.id === Save.data.costume);
+      let hat = null;
+      if (hc && hc.tex) { hat = this.add.image(W / 2, jy - jack.displayHeight * 0.96, hc.tex).setOrigin(0.5, 0.85); hat.setScale(jack.displayWidth * hc.w / hat.width).setAngle(-6); }
+      this.tweens.add({ targets: [jack].concat(hat ? [hat] : []), y: '-=34', duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.tweens.add({ targets: sh, scaleX: 1.05, alpha: 0.6, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      this.add.particles(0, 0, 'spark', { x: { min: W / 2 - 300, max: W / 2 + 300 }, y: { min: jy - 560, max: jy - 60 }, lifespan: 1200, scale: { start: 0.5, end: 0 }, alpha: { start: 1, end: 0 }, frequency: 220, tint: [C.star, 0xffffff, C.mint], rotate: { min: 0, max: 90 } }).setDepth(-0.5);
+      this.add.particles(0, 0, 'spark', { x: { min: W / 2 - 300, max: W / 2 + 300 }, y: { min: jy - hMax, max: jy - 60 }, lifespan: 1200, scale: { start: 0.5, end: 0 }, alpha: { start: 1, end: 0 }, frequency: 220, tint: [C.star, 0xffffff, C.mint], rotate: { min: 0, max: 90 } }).setDepth(-0.5);
+      // level panel
       const lv = levelOf(Save.data.xp);
-      const px = PORTRAIT ? W / 2 : 330, py = PORTRAIT ? H * 0.43 : H * 0.62;
-      const pg = this.add.graphics(); pg.fillStyle(C.night2, 0.9); pg.fillRoundedRect(px - 210, py - 105, 420, 210, 40); pg.lineStyle(4, C.seam); pg.strokeRoundedRect(px - 210, py - 105, 420, 210, 40);
-      txt(this, px, py - 54, 'LEVEL ' + lv.l, 52, '#ffd23f', { st: 0 });
-      this.add.rectangle(px, py + 8, 320, 26, C.night3).setStrokeStyle(3, C.seam);
-      this.add.rectangle(px - 160, py + 8, Math.max(6, 320 * lv.r / lv.n), 20, C.star).setOrigin(0, 0.5);
-      txt(this, px, py + 50, lv.r + ' / ' + lv.n + ' XP', 26, '#bcc0ee', { st: 0, shadow: false, weight: '500' });
-      this.add.image(px - 40, py + 84, 'star').setScale(0.13);
-      txt(this, px + 10, py + 84, totalStars() + ' / ' + RIVALS.length * 3, 26, '#fff3d2', { st: 0, shadow: false, ox: 0 });
-      const bx = PORTRAIT ? W / 2 : W - 330, byy = PORTRAIT ? H * 0.86 : H * 0.6;
-      const tp = button(this, bx, byy, PORTRAIT ? 640 : 500, 150, 'TAP TO PLAY', C.star, () => this.go(), { size: 60 });
+      const px = PORTRAIT ? W / 2 : 420, py = PORTRAIT ? 640 : H * 0.7;
+      const pg = this.add.graphics(); pg.fillStyle(C.night2, 0.9); pg.fillRoundedRect(px - 210, py - 95, 420, 190, 40); pg.lineStyle(4, C.seam); pg.strokeRoundedRect(px - 210, py - 95, 420, 190, 40);
+      txt(this, px, py - 46, 'LEVEL ' + lv.l, 50, '#ffd23f', { st: 0 });
+      this.add.rectangle(px, py + 10, 320, 26, C.night3).setStrokeStyle(3, C.seam);
+      this.add.rectangle(px - 160, py + 10, Math.max(6, 320 * lv.r / lv.n), 20, C.star).setOrigin(0, 0.5);
+      txt(this, px, py + 48, lv.r + ' / ' + lv.n + ' XP', 26, '#bcc0ee', { st: 0, shadow: false, weight: '500' });
+      this.add.image(px - 40, py + 78, 'star').setScale(0.12);
+      txt(this, px + 10, py + 78, totalStars() + ' / ' + RIVALS.length * 3, 26, '#fff3d2', { st: 0, shadow: false, ox: 0 });
+      // play buttons
+      const bx = PORTRAIT ? W / 2 : W - 330, byy = PORTRAIT ? H - 230 : H * 0.6;
+      const tp = button(this, bx, byy, PORTRAIT ? 640 : 500, PORTRAIT ? 140 : 150, 'TAP TO PLAY', C.star, () => this.go(), { size: 60 });
       this.tweens.add({ targets: tp, scale: 1.06, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      button(this, bx, byy + (PORTRAIT ? 150 : 150), PORTRAIT ? 480 : 420, 100, '+ ADD A TOY', C.cream, () => { A.init(); A.startMusic(); fade(this, 'studio'); }, { size: 40 });
+      button(this, bx, byy + (PORTRAIT ? 135 : 150), PORTRAIT ? 480 : 420, PORTRAIT ? 92 : 100, '+ ADD A TOY', C.cream, () => { A.init(); A.startMusic(); fade(this, 'studio'); }, { size: 40 });
+      // menu from plugins: Me, Friends, Album, Quests, Parents...
+      const nav = [].concat(...PLUGINS.map(p => p.nav || [])).sort((a, b) => (a.order || 9) - (b.order || 9));
+      nav.forEach((it, i) => {
+        const x = PORTRAIT ? 90 + i * Math.min(170, (W - 300) / Math.max(1, nav.length - 1)) : 90, y = PORTRAIT ? 85 : 85 + i * 112;
+        const c = this.add.container(x, y).setDepth(50);
+        c.add(this.add.circle(0, 0, 46, it.color || C.night2).setStrokeStyle(4, C.seam));
+        const ic = img(this, 0, 0, typeof it.icon === 'function' ? it.icon(PS) : it.icon); ic.setScale(iconScale(ic.texture.key === 'icons2' || ic.texture.key === 'icons' ? 'j:x' : ic.texture.key, 62)); c.add(ic);
+        c.add(txt(this, PORTRAIT ? 0 : 64, PORTRAIT ? 66 : 0, typeof it.label === 'function' ? it.label(PS) : it.label, 24, '#fff3d2', { st: 5, ox: PORTRAIT ? 0.5 : 0 }));
+        const n = it.badge ? it.badge(PS) : 0;
+        if (n) { c.add(this.add.circle(32, -32, 20, C.coral).setStrokeStyle(3, 0x0f1240)); c.add(txt(this, 32, -32, n > 9 ? '9+' : String(n), 22, '#ffffff', { st: 0, shadow: false })); }
+        c.setSize(100, 100).setInteractive({ useHandCursor: true });
+        c.on('pointerup', () => { A.init(); A.click(); A.startMusic(); fade(this, it.key, it.data || {}); });
+      });
       muteButton(this);
-      txt(this, 24, H - 26, 'v0.6', 24, '#6a72d6', { ox: 0, st: 0, shadow: false, weight: '500' });
+      txt(this, 24, H - 26, 'v' + VERSION, 24, '#6a72d6', { ox: 0, st: 0, shadow: false, weight: '500' });
       this.input.keyboard && this.input.keyboard.once('keydown-SPACE', () => this.go());
     }
     go() { A.init(); A.startMusic(); A.whoosh(); fade(this, 'map'); }
@@ -493,15 +604,24 @@
       const wd = this.world;
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this, wd);
-      this.add.image(W / 2, H + 40, wd === SPACE ? 'ground2' : 'ground').setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.45 : 0.5).setAlpha(0.8);
+      this.add.image(W / 2, H + 40, groundKey(wd)).setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.45 : 0.5).setAlpha(0.8);
       // world tabs
-      const ty = PORTRAIT ? 190 : 95, tw0 = PORTRAIT ? 420 : 440;
+      const ty = PORTRAIT ? 190 : 95, tw0 = Math.min(PORTRAIT ? 420 : 440, (PORTRAIT ? W - 60 : W - 480) / WORLDS.length - 30);
       WORLDS.forEach((w, i) => this.tab(w, i, W / 2 + (i - (WORLDS.length - 1) / 2) * (tw0 + 30), ty, tw0));
       const lv = levelOf(Save.data.xp);
       txt(this, W / 2, PORTRAIT ? 285 : 180, 'Level ' + lv.l + '  ·  ★ ' + totalStars() + ' / ' + RIVALS.length * 3, 34, '#ffd23f', { st: 6 });
-      const pts = PORTRAIT
-        ? [[0.3, 0.8], [0.7, 0.64], [0.3, 0.48], [0.66, 0.3]].map(([x, y]) => [W * x, H * y])
-        : [[0.14, 0.6], [0.37, 0.37], [0.61, 0.6], [0.85, 0.37]].map(([x, y]) => [W * x, H * y]);
+      // portrait: fit the 4 nodes between the difficulty switch and the bottom buttons (short phones shrink the nodes)
+      let pts; this.ns = 1;
+      if (PORTRAIT) {
+        const yTopLim = 430, yBotLim = H - 110 - 55 - 24;
+        let s = 1;
+        for (let k = 0; k < 3; k++) {
+          const yTop = yTopLim + (130 + 60) * s, yBot = yBotLim - (110 + 140) * s;
+          s = clamp(2 * (yBot - yTop) / 3 / (220 + 140 + 40), 0.6, 1);
+          pts = [[0.3, yBot], [0.7, yBot - (yBot - yTop) / 3], [0.3, yBot - 2 * (yBot - yTop) / 3], [0.66, yTop]].map(([x, y]) => [W * x, y]);
+        }
+        this.ns = s;
+      } else pts = [[0.14, 0.6], [0.37, 0.37], [0.61, 0.6], [0.85, 0.37]].map(([x, y]) => [W * x, H * y]);
       const idx = RIVALS.map((r, i) => i).filter(i => worldOf(i) === wd);
       const g = this.add.graphics(); g.lineStyle(10, 0xfff3d2, 0.55);
       for (let i = 0; i < idx.length - 1; i++) {
@@ -519,9 +639,9 @@
       // hero marker at the furthest open node of this world
       const hero = heroDef(this);
       const [cx, cy] = pts[current];
-      const nr = RIVALS[idx[current]].boss ? 130 : 110;
-      const j = this.add.image(cx - nr - 80 < 90 ? cx + nr + 80 : cx - nr - 80, cy + 40, hero.tex).setOrigin(0.5, 1).setDepth(5);
-      j.setScale(Math.min(150 / j.height, 150 / j.width));
+      const nr = (RIVALS[idx[current]].boss ? 130 : 110) * this.ns, off = nr + 80 * this.ns;
+      const j = this.add.image(cx - off < 90 ? cx + off : cx - off, cy + 40 * this.ns, hero.tex).setOrigin(0.5, 1).setDepth(5);
+      j.setScale(Math.min(150 / j.height, 150 / j.width) * this.ns);
       this.tweens.add({ targets: j, y: j.y - 20, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       // squad + mini-game buttons
       const by = PORTRAIT ? H - 110 : H - 90;
@@ -576,7 +696,7 @@
       c.setSize(tw0, h).setInteractive({ useHandCursor: true });
       c.on('pointerup', () => {
         A.init();
-        if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); this.hint('Beat Professor Hoot to fly to SPACE!'); return; }
+        if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); const fi = RIVALS.findIndex(r => (r.world || 0) === i); this.hint(fi > 0 ? 'Beat ' + RIVALS[fi - 1].name + ' to open ' + w.name + '!' : 'Locked!'); return; }
         if (on) return;
         A.click(); A.whoosh(); fade(this, 'map', { world: i });
       });
@@ -588,7 +708,8 @@
     }
     node(r, i, x, y, open, current) {
       const R = r.boss ? 130 : 110;
-      const c = this.add.container(x, y).setDepth(4);
+      const ns = this.ns || 1;
+      const c = this.add.container(x, y).setDepth(4).setScale(ns);
       const g = this.add.graphics();
       const stars = Save.data.stars[r.id] || 0;
       g.fillStyle(0x000000, 0.3); g.fillCircle(0, 12, R);
@@ -601,9 +722,9 @@
       c.add(fit(txt(this, 0, R + 46, open ? r.name : '???', 38, open ? '#fff3d2' : '#8a8fd6', { st: 7 }), 420));
       if (open) c.add(starRow(this, 0, R + 104, stars, 64, 70));
       if (current && open) {
-        this.tweens.add({ targets: c, scale: 1.07, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-        const ring = this.add.image(x, y, 'ring').setScale(R / 52).setTint(C.star).setDepth(3).setAlpha(0.6);
-        this.tweens.add({ targets: ring, scale: R / 40, alpha: 0, duration: 1300, repeat: -1 });
+        this.tweens.add({ targets: c, scale: 1.07 * ns, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        const ring = this.add.image(x, y, 'ring').setScale(R * ns / 52).setTint(C.star).setDepth(3).setAlpha(0.6);
+        this.tweens.add({ targets: ring, scale: R * ns / 40, alpha: 0, duration: 1300, repeat: -1 });
       }
       c.setSize(R * 2, R * 2 + 120).setInteractive({ useHandCursor: true });
       c.on('pointerup', () => {
@@ -1001,6 +1122,7 @@
       try { await IDB.set(t.id, this.cut.url); } catch (e) { /* storage unavailable: keep for this session */ }
       await addTexture(this, 'toy_' + t.id, this.cut.url);
       Save.data.toys.push(t); Save.store();
+      emit('toyAdded', { toy: t, url: this.cut.url }, this);
       this.removeInput();
       A.win();
       fade(this, 'squad', { focus: t.id });
@@ -1027,13 +1149,36 @@
     init(data) {
       this.data0 = Object.assign({}, data || {});
       this.res = this.data0.resume || null; delete this.data0.resume;
-      const toy = this.data0.toy && toyById(this.data0.toy);
-      if (toy) { this.rivalIdx = -1; this.R = Object.assign(toyDef(toy), { xp: 30, scale: null }); }
-      else { this.rivalIdx = this.data0.rival || 0; this.R = RIVALS[this.rivalIdx]; }
+      const d = this.data0, toy = d.toy && toyById(d.toy);
+      this.mode = 'campaign';
+      if (toy) { this.mode = 'toy'; this.rivalIdx = -1; this.R = Object.assign(toyDef(toy), { xp: 30, scale: null }); }
+      else if (d.ftoy) {
+        // a friend's toy (picture loaded by the friends screen as texture 'ftoy_<id>')
+        const t = d.ftoy;
+        this.mode = 'friend'; this.rivalIdx = -2;
+        this.R = Object.assign(toyDef(t), { tex: 'ftoy_' + t.id, xp: 35, scale: null, short: t.name.toUpperCase(),
+          intro: d.ownerName + '\'s ' + t.name + ' wiggles: "Ready to lose, Jack?"', laugh: d.ownerName + '\'s ' + t.name + ' giggled so hard they gave up.' });
+      } else if (d.fjack) {
+        // a friend's own Jack (everyone has a Jack!)
+        const lvl = d.fjack.level || 1;
+        this.mode = 'friend'; this.rivalIdx = -2;
+        this.R = { id: 'fjack', name: d.ownerName + '\'s Jack', nick: d.ownerName + '\'s Jack', short: (d.ownerName + '\'S JACK').toUpperCase(), tex: 'jack_side', flip: true, color: C.mint, hp: 100, xp: 35, scale: null,
+          intro: d.ownerName + '\'s Jack flaps: "Two Jacks? Only one can win!"', laugh: d.ownerName + '\'s Jack flipped upside down and gave up.',
+          moves: MOVES.filter(m => m.lvl <= lvl).map(m => Object.assign({}, m)) };
+      } else if (d.boss) { this.mode = 'boss'; this.rivalIdx = -3; this.R = KRAKEN; }
+      else { this.rivalIdx = d.rival || 0; this.R = RIVALS[this.rivalIdx] || RIVALS[0]; }
       this.world = this.R.world || 0;
+      this.backKey = this.mode === 'toy' ? 'squad' : this.mode === 'friend' ? 'friends' : 'map';
     }
     create() {
       this._leaving = false; this.hero = null; this.over = false; this.busy = false;
+      // a friend's toy picture may be missing (e.g. after rotating the screen): load it first
+      const ft = this.data0.ftoy;
+      if (ft && !this.textures.exists('ftoy_' + ft.id)) {
+        txt(this, W / 2, H / 2, 'Loading...', 50, '#fff3d2');
+        addTexture(this, 'ftoy_' + ft.id, ft.url).then(ok => { if (ok) this.scene.restart(Object.assign({}, this.data0, this.res ? { resume: this.res } : {})); else fade(this, 'friends'); });
+        return;
+      }
       this.cameras.main.fadeIn(400, 15, 18, 64);
       sky(this, this.world);
       const owned = BOOSTS.filter(b => (Save.data.boosts[b.id] || 0) > 0);
@@ -1077,7 +1222,7 @@
         c.on('pointerup', () => { A.init(); A.click(); if (b) { A.levelUp(); } layer.list.forEach(o => o.disableInteractive && o.disableInteractive()); done(b); });
         layer.add(c);
       });
-      const bb = backButton(this, () => fade(this, this.rivalIdx < 0 ? 'squad' : 'map', { world: this.world }));
+      const bb = backButton(this, () => fade(this, this.backKey, { world: this.world }));
       muteButton(this);
     }
     setup(boostId, res) {
@@ -1096,7 +1241,7 @@
       // card layout
       const n = this.moves.length; const rects = []; let top;
       if (PORTRAIT) {
-        const cols = n > 4 && H < 1900 ? 3 : 2;
+        const cols = n > 6 || (n > 4 && H < 1900) ? 3 : 2;
         const rows = Math.ceil(n / cols), h = rows > 2 ? 172 : 200, gy = h + 22, w = cols === 3 ? 330 : 490;
         const y0 = H - 70 - h / 2 - (rows - 1) * gy;
         for (let i = 0; i < n; i++) {
@@ -1114,12 +1259,14 @@
         top = rects[0].y - h / 2;
       }
       const compact = !PORTRAIT && n > 4;
-      const groundY = PORTRAIT ? Math.max(H * 0.5, top - 200) : (compact ? top - 80 : H * 0.68);
+      // portrait: fighters stand just above the cards (room for the log line) and shrink when space is short
+      const groundY = PORTRAIT ? top - 150 : (compact ? top - 80 : H * 0.68);
       this.groundY = groundY;
-      const zoom = compact ? 0.82 : (PORTRAIT && H < 1900 ? 0.8 : 1);
+      const zoom = compact ? 0.82 : (PORTRAIT ? clamp((groundY - 330) / 520, 0.55, 1) : 1);
       const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, space ? 'planet' : 'moon').setScale((PORTRAIT ? 0.6 : 0.62 * zoom) * (space ? 1.15 : 1)).setAlpha(0.95);
+      if (this.world === SPOOKY) moon.setTint(0xffa64d).setScale(moon.scale * 1.3);
       this.tweens.add({ targets: moon, angle: -6, y: moon.y + 12, duration: 2800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), space ? 'ground2' : 'ground').setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
+      this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), groundKey(this.world)).setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
       this.fireFx = this.add.rectangle(W / 2, H / 2, W, H, 0xff3b1f, 0).setDepth(5);
 
       this.feathers = this.add.particles(0, 0, 'feather', { emitting: false, speed: { min: 250, max: 750 }, angle: { min: 200, max: 340 }, gravityY: 900, lifespan: { min: 1100, max: 1700 }, rotate: { start: 0, end: 540 }, scale: { start: 0.7, end: 0.45 }, alpha: { start: 1, end: 0 } }).setDepth(20);
@@ -1135,10 +1282,12 @@
       const fitScale = (key, hTarget, wMax) => { const f = this.textures.get(key).getSourceImage(); return Math.min(hTarget / f.height, wMax / f.width); };
       const hT = (PORTRAIT ? 520 : 465) * zoom, wM = (PORTRAIT ? 470 : 540) * zoom;
       const heroScale = this.H.isJack ? (PORTRAIT ? 0.9 : 0.8) * zoom : fitScale(this.H.tex, hT, wM);
+      if (R.flip && R.tex === 'jack_side') R.scale = (PORTRAIT ? 0.9 : 0.8) / (PORTRAIT ? 1.1 : 1);
       const rivScale = (R.scale ? R.scale * (PORTRAIT ? 1.1 : 1) * zoom : fitScale(R.tex, hT, wM)) * (PORTRAIT ? 1 : (R.big || 1));
       const heroMax = this.H.hp + (boostId === 'breakfast' ? 25 : 0);
       this.hero = this.fighter(W * (PORTRAIT ? 0.27 : 0.28), groundY, this.H.tex, heroScale, 1, heroMax, false);
-      this.rival = this.fighter(W * (PORTRAIT ? 0.74 : 0.72), groundY, R.tex, rivScale, -1, this.rHp, !!R.isToy);
+      this.rival = this.fighter(W * (PORTRAIT ? 0.74 : 0.72), groundY, R.tex, rivScale, -1, this.rHp, !!(R.isToy || R.flip));
+      this.addHat(this.hero);
       if (R.ghostly) this.tweens.add({ targets: this.rival.spr, alpha: 0.6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.hero.name = this.H.name; this.hero.napTex = this.H.napTex; this.hero.isJack = this.H.isJack;
       this.rival.name = R.nick || R.name;
@@ -1157,7 +1306,7 @@
       if (D !== DIFFS.normal) chip(this, W / 2, hy + (PORTRAIT ? 70 : 90), D.name, D.color, 24).setDepth(30);
       this.smart = D.smart; this.xpMul = D.xp * (boostId === 'superstar' ? 2 : 1);
       const intro = (R.intro || '').replace(/Jack/g, this.H.name);
-      this.logT = txt(this, W / 2, groundY + (PORTRAIT ? 90 : (compact ? 42 : 55)), intro, 34, '#fff3d2', { st: 6, wrap: W * 0.9 });
+      this.logT = txt(this, W / 2, groundY + (PORTRAIT ? 72 : (compact ? 42 : 55)), intro, PORTRAIT ? 30 : 34, '#fff3d2', { st: 6, wrap: W * 0.9 });
 
       this.moves.forEach((m, i) => { m.card = this.actionCard(rects[i].x, rects[i].y, rects[i].w, rects[i].h, m); });
       // the fire extinguisher button: appears while a rival is gathering fire
@@ -1165,7 +1314,7 @@
       const bb = this.blockBtn = button(this, W / 2, bby, PORTRAIT ? 420 : 400, 120, 'BLOCK IT!', C.coral, () => this.playerBlock(), { size: 50, color: '#fff3d2' }).setDepth(35).setVisible(false);
       const ex = this.add.image(-(PORTRAIT ? 210 : 200) + 10, -10, 'extinguisher').setScale(0.55).setAngle(-12); bb.add(ex); bb.list[1].x = 40;
       this.tweens.add({ targets: bb, scale: 1.08, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      backButton(this, () => { if (!this.busy || this.over) fade(this, this.rivalIdx < 0 ? 'squad' : 'map', { world: this.world }); });
+      backButton(this, () => { if (!this.busy || this.over) fade(this, this.backKey, { world: this.world }); });
       muteButton(this);
       this.over = false; this.busy = false;
       // booster effects
@@ -1215,6 +1364,16 @@
       f.center = () => ({ x: root.x + (dir > 0 ? 40 : -10), y: root.y - spr.displayHeight * 0.55 });
       f.front = () => ({ x: root.x + dir * spr.displayWidth * 0.38, y: root.y - spr.displayHeight * (dir > 0 ? 0.72 : 0.62) });
       return f;
+    }
+    // Halloween costume on the hero
+    addHat(f) {
+      const c = COSTUMES.find(x => x.id === Save.data.costume);
+      if (!c || !c.tex || !this.textures.exists(c.tex)) return;
+      const w = f.spr.displayWidth, h = f.spr.displayHeight, jack = f.key === 'jack_side';
+      const hat = this.add.image(jack ? w * 0.2 : 0, -h * (jack ? 0.9 : 0.96), c.tex).setOrigin(0.5, 0.85);
+      hat.setScale(w * c.w / hat.width * (jack ? 0.8 : 1)).setAngle(jack ? 14 : -6);
+      f.squash.add(hat); f.hat = hat;
+      this.tweens.add({ targets: hat, y: hat.y - 10, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
     setStatus(f) {
       f.status.removeAll(true);
@@ -1416,6 +1575,7 @@
       await wait(this, 700);
     }
     async flipNap(f, on) {
+      if (f.hat) f.hat.setVisible(!on);
       if (f.napTex) {
         await tw(this, { targets: f.squash, scaleX: 0, duration: 130, ease: 'Quad.in' });
         f.spr.setTexture(on ? f.napTex : f.key);
@@ -1443,12 +1603,12 @@
           this.tweens.add({ targets: att.squash, scaleX: 0.92, scaleY: 0.95, duration: 120, yoyo: true });
           this.tweens.add({ targets: att.squash, scaleX: 1, scaleY: 1, duration: 200, delay: 240 });
           const ang = Phaser.Math.RadToDeg(Math.atan2(def.center().y - f.y, def.center().x - f.x));
-          const tex = m.tex || 'snow'; const atlas = tex.startsWith('i:');
+          const tex = m.tex || 'snow'; const atlas = tex.startsWith('i:') ? 'icons' : tex.startsWith('j:') ? 'icons2' : null;
           const cfg = { speed: { min: 900, max: 1500 }, angle: { min: ang - 14, max: ang + 14 }, lifespan: 650, scale: { start: this.projScale(tex) * 0.35, end: this.projScale(tex) * 0.12 }, rotate: { min: 0, max: 360 }, alpha: { start: 1, end: 0.3 }, frequency: 14 };
           if (atlas) cfg.frame = tex.slice(2);
           if (m.tint) cfg.tint = m.tint;
           if (tex === 'dot') cfg.scale = { start: 0.5, end: 0.2 };
-          const cone = this.add.particles(f.x, f.y, atlas ? 'icons' : tex, cfg).setDepth(26);
+          const cone = this.add.particles(f.x, f.y, atlas || tex, cfg).setDepth(26);
           await wait(this, 420); cone.stop(); this.time.delayedCall(800, () => cone.destroy());
           await this.impact(def, d, 'spray');
           const ht = m.hitTint || (tex === 'snow' ? 0x9fdcff : 0);
@@ -1586,6 +1746,7 @@
       this.busy = true; this.setCards(false);
       const P = this.hero, T = this.rival;
       P.used[k] = (P.used[k] || 0) + 1;
+      emit('move', { k, type: m.type }, this);
       await this.doMove(m, P, T);
       if (this.checkEnd()) return;
       await this.afterPlayer();
@@ -1757,6 +1918,7 @@
         if (block === 'ext') {
           def.blocker = false;
           this.log(def.name + ' blocked the Inferno Rain! ' + att.name + ' is all steamed up!');
+          if (def === this.hero) emit('block', {}, this);
           await wait(this, 500);
           await this.makeDizzy(def, att, 0x9fdcff, 'STEAMED!');
         } else {
@@ -1806,7 +1968,7 @@
       this.result(won);
     }
     result(won) {
-      const R = this.R, isCampaign = this.rivalIdx >= 0, id = R.id;
+      const R = this.R, isCampaign = this.mode === 'campaign', id = R.id;
       const stars = won ? (this.hero.hp >= this.hero.max * 0.7 ? 3 : this.hero.hp >= this.hero.max * 0.35 ? 2 : 1) : 0;
       const prevStars = isCampaign ? (Save.data.stars[id] || 0) : 0;
       const firstClear = isCampaign && won && prevStars === 0;
@@ -1817,7 +1979,11 @@
       const caps = won ? (firstClear ? 1 : 0) + (Save.data.wins % 3 === 0 ? 1 : 0) : 0;
       Save.data.caps += caps;
       if (isCampaign && stars > prevStars) Save.data.stars[id] = stars;
+      const newCostume = won && R.reward && !Save.data.costumes[R.reward] ? COSTUMES.find(c => c.id === R.reward) : null;
+      if (newCostume) Save.data.costumes[R.reward] = true;
       Save.store();
+      emit('duel', { won, mode: this.mode, rival: R, rivalIdx: this.rivalIdx, stars, firstClear, diff: Save.data.diff, boss: !!R.boss,
+        dmg: Math.max(0, this.rival.max - Math.max(0, this.rival.hp)), data: this.data0, hero: this.H }, this);
       const after = levelOf(Save.data.xp);
       const newMoves = MOVES.filter(m => m.lvl > before.l && m.lvl <= after.l);
       const nextIdx = this.rivalIdx + 1;
@@ -1848,6 +2014,8 @@
       else if (unlockedNext) notes.push('New rival unlocked: ' + RIVALS[nextIdx].name + '!');
       if (newMoves.length && this.hero.isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
       if (caps) notes.push('+' + caps + ' capsule' + (caps > 1 ? 's' : '') + '! Open on the map');
+      if (newCostume) notes.push('New costume: ' + newCostume.name + '! Put it on in Me');
+      if (this.mode === 'boss') notes.push('You hit the Kraken for ' + Math.max(0, this.rival.max - Math.max(0, this.rival.hp)) + '! Everyone\'s hits add up');
       if (this.xpMul > 1) notes.push((this.boost && this.boost.id === 'superstar' ? 'Super Star ' : '') + (Save.data.diff === 'hard' ? 'Hard mode ' : '') + 'bonus XP!');
       note.setText(notes.join('\n')); if (notes.length > 1) note.setFontSize(notes.length > 2 ? 27 : 30);
       const by = T0 + (PORTRAIT ? 940 : 925);
@@ -1855,7 +2023,7 @@
         ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: nextIdx })]
         : ['REMATCH', () => fade(this, 'battle', this.data0)];
       p.add(button(this, PORTRAIT ? 0 : -215, by, 390, 120, primary[0], C.star, primary[1], { size: 46 }));
-      p.add(button(this, PORTRAIT ? 0 : 215, PORTRAIT ? by + 150 : by, 390, 120, isCampaign ? 'MAP' : 'SQUAD', C.cream, () => fade(this, isCampaign ? 'map' : 'squad', { world: this.world }), { size: 46 }));
+      p.add(button(this, PORTRAIT ? 0 : 215, PORTRAIT ? by + 150 : by, 390, 120, { squad: 'SQUAD', friends: 'FRIENDS', map: 'MAP' }[this.backKey], C.cream, () => fade(this, this.backKey, { world: this.world }), { size: 46 }));
       this.tweens.add({ targets: p, scale: 1, duration: 420, ease: 'Back.out' });
       for (let i = 0; i < stars && sr.length; i++) {
         this.time.delayedCall(600 + i * 280, () => {
@@ -1890,7 +2058,7 @@
       this._leaving = false;
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this, this.world);
-      this.add.image(W / 2, H + 40, this.world === SPACE ? 'ground2' : 'ground').setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.35 : 0.45).setAlpha(0.9);
+      this.add.image(W / 2, H + 40, groundKey(this.world)).setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.35 : 0.45).setAlpha(0.9);
       const hero = heroDef(this);
       this.groundY = H - (PORTRAIT ? 120 : 70);
       this.sh = this.add.image(W / 2, this.groundY + 4, 'shadow').setScale(0.9, 0.8).setDepth(9);
@@ -1920,7 +2088,7 @@
       const pw = PORTRAIT ? 900 : 1000, ph = PORTRAIT ? 760 : 620;
       c.add(panel(this, 0, 0, pw, ph, C.night2, 0));
       c.add(txt(this, 0, -ph / 2 + 100, 'STAR CATCH!', 90, '#ffd23f', { stroke: '#0f1240', st: 14 }));
-      const rows = [['star', '+1', '#ffd23f'], ['dumpling', '+3', '#7fe39a'], ['pillow', 'OUCH! -2', '#ff6b5b']];
+      const rows = [['star', '+1', '#ffd23f'], [EVENT_ON ? 'candy' : 'dumpling', '+3', '#7fe39a'], ['pillow', 'OUCH! -2', '#ff6b5b']];
       rows.forEach(([k, l, col], i) => {
         const x = (i - 1) * (PORTRAIT ? 280 : 300), y = -10;
         c.add(img(this, x, y, k).setScale(iconScale(k, 130)));
@@ -1944,7 +2112,7 @@
     spawn() {
       const r = Math.random(), sp = this.elapsed / 30;
       const kind = r < 0.2 + sp * 0.12 ? 'pillow' : (r < 0.33 + sp * 0.12 ? 'dumpling' : 'star');
-      const o = img(this, rnd(90, W - 90), -80, kind).setDepth(15);
+      const o = img(this, rnd(90, W - 90), -80, kind === 'dumpling' && EVENT_ON ? 'candy' : kind).setDepth(15);
       o.setScale(iconScale(kind, kind === 'pillow' ? 150 : 110));
       const base = H * (PORTRAIT ? 0.32 : 0.45);
       this.items.push({ o, kind, vy: base * (1 + Math.random() * 0.5) * (1 + sp * 0.8), spin: rnd(-200, 200), wob: Math.random() * 6 });
@@ -2009,6 +2177,7 @@
       const gain = Math.min(this.score, 60);
       const before = levelOf(Save.data.xp);
       Save.data.xp += gain; if (isBest) Save.data.bestCatch = this.score; Save.store();
+      emit('catch', { score: this.score }, this);
       const after = levelOf(Save.data.xp);
       const newMoves = MOVES.filter(m => m.lvl > before.l && m.lvl <= after.l);
       A.win(); this.confetti.explode(100, W / 2, H);
@@ -2101,8 +2270,8 @@
       }
     }
     refresh() {
-      const n = Save.data.caps;
-      this.countT.setText(n ? 'You have ' + n + ' capsule' + (n > 1 ? 's' : '') + '!' : 'No capsules right now');
+      const g = Save.data.goldCaps || 0, n = Save.data.caps + g;
+      this.countT.setText(n ? 'You have ' + n + ' capsule' + (n > 1 ? 's' : '') + (g ? ' (' + g + ' golden!)' : '') + '!' : 'No capsules right now');
       this.turnBtn.setVisible(n > 0); this.noneT.setVisible(n <= 0);
       // collection: all 10 boosters, unknown ones as "?"
       this.grid.removeAll(true);
@@ -2137,10 +2306,14 @@
       this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
     }
     async turn() {
-      if (this.busy || Save.data.caps <= 0) return;
+      const gold = (Save.data.goldCaps || 0) > 0;
+      if (this.busy || (Save.data.caps <= 0 && !gold)) return;
       this.busy = true; this.turnBtn.setVisible(false);
-      const b = rollBoost(), isNew = !Save.data.seen[b.id];
-      Save.data.caps--; Save.data.boosts[b.id] = (Save.data.boosts[b.id] || 0) + 1; Save.data.seen[b.id] = true; Save.store();
+      // golden capsules (from the weekly boss) always hold a SUPER RARE booster
+      let b = rollBoost(); if (gold) { const sr = BOOSTS.filter(x => x.r === 3); b = sr[rnd(0, sr.length - 1)]; }
+      const isNew = !Save.data.seen[b.id];
+      if (gold) Save.data.goldCaps--; else Save.data.caps--; Save.data.boosts[b.id] = (Save.data.boosts[b.id] || 0) + 1; Save.data.seen[b.id] = true; Save.store();
+      emit('capsule', { boost: b, isNew }, this);
       // crank + shake + capsules tumbling
       A.spin();
       for (let i = 0; i < 6; i++) this.time.delayedCall(i * 140, () => A.tick());
@@ -2149,7 +2322,7 @@
       this.inside.forEach(c => this.tweens.add({ targets: c, y: c.y - rnd(20, 70), angle: c.angle + rnd(-120, 120), duration: 200, yoyo: true, repeat: 1, ease: 'Quad.out' }));
       await wait(this, 1000);
       // a capsule drops out of the chute
-      const col = CAP_COLORS[rnd(0, CAP_COLORS.length - 1)];
+      const col = gold ? 0xffd23f : CAP_COLORS[rnd(0, CAP_COLORS.length - 1)];
       const cap = this.bigCapsule(col);
       const sx = this.mx, sy = this.my + 220 * this.ms;
       cap.c.setPosition(sx, sy).setScale(0.35).setDepth(20);
@@ -2209,25 +2382,30 @@
       const conf = this.add.particles(0, 0, 'conf', { emitting: false, speed: { min: 500, max: 1300 }, angle: { min: 230, max: 310 }, gravityY: 1100, lifespan: 2600, rotate: { min: 0, max: 360 }, tint: CAP_COLORS }).setDepth(40);
       conf.explode(b.r === 3 ? 200 : b.r === 2 ? 110 : 60, W / 2, H);
       if (b.r === 3) this.time.delayedCall(500, () => { conf.explode(120, W * 0.2, H); conf.explode(120, W * 0.8, H); A.starDing(2); });
-      const ok = button(this, cx, cy + 420, 380, 120, Save.data.caps > 0 ? 'ONE MORE!' : 'NICE!', C.star, () => {
+      const ok = button(this, cx, cy + 420, 380, 120, Save.data.caps + (Save.data.goldCaps || 0) > 0 ? 'ONE MORE!' : 'NICE!', C.star, () => {
         ok.disableInteractive();
         this.tweens.add({ targets: [layer, ok, dim], alpha: 0, duration: 250, onComplete: () => {
           layer.destroy(true); ok.destroy(); dim.destroy(); this.time.delayedCall(2600, () => conf.destroy());
           this.busy = false; this.refresh();
-          if (Save.data.caps > 0) this.turn();
+          if (Save.data.caps + (Save.data.goldCaps || 0) > 0) this.turn();
         } });
       }, { size: 50 }).setDepth(26);
     }
   }
 
   // ---------- start
+  // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
+  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE,
+    txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, backButton, muteButton, capsuleButton, drawCapsule,
+    addTexture, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
+  const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
   function snapshot(game) {
     const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');
     if (!sc) return null;
     const key = sc.scene.key, data = Object.assign({}, sc.sys.settings.data || {});
     delete data.resume;
     if (key === 'battle') {
-      if (sc.over) return { key: sc.rivalIdx < 0 ? 'squad' : 'map', data: { world: sc.world } };
+      if (sc.over) return { key: sc.backKey || 'map', data: { world: sc.world } };
       if (sc.hero) return { key, data, battle: sc.snapshot() };
     }
     if (key === 'studio') return { key: 'title', data: {} };
@@ -2239,13 +2417,15 @@
     dom: { createContainer: true },
     fps: { smoothStep: !DEBUG },
     input: { activePointers: 2 }, render: { antialias: true, powerPreference: 'high-performance' },
-    scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, GachaScene],
+    scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, GachaScene].concat(EXTRA_SCENES),
   });
+  // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
+  game.events.once('ready', () => game.scene.scenes.forEach(sc => sc.events.on('create', () => emit('scene', { key: sc.scene.key }, sc))));
   window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   window.__psPortrait = PORTRAIT;
   window.__psSnapshot = () => snapshot(game);
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)
-  window.__psBlockRotate = () => game.scene.isActive('studio');
+  window.__psBlockRotate = () => game.scene.isActive('studio') || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName));
   } // end main
 
   let rotT = 0, built = false;
@@ -2269,5 +2449,7 @@
   });
   document.addEventListener('visibilitychange', () => { const A = window.PSAudio; if (!A.ctx) return; document.hidden ? A.ctx.suspend() : A.ctx.resume(); });
   const fontsReady = (document.fonts && document.fonts.load) ? Promise.all([document.fonts.load('700 40px Poppins'), document.fonts.load('500 40px Poppins')]).catch(() => {}) : Promise.resolve();
-  Promise.race([fontsReady, new Promise(r => setTimeout(r, 2500))]).then(() => { built = true; main(null); });
+  // wait for fonts and (if online play is set up) the saved login, but never more than ~3 s
+  const netReady = window.PSNetReady || Promise.resolve();
+  Promise.race([Promise.all([fontsReady, netReady.catch(() => {})]), new Promise(r => setTimeout(r, 3000))]).then(() => { built = true; main(null); });
 })();

@@ -19,17 +19,31 @@ Open the link in **Safari → Share → Add to Home Screen**. It launches full-s
 ## Updating
 Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick up the new version, push.
 
+## Online part (optional)
+`js/config.js` holds the Supabase project URL and publishable key (public by design). The database is created once with `supabase/schema.sql` (SQL Editor → Run); all access is protected by Row Level Security. Without config the game is fully offline.
+
 ## What's inside
 - `index.html` — page shell, PWA meta
 - `js/game.js` — the game (Boot → Title → Map / Squad / Studio / Star Catch / Capsules → Battle scenes)
 - `js/audio.js` — all sounds & music are synthesized live with Web Audio (no audio files)
 - `js/toys.js` — toy types, elements, personalities and the hero generator (no AI text, just rules)
+- `js/extra.js` — Me, Sticker Album, real-life Quests, Parents area, bedtime, What's new
+- `js/net.js` — accounts, cloud saves, friends, mail, weekly boss, museum (Supabase, `vendor/supabase.js`)
 - `js/toyworker.js` — on-device background removal + type guess (transformers.js, `vendor/tjs`)
 - `assets/` — Jack photo cut-outs, Fluent Emoji 3D art (MIT, © Microsoft), Poppins font (OFL), `arch_emb.json` (pre-computed type embeddings)
 - `vendor/phaser.min.js` — Phaser 3.90 (MIT)
 - `sw.js`, `manifest.json` — offline + install
 
 ## Versions
+- **v0.7**
+  - **Accounts** (name + password, no e-mails) with **cloud saves**, a recovery code for forgotten passwords.
+  - **Friends** by code: duel your friends' toys (or their Jack), "X beat your toy! Revenge?", gift a capsule a day or a booster, send stickers.
+  - **Weekly co-op boss**: everyone hits the same Pillow Kraken; when it falls, everyone who hit it gets a golden (super rare) capsule.
+  - **Toy Museum** with hearts, **Star Catch top list** of the week (friends only).
+  - **Sticker Album** (21 achievements, each = a capsule), **Me** card with titles and costumes.
+  - **Real-life quests** approved by a grown-up, **Parents** area: bedtime, daily limit, play time.
+  - **Halloween event** (October): SPOOKY world with Pumpkin Pete, Batty, Webster and Count Fang, hats to win, candy in Star Catch.
+  - "What's new" popup after updates; layout fixes on small phones.
 - **v0.6**
   - **Difficulty: EASY / NORMAL / HARD** switch on the map (saved). Easy = softer rivals; Hard = tougher rivals and ×1.5 XP.
   - **Rotate any time:** turning the phone/iPad rebuilds the game for the new orientation and puts you back where you were, even mid-duel (pep, used moves, dizzy, shields are kept).
@@ -52,5 +66,5 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - **v0.2** — Phaser rewrite of the pillow duel: particles, hit-stop, screen shake, synthesized sound, PWA.
 
 ## Roadmap
-- v0.7 Real-life quests & daily streak, Ocean / Canada worlds
-- v0.8 Two players on one iPad, then online duels via link
+- v0.8 Ocean / Canada worlds, daily streak
+- v0.9 Two players on one iPad, live online duels
