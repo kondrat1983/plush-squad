@@ -59,7 +59,8 @@
     const d = S(), t = todayKey();
     if (!d.quests || d.quests.date !== t) {
       // keep yesterday's "done" quests waiting for approval
-      const carry = d.quests && d.quests.list ? d.quests.list.filter(q => q.st === 'done') : [];
+      // older ones still waiting stay too, until a grown-up checks them (QA B10)
+      const carry = d.quests ? (d.quests.old || []).concat((d.quests.list || []).filter(q => q.st === 'done')) : [];
       let seed = 0; for (const ch of t) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
       const pool = QUESTS.slice(), pick = [];
       while (pick.length < 3) { seed = (seed * 1103515245 + 12345) >>> 0; pick.push(pool.splice(seed % pool.length, 1)[0]); }
@@ -182,7 +183,7 @@
       const cx = W / 2 - pw / 2 + 30 + (i % cols) * colW, y = top + 170 + Math.floor(i / cols) * rowH + rowH / 2;
       const ic = img(scene, cx + 60, y, it.icon); ic.setScale(iconScale(it.icon, 88)); lay.add(ic);
       lay.add(fit(txt(scene, cx + 125, y - 26, it.title, 34, '#fff3d2', { st: 5, ox: 0 }), colW - 140));
-      lay.add(txt(scene, cx + 125, y + 20, it.text, 24, '#bcc0ee', { st: 0, shadow: false, ox: 0, weight: '500', wrap: colW - 140 }));
+      lay.add(txt(scene, cx + 125, y + 20, it.text, 24, '#bcc0ee', { st: 0, shadow: false, ox: 0, weight: '500', wrap: colW - 140, align: 'left' }));
       scene.tweens.add({ targets: ic, angle: { from: -8, to: 8 }, duration: 800 + i * 60, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     });
     const by = top + ph - 85, close = () => { A.click(); lay.destroy(true); };
@@ -375,6 +376,7 @@
         txt(this, W / 2, PORTRAIT ? 420 : 230, r === 'bed' ? 'See you tomorrow morning!' : 'Great playing! See you tomorrow!', 38, '#bcc0ee', { st: 6, weight: '500' });
         const b = button(this, W - 150, H - 80, 220, 90, 'PARENTS', C.night3, () => parentGate(this, PS, () => this.unlock()), { size: 30, color: '#fff3d2' });
         b.setAlpha(0.8);
+        PS.muteButton(this); // (QA B21)
       }
       unlock() {
         const d = Save.data; if (!d.parent) d.parent = {};
@@ -403,7 +405,9 @@
     if (['duel', 'block', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene'].includes(name)) checkAch();
     if (name === 'scene') {
       // bedtime / daily limit: checked whenever a menu screen opens (never in the middle of a duel)
-      if (['title', 'map', 'squad', 'catch', 'gacha', 'me', 'album', 'quests', 'friends', 'boss'].includes(d.key) && blockedReason()) { scene.time.delayedCall(50, () => PS.fade(scene, 'bedtime')); return; }
+      // a new duel counts too (REMATCH / NEXT RIVAL), a duel restored after rotating does not (QA B03)
+      const newDuel = d.key === 'battle' && !scene.res;
+      if ((newDuel || ['title', 'map', 'squad', 'catch', 'gacha', 'me', 'album', 'quests', 'friends', 'boss'].includes(d.key)) && blockedReason()) { scene.time.delayedCall(50, () => PS.fade(scene, 'bedtime')); return; }
       if (d.key !== 'battle') flushToasts(scene, PS);
       if (d.key === 'title') scene.time.delayedCall(900, () => whatsNew(scene, PS));
     } else if (name === 'duel') scene.time.delayedCall(2500, () => flushToasts(scene, PS));

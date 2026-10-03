@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.7.4';
+  const VERSION = '0.7.5';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -504,7 +504,8 @@
   const isUnlocked = i => i === 0 || (RIVALS[i].event && !RIVALS[i - 1].event) || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
   const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
   const worldOpen = w => RIVALS.some((r, i) => (r.world || 0) === w && isUnlocked(i));
-  const furthest = () => { let c = 0; RIVALS.forEach((r, i) => { if (isUnlocked(i)) c = i; }); return c; };
+  // event rivals are always open, so they don't count as progress (QA B04)
+  const furthest = () => { let c = 0; RIVALS.forEach((r, i) => { if (!r.event && isUnlocked(i)) c = i; }); return c; };
   const totalStars = () => RIVALS.reduce((s, r) => s + (Save.data.stars[r.id] || 0), 0);
   const toyById = id => Save.data.toys.find(t => t.id === id);
   const elColor = t => (TOYS.ELEMENTS[t.element] || TOYS.ELEMENTS.magic).color;
@@ -671,9 +672,14 @@
   // ---------- Map: choose a world + rival
   class MapScene extends Phaser.Scene {
     constructor() { super('map'); }
-    init(data) { this.world = data && data.world != null ? data.world : worldOf(furthest()); if (!worldOpen(this.world)) this.world = 0; }
+    init(data) {
+      const last = Save.data.lastWorld;
+      this.world = data && data.world != null ? data.world : (last != null && WORLDS[last] && worldOpen(last) ? last : worldOf(furthest()));
+      if (!worldOpen(this.world)) this.world = 0;
+    }
     create() {
       this._leaving = false;
+      if (Save.data.lastWorld !== this.world) { Save.data.lastWorld = this.world; Save.store(); }
       const wd = this.world;
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this, wd);
@@ -705,10 +711,9 @@
           g.lineBetween(bx(t1), by(t1), bx(t2), by(t2));
         }
       }
-      const far = furthest();
       let current = 0;
       idx.forEach((ri, k) => { if (isUnlocked(ri)) current = k; });
-      idx.forEach((ri, k) => this.node(RIVALS[ri], ri, pts[k][0], pts[k][1], isUnlocked(ri), ri === far));
+      idx.forEach((ri, k) => this.node(RIVALS[ri], ri, pts[k][0], pts[k][1], isUnlocked(ri), k === current));
       // hero marker at the furthest open node of this world
       const hero = heroDef(this);
       const [cx, cy] = pts[current];
@@ -880,16 +885,19 @@
       const total = cs.reduce((s, c) => s + c.w + 14, -14); cx0 = tx - total / 2;
       cs.forEach(c => { c.x = cx0 + c.w / 2; cx0 += c.w + 14; p.add(c); });
       // moves
-      const ml = d.moves.slice(0, 7);
-      ml.forEach((m, i) => {
-        const my = ty + 170 + i * (PORTRAIT ? 78 : (ml.length > 4 ? 62 : 80));
-        const ic = img(this, tx - 250, my, m.icon || 'pillow'); ic.setScale(iconScale(m.icon || 'pillow', 56));
-        p.add([ic, txt(this, tx - 205, my - 2, m.title, 34, '#fff3d2', { ox: 0, st: 5 }), txt(this, tx + 300, my, m.sub || '', 26, '#bcc0ee', { ox: 1, st: 0, weight: '500' })]);
-      });
-      if (it.jack && MOVES.length > ml.length) p.add(txt(this, tx, ty + 170 + ml.length * (PORTRAIT ? 78 : 62), 'More moves unlock as you level up!', 26, '#ffd23f', { st: 4, weight: '500' }));
-      // buttons
+      // buttons first, so the move list knows how much room it has (QA B08)
       const isHero = it.jack ? (Save.data.hero === 'jack' || !toyById(Save.data.hero)) : Save.data.hero === it.toy.id;
       const by = ph / 2 - (PORTRAIT ? 230 : 110);
+      const ml = d.moves, more = it.jack && MOVES.length > ml.length;
+      const my0 = ty + 170, room = by - 55 - 30 - my0, rowsN = ml.length + (more ? 1 : 0);
+      const step = Math.min(PORTRAIT ? 78 : (ml.length > 4 ? 62 : 80), room / Math.max(1, rowsN - 1 + 0.6));
+      const ts = Math.min(34, Math.round(step * 0.6)), ss = Math.min(26, Math.round(step * 0.46));
+      ml.forEach((m, i) => {
+        const my = my0 + i * step;
+        const ic = img(this, tx - 250, my, m.icon || 'pillow'); ic.setScale(iconScale(m.icon || 'pillow', Math.min(56, step * 0.8)));
+        p.add([ic, txt(this, tx - 205, my - 2, m.title, ts, '#fff3d2', { ox: 0, st: 5 }), txt(this, tx + 300, my, m.sub || '', ss, '#bcc0ee', { ox: 1, st: 0, weight: '500' })]);
+      });
+      if (more) p.add(txt(this, tx, my0 + ml.length * step, 'More moves unlock as you level up!', ss, '#ffd23f', { st: 4, weight: '500' }));
       const bxs = PORTRAIT ? [0, 0] : [tx - 170, tx + 170];
       const b1 = button(this, bxs[0], by, 320, 110, isHero ? 'PLAYING ✓' : 'PLAY AS', isHero ? 0x9fe3c0 : C.star, () => {
         if (isHero) return; Save.data.hero = it.jack ? 'jack' : it.toy.id; Save.store(); A.levelUp(); close(); this.scene.restart();
@@ -1262,15 +1270,19 @@
     // before the duel: pick one booster from the capsule collection (or none)
     pickBooster(owned) {
       const layer = this.add.container(0, 0).setDepth(80);
-      const cols = PORTRAIT ? 2 : Math.min(5, owned.length + 1), cw = PORTRAIT ? 470 : 300, ch = PORTRAIT ? 190 : 250;
       const items = owned.concat([null]);
+      // card size comes from the free space, so 10 boosters + NO BOOSTER fit on iPad and phones (QA B01)
+      const gap = 24, top = PORTRAIT ? 380 : 250, availW = W - 80, availH = H - 40 - top;
+      const cols = PORTRAIT ? 2 : Math.min(5, items.length);
       const rows = Math.ceil(items.length / cols);
-      const y0 = (PORTRAIT ? 420 : 300) + ch / 2;
+      const cw = Math.min(PORTRAIT ? 470 : 300, (availW - gap * (cols - 1)) / cols);
+      const ch = Math.min(PORTRAIT ? 190 : 250, (availH - gap * (rows - 1)) / rows);
+      const y0 = top + ch / 2;
       layer.add(txt(this, W / 2, PORTRAIT ? 220 : 110, 'PICK A BOOSTER!', PORTRAIT ? 80 : 76, '#ffd23f', { stroke: '#0f1240', st: 12 }));
       layer.add(txt(this, W / 2, PORTRAIT ? 310 : 195, 'vs ' + this.R.name + '  ·  ' + diff().name, 34, '#bcc0ee', { st: 6 }));
       const done = this._pick = (b) => {
         if (b) { Save.data.boosts[b.id]--; if (Save.data.boosts[b.id] <= 0) delete Save.data.boosts[b.id]; Save.store(); }
-        this.tweens.add({ targets: layer, alpha: 0, duration: 250, onComplete: () => { layer.destroy(true); bb.destroy(); this.setup(b ? b.id : null, null); } });
+        this.tweens.add({ targets: layer, alpha: 0, duration: 250, onComplete: () => { layer.destroy(true); bb.destroy(); mb.destroy(); this.setup(b ? b.id : null, null); } });
       };
       items.forEach((b, i) => {
         const inRow = Math.floor(i / cols) === rows - 1 ? items.length - cols * (rows - 1) : cols;
@@ -1282,12 +1294,19 @@
         if (b) { g.lineStyle(6, Phaser.Display.Color.HexStringToColor(RARITY[b.r].color).color); g.strokeRoundedRect(-cw / 2, -ch / 2, cw, ch, 34); }
         c.add(g);
         if (b) {
-          const ix = PORTRAIT ? -cw / 2 + 80 : 0, iy = PORTRAIT ? 0 : -50;
-          const ic = img(this, ix, iy, b.icon); ic.setScale(iconScale(b.icon, PORTRAIT ? 110 : 100)); c.add(ic);
+          const ix = PORTRAIT ? -cw / 2 + 80 : 0, iy = PORTRAIT ? 0 : -ch * 0.2;
+          const ic = img(this, ix, iy, b.icon); ic.setScale(iconScale(b.icon, PORTRAIT ? Math.min(110, ch - 50) : Math.min(100, ch * 0.4))); c.add(ic);
           this.tweens.add({ targets: ic, angle: { from: -8, to: 8 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
           const tx = PORTRAIT ? -cw / 2 + 150 : 0, ox = PORTRAIT ? 0 : 0.5;
-          c.add(fit(txt(this, tx, PORTRAIT ? -30 : 34, b.name, 34, C.ink, { st: 0, shadow: false, ox }), cw - (PORTRAIT ? 170 : 30)));
-          c.add(fit(txt(this, tx, PORTRAIT ? 22 : 80, b.desc, 24, '#4a4f8c', { st: 0, shadow: false, weight: '500', ox, wrap: PORTRAIT ? 0 : cw - 30 }), cw - (PORTRAIT ? 170 : 30)));
+          c.add(fit(txt(this, tx, PORTRAIT ? -Math.min(30, ch * 0.17) : ch * 0.14, b.name, 34, C.ink, { st: 0, shadow: false, ox }), cw - (PORTRAIT ? 170 : 30)));
+          if (PORTRAIT) c.add(fit(txt(this, tx, Math.min(22, ch * 0.14), b.desc, 24, '#4a4f8c', { st: 0, shadow: false, weight: '500', ox }), cw - 170));
+          else {
+            // landscape: the description starts under the name and shrinks to the card's free height
+            const dTop = ch * 0.14 + 24, room = ch / 2 - 12 - dTop;
+            const dt = txt(this, 0, dTop, b.desc, 24, '#4a4f8c', { st: 0, shadow: false, weight: '500', oy: 0, wrap: cw - 30 });
+            if (dt.height > room) dt.setScale(room / dt.height);
+            c.add(dt);
+          }
           c.add(chip(this, cw / 2 - 44, -ch / 2 + 6, '×' + Save.data.boosts[b.id], C.star, 26));
         } else c.add(txt(this, 0, 0, 'NO BOOSTER', 38, '#fff3d2', { st: 6 }));
         c.setSize(cw, ch).setInteractive({ useHandCursor: true }).setScale(0);
@@ -1296,7 +1315,7 @@
         layer.add(c);
       });
       const bb = backButton(this, () => fade(this, this.backKey, { world: this.world }));
-      muteButton(this);
+      const mb = muteButton(this);
     }
     setup(boostId, res) {
       const R = this.R;
@@ -1305,7 +1324,7 @@
       const space = this.world === SPACE;
       // difficulty: chosen mode + it grows with the player's level ("too easy!" said the chief tester)
       const lvl = levelOf(Save.data.xp).l, D = diff();
-      const hpMul = D.hp * (!D.scale ? 1 : space ? clamp(1 + 0.05 * (lvl - 4), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4));
+      const hpMul = this.mode === 'boss' ? 1 : D.hp * (!D.scale ? 1 : space ? clamp(1 + 0.05 * (lvl - 4), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4));
       const dmgMul = D.dmg * (!D.scale ? 1 : space ? clamp(1 + 0.04 * (lvl - 4), 1, 1.2) : clamp(1 + 0.05 * (lvl - 1), 1, 1.3));
       this.rHp = Math.round(R.hp * hpMul / 5) * 5;
       this.H = heroDef(this);
@@ -1389,9 +1408,14 @@
       const bb = this.blockBtn = button(this, W / 2, bby, PORTRAIT ? 420 : 400, 120, 'BLOCK IT!', C.coral, () => this.playerBlock(), { size: 50, color: '#fff3d2' }).setDepth(35).setVisible(false);
       const ex = this.add.image(-(PORTRAIT ? 210 : 200) + 10, -10, 'extinguisher').setScale(0.55).setAngle(-12); bb.add(ex); bb.list[1].x = 40;
       this.tweens.add({ targets: bb, scale: 1.08, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      backButton(this, () => { if (!this.busy || this.over) fade(this, this.backKey, { world: this.world }); });
+      backButton(this, () => {
+        if (this.busy && !this.over) return;
+        // no move made yet: the booster goes back to the collection (QA B30)
+        if (!this.over && !this.acted && this.boost && !this.boostRefunded) { this.boostRefunded = true; Save.data.boosts[this.boost.id] = (Save.data.boosts[this.boost.id] || 0) + 1; Save.store(); }
+        fade(this, this.backKey, { world: this.world });
+      });
       muteButton(this);
-      this.over = false; this.busy = false;
+      this.over = false; this.busy = false; this.acted = !!(res && res.acted);
       // booster effects
       const P = this.hero, T = this.rival;
       if (boostId === 'fort') P.shield = true;
@@ -1422,7 +1446,7 @@
     }
     snapshot() {
       const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType });
-      return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '' };
+      return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '', acted: !!this.acted };
     }
 
     fighter(x, y, key, scale, dir, maxHp, flip) {
@@ -1818,7 +1842,7 @@
     async playerMove(k) {
       if (this.busy || this.over) return;
       const m = this.moves.find(x => x.k === k); if (!m) return;
-      this.busy = true; this.setCards(false);
+      this.busy = true; this.acted = true; this.setCards(false);
       const P = this.hero, T = this.rival;
       P.used[k] = (P.used[k] || 0) + 1;
       emit('move', { k, type: m.type }, this);
@@ -1844,6 +1868,8 @@
       }
       this.banner('YOUR TURN', C.star);
       this.busy = false; this.setCards(true);
+      // a rotation that happened during the turn is applied now (QA B02)
+      if (window.__psRotatePending) this.time.delayedCall(60, () => window.__psTryRebuild && window.__psTryRebuild());
     }
     async rivalTurn() {
       await this.rivalTurn0();
@@ -1919,7 +1945,7 @@
     }
     async playerBlock() {
       if (this.busy || this.over || !this.rival.charging) return;
-      this.busy = true; this.setCards(false);
+      this.busy = true; this.acted = true; this.setCards(false);
       const P = this.hero;
       P.blocker = true;
       this.log(P.name + ' grabs the fire extinguisher. Bring it on!');
@@ -2053,6 +2079,7 @@
       // capsules: every first win over a rival + every 3rd win
       const caps = won ? (firstClear ? 1 : 0) + (Save.data.wins % 3 === 0 ? 1 : 0) : 0;
       Save.data.caps += caps;
+      const nextWasOpen = this.rivalIdx + 1 < RIVALS.length && isUnlocked(this.rivalIdx + 1);
       if (isCampaign && stars > prevStars) Save.data.stars[id] = stars;
       const newCostume = won && R.reward && !Save.data.costumes[R.reward] ? COSTUMES.find(c => c.id === R.reward) : null;
       if (newCostume) Save.data.costumes[R.reward] = true;
@@ -2062,7 +2089,7 @@
       const after = levelOf(Save.data.xp);
       const newMoves = MOVES.filter(m => m.lvl > before.l && m.lvl <= after.l);
       const nextIdx = this.rivalIdx + 1;
-      const unlockedNext = firstClear && nextIdx < RIVALS.length;
+      const unlockedNext = firstClear && nextIdx < RIVALS.length && !nextWasOpen; // (QA B20)
 
       const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(60).setInteractive();
       this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 });
@@ -2092,8 +2119,11 @@
       if (newCostume) notes.push('New costume: ' + newCostume.name + '! Put it on in Me');
       if (this.mode === 'boss') notes.push('You hit the Kraken for ' + Math.max(0, this.rival.max - Math.max(0, this.rival.hp)) + '! Everyone\'s hits add up');
       if (this.xpMul > 1) notes.push((this.boost && this.boost.id === 'superstar' ? 'Super Star ' : '') + (Save.data.diff === 'hard' ? 'Hard mode ' : '') + 'bonus XP!');
-      note.setText(notes.join('\n')); if (notes.length > 1) note.setFontSize(notes.length > 2 ? 27 : 30);
       const by = T0 + (PORTRAIT ? 940 : 925);
+      // all notes stay above the buttons (QA B09)
+      let nfs = notes.length > 2 ? 27 : notes.length > 1 ? 30 : 34;
+      note.setText(notes.join('\n')).setFontSize(nfs);
+      while (note.height > by - 70 - (T0 + 700) && nfs > 18) { nfs -= 2; note.setFontSize(nfs); }
       const primary = isCampaign && won && nextIdx < RIVALS.length && isUnlocked(nextIdx)
         ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: nextIdx })]
         : ['REMATCH', () => fade(this, 'battle', this.data0)];
@@ -2503,7 +2533,9 @@
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
   window.__psSnapshot = () => snapshot(game);
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)
-  window.__psBlockRotate = () => game.scene.isActive('studio') || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName));
+  // ...and not while a duel turn is playing out: the snapshot would restore it as YOUR TURN (QA B02)
+  window.__psBlockRotate = () => game.scene.isActive('studio') || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) ||
+    (game.scene.isActive('battle') && (b => !!(b.hero && b.busy && !b.over))(game.scene.getScene('battle')));
   } // end main
 
   let rotT = 0, built = false;
@@ -2515,18 +2547,22 @@
     main(snap);
   }
   window.__psRebuild = rebuild;
+  // rebuild when the phone is rotated, or when the usable screen changes a lot
+  // (e.g. iOS home-screen web app settling its size after launch)
+  function viewChanged() {
+    const v = viewSize(), i = insets(), uw = v.w - i.l - i.r, uh = v.h - i.t - i.b, p = uh > uw, a = uw / uh, o = window.__psInsets || i;
+    const same = ['t', 'b', 'l', 'r'].every(k => Math.abs(i[k] - o[k]) < 2);
+    return !(same && p === window.__psPortrait && Math.abs(a - window.__psAspect) / window.__psAspect < 0.03);
+  }
+  window.__psTryRebuild = () => {
+    if (!built || !viewChanged()) { window.__psRotatePending = false; return; }
+    if (window.__psBlockRotate && window.__psBlockRotate()) { window.__psRotatePending = true; return; }
+    window.__psRotatePending = false;
+    rebuild();
+  };
   window.addEventListener('resize', () => {
     clearTimeout(rotT);
-    rotT = setTimeout(() => {
-      if (!built) return;
-      // rebuild when the phone is rotated, or when the usable screen changes a lot
-      // (e.g. iOS home-screen web app settling its size after launch)
-      const v = viewSize(), i = insets(), uw = v.w - i.l - i.r, uh = v.h - i.t - i.b, p = uh > uw, a = uw / uh, o = window.__psInsets || i;
-      const same = ['t', 'b', 'l', 'r'].every(k => Math.abs(i[k] - o[k]) < 2);
-      if (same && p === window.__psPortrait && Math.abs(a - window.__psAspect) / window.__psAspect < 0.03) return;
-      if (window.__psBlockRotate && window.__psBlockRotate()) return; // fade() rebuilds on the next scene change
-      rebuild();
-    }, 300);
+    rotT = setTimeout(() => window.__psTryRebuild(), 300);
   });
   document.addEventListener('visibilitychange', () => { const A = window.PSAudio; if (!A.ctx) return; document.hidden ? A.ctx.suspend() : A.ctx.resume(); });
   const fontsReady = (document.fonts && document.fonts.load) ? Promise.all([document.fonts.load('700 40px Poppins'), document.fonts.load('500 40px Poppins')]).catch(() => {}) : Promise.resolve();

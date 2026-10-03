@@ -65,6 +65,9 @@
       return this.reconcile();
     },
     async logout() {
+      // save the last few seconds of progress first (QA B14)
+      clearTimeout(this._push);
+      try { await this.pushNow(); } catch (e) {}
       try { await this.sb.auth.signOut(); } catch (e) {}
       this.user = null;
       // the progress is safe in the cloud; this device goes back to a fresh guest
