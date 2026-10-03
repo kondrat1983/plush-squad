@@ -1,6 +1,9 @@
-// Plush Squad v0.5 — Jack the plush dragon, his rivals, YOUR toys (+ Toy), the Space world and Star Catch. Phaser 3.
+// Plush Squad v0.6 — Jack the plush dragon, his rivals, YOUR toys (+ Toy), Space, Star Catch, difficulty and booster capsules. Phaser 3.
 (function () {
   'use strict';
+  // main() builds the whole game for the current screen orientation. On rotate the game is destroyed and
+  // main() runs again with a snapshot (RESUME) of the scene the kid was in, so nothing is lost.
+  function main(RESUME) {
   const PORTRAIT = window.innerHeight > window.innerWidth;
   const ASPECT = Math.max(window.innerWidth, 1) / Math.max(window.innerHeight, 1);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -19,6 +22,46 @@
     store() { try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (e) {} },
   };
   Save.load(); A.muted = !!Save.data.muted; if (!Save.data.stars) Save.data.stars = {}; if (!Array.isArray(Save.data.toys)) Save.data.toys = []; if (!Save.data.hero) Save.data.hero = 'jack';
+  ['diff', 'caps', 'boosts', 'seen'].forEach((k, i) => { if (Save.data[k] == null) Save.data[k] = ['normal', 0, {}, {}][i]; });
+
+  // ---------- difficulty
+  const DIFFS = {
+    easy: { name: 'EASY', color: 0x7fe39a, hp: 0.8, dmg: 0.8, scale: false, smart: false, xp: 1 },
+    normal: { name: 'NORMAL', color: 0xffd23f, hp: 1, dmg: 1, scale: true, smart: true, xp: 1 },
+    hard: { name: 'HARD', color: 0xff6b5b, hp: 1.2, dmg: 1.15, scale: true, smart: true, xp: 1.5 },
+  };
+  const diff = () => DIFFS[Save.data.diff] || DIFFS.normal;
+
+  // ---------- boosters from the capsule machine (just for the surprise, nothing to buy)
+  // rarity: 1 common, 2 rare, 3 super rare. Each booster is used up in one duel.
+  const BOOSTS = [
+    { id: 'breakfast', r: 1, name: 'Big Breakfast', icon: 'dumpling', desc: 'Start with +25 pep' },
+    { id: 'fort', r: 1, name: 'Pillow Fort', icon: 'shield', desc: 'Start behind a shield' },
+    { id: 'milk', r: 1, name: 'Warm Milk', icon: 'milk', desc: 'Extra move: +30 pep',
+      move: { k: 'b_milk', uses: 1, title: 'Warm Milk', sub: '+30 pep', icon: 'milk', type: 'heal', tex: 'milk', amt: 30, log: '{a} sips warm milk. So cozy!' } },
+    { id: 'lucky', r: 2, name: 'Lucky Star', icon: 'star', desc: 'Every hit does +3' },
+    { id: 'feathers', r: 2, name: 'Feather Storm', icon: 'feather', desc: 'Extra move: 3 feather hits',
+      move: { k: 'b_feathers', uses: 1, title: 'Feather Storm', sub: '18–26 pep', icon: 'feather', type: 'volley', tex: 'feather', dmg: [18, 26], word: 'FEATHER STORM!', sound: 'whoosh', log: '{a} shakes a pillow open... FEATHER STORM!' } },
+    { id: 'blizzard', r: 2, name: 'Snow Globe', icon: 'snow', desc: 'Extra move: Blizzard',
+      move: { k: 'b_blizzard', uses: 1, title: 'Blizzard', sub: '20–26 pep', icon: 'snow', type: 'spray', tex: 'snow', dmg: [20, 26], word: 'BLIZZARD!', sound: 'whoosh', log: '{a} shakes the snow globe... BLIZZARD!' } },
+    { id: 'moon', r: 2, name: 'Sleepy Moon', icon: 'moon', desc: 'Rival starts dizzy' },
+    { id: 'rocket', r: 2, name: 'Rocket Start', icon: 'rocket', desc: 'First hit does +10' },
+    { id: 'heart', r: 3, name: 'Spare Heart', icon: 'heart', desc: 'Out of pep? Bounce back with 40!' },
+    { id: 'superstar', r: 3, name: 'Super Star', icon: 'sparkles', desc: 'Double XP this duel' },
+  ];
+  const BOOST_BY_ID = {}; BOOSTS.forEach(b => BOOST_BY_ID[b.id] = b);
+  const RARITY = { 1: { name: 'COMMON', color: '#bcc0ee', w: 14 }, 2: { name: 'RARE', color: '#7fd6ff', w: 8 }, 3: { name: 'SUPER RARE!', color: '#ff9ed8', w: 4 } };
+  function rollBoost() {
+    const sum = BOOSTS.reduce((t, b) => t + RARITY[b.r].w, 0); let x = Math.random() * sum;
+    for (const b of BOOSTS) { x -= RARITY[b.r].w; if (x <= 0) return b; }
+    return BOOSTS[0];
+  }
+  // one free capsule per day
+  function dailyCapsule() {
+    const today = new Date().toDateString();
+    if (Save.data.daily === today) return false;
+    Save.data.daily = today; Save.data.caps++; Save.store(); return true;
+  }
   const need = l => 100 + (l - 1) * 50;
   function levelOf(x) { let l = 1, r = x; while (r >= need(l)) { r -= need(l); l++; } return { l, r, n: need(l) }; }
   const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
@@ -224,7 +267,11 @@
       q2.restore(); gt2.refresh();
       // load saved toy pictures, then go
       Promise.all(Save.data.toys.map(t => IDB.get(t.id).then(url => url && addTexture(this, 'toy_' + t.id, url)).catch(() => {})))
-        .then(() => this.scene.start('title'), () => this.scene.start('title'));
+        .then(() => this.go(), () => this.go());
+    }
+    go() {
+      if (RESUME && RESUME.key && this.scene.get(RESUME.key)) this.scene.start(RESUME.key, Object.assign({}, RESUME.data, RESUME.battle ? { resume: RESUME.battle } : {}));
+      else this.scene.start('title');
     }
   }
 
@@ -320,7 +367,11 @@
   function fade(scene, key, data) {
     if (scene._leaving) return; scene._leaving = true;
     scene.cameras.main.fadeOut(320, 15, 18, 64);
-    scene.cameras.main.once('camerafadeoutcomplete', () => scene.scene.start(key, data));
+    scene.cameras.main.once('camerafadeoutcomplete', () => {
+      // the screen was rotated while we couldn't rebuild (e.g. in the toy studio): rebuild now, straight into the next scene
+      if ((window.innerHeight > window.innerWidth) !== PORTRAIT && window.__psRebuild) window.__psRebuild({ key, data: data || {} });
+      else scene.scene.start(key, data);
+    });
   }
   function backButton(scene, cb) {
     const c = scene.add.container(80, 80).setDepth(50);
@@ -357,6 +408,30 @@
     const im = scene.add.image(x, y, key);
     im.setScale(Math.min(boxW / im.width, boxH / im.height));
     return im;
+  }
+
+  // round capsule-machine button with a badge (map)
+  function capsuleButton(scene, x, y, world) {
+    const c = scene.add.container(x, y).setDepth(50);
+    const n = Save.data.caps;
+    c.add(scene.add.circle(0, 0, 46, n ? C.coral : C.night2).setStrokeStyle(4, n ? 0xffffff : C.seam));
+    const g = scene.add.graphics(); drawCapsule(g, 0, 0, 28, 0xffd23f); c.add(g);
+    if (n) {
+      c.add(scene.add.circle(32, -32, 22, C.star).setStrokeStyle(3, 0x0f1240));
+      c.add(txt(scene, 32, -32, String(n), 26, C.ink, { st: 0, shadow: false }));
+      scene.tweens.add({ targets: c, scale: 1.1, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+    c.setSize(100, 100).setInteractive({ useHandCursor: true });
+    c.on('pointerup', () => { A.init(); A.click(); fade(scene, 'gacha', { world }); });
+    return c;
+  }
+  // a two-tone capsule: coloured top, cream bottom
+  function drawCapsule(g, x, y, r, color) {
+    g.fillStyle(0x0f1240, 0.35); g.fillCircle(x + 3, y + 5, r);
+    g.fillStyle(0xfff3d2); g.fillCircle(x, y, r);
+    g.fillStyle(color); g.slice(x, y, r, Math.PI, 0, false); g.fillPath();
+    g.lineStyle(Math.max(2, r / 9), 0x0f1240, 0.8); g.strokeCircle(x, y, r); g.lineBetween(x - r, y, x + r, y);
+    g.fillStyle(0xffffff, 0.55); g.fillEllipse(x - r * 0.35, y - r * 0.5, r * 0.5, r * 0.28);
   }
 
   // ---------- Title
@@ -403,7 +478,7 @@
       this.tweens.add({ targets: tp, scale: 1.06, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       button(this, bx, byy + (PORTRAIT ? 150 : 150), PORTRAIT ? 480 : 420, 100, '+ ADD A TOY', C.cream, () => { A.init(); A.startMusic(); fade(this, 'studio'); }, { size: 40 });
       muteButton(this);
-      txt(this, 24, H - 26, 'v0.5', 24, '#6a72d6', { ox: 0, st: 0, shadow: false, weight: '500' });
+      txt(this, 24, H - 26, 'v0.6', 24, '#6a72d6', { ox: 0, st: 0, shadow: false, weight: '500' });
       this.input.keyboard && this.input.keyboard.once('keydown-SPACE', () => this.go());
     }
     go() { A.init(); A.startMusic(); A.whoosh(); fade(this, 'map'); }
@@ -456,8 +531,37 @@
       const mg = button(this, PORTRAIT ? W * 0.27 : 220, by, 360, 110, 'STAR CATCH', C.mint, () => fade(this, 'catch', { world: wd }), { size: 42 });
       const st = this.add.image(-140, 0, 'star').setScale(0.36); mg.add(st); mg.list[1].x = 28;
       this.tweens.add({ targets: st, angle: 360, duration: 4000, repeat: -1 });
+      this.diffSwitch(W / 2, PORTRAIT ? 370 : H - 90);
+      let cbtn = capsuleButton(this, W - 200, 80, wd);
       backButton(this, () => fade(this, 'title'));
       muteButton(this);
+      if (dailyCapsule()) this.time.delayedCall(700, () => {
+        cbtn.destroy(); cbtn = capsuleButton(this, W - 200, 80, wd);
+        this.hint('Daily gift: +1 capsule! Tap the capsule button'); A.levelUp();
+        this.tweens.add({ targets: cbtn, angle: { from: -20, to: 20 }, duration: 120, yoyo: true, repeat: 5, onComplete: () => cbtn.setAngle(0) });
+      });
+    }
+    // EASY / NORMAL / HARD switch (saved for all duels)
+    diffSwitch(x, y) {
+      const keys = ['easy', 'normal', 'hard'], bw = 190, bh = 76;
+      const c = this.add.container(x, y).setDepth(6);
+      const bg = this.add.graphics(); bg.fillStyle(0x000000, 0.3); bg.fillRoundedRect(-bw * 1.5 - 10, -bh / 2 - 2, bw * 3 + 20, bh + 14, bh / 2 + 6);
+      bg.fillStyle(0x161946); bg.fillRoundedRect(-bw * 1.5 - 10, -bh / 2 - 8, bw * 3 + 20, bh + 16, bh / 2 + 8); c.add(bg);
+      const pills = keys.map((k, i) => {
+        const D = DIFFS[k], px = (i - 1) * bw;
+        const g = this.add.graphics(), t = txt(this, px, 0, D.name, 30, '#fff3d2', { st: 0, shadow: false });
+        const z = this.add.zone(px, 0, bw, bh).setInteractive({ useHandCursor: true });
+        z.on('pointerup', () => { A.init(); A.click(); Save.data.diff = k; Save.store(); draw(); this.tweens.add({ targets: c, scale: { from: 1.06, to: 1 }, duration: 200 }); });
+        c.add([g, t, z]);
+        return { k, g, t, px, D };
+      });
+      const draw = () => pills.forEach(p => {
+        const on = Save.data.diff === p.k; p.g.clear();
+        if (on) { p.g.fillStyle(p.D.color); p.g.fillRoundedRect(p.px - bw / 2 + 4, -bh / 2, bw - 8, bh, bh / 2); }
+        p.t.setColor(on ? C.ink : '#8a8fd6');
+      });
+      draw();
+      return c;
     }
     tab(w, i, x, y, tw0) {
       const open = worldOpen(i), on = i === this.world, h = 96;
@@ -479,7 +583,7 @@
     }
     hint(s) {
       if (this._hint) this._hint.destroy();
-      const t = this._hint = txt(this, W / 2, PORTRAIT ? 360 : 250, s, 36, '#ff9ed8', { st: 7 }).setDepth(70);
+      const t = this._hint = txt(this, W / 2, PORTRAIT ? 470 : 250, s, 36, '#ff9ed8', { st: 7 }).setDepth(70);
       this.tweens.add({ targets: t, alpha: 0, delay: 1800, duration: 500, onComplete: () => t.destroy() });
     }
     node(r, i, x, y, open, current) {
@@ -921,31 +1025,84 @@
   class Battle extends Phaser.Scene {
     constructor() { super('battle'); }
     init(data) {
-      this.data0 = data || {};
+      this.data0 = Object.assign({}, data || {});
+      this.res = this.data0.resume || null; delete this.data0.resume;
       const toy = this.data0.toy && toyById(this.data0.toy);
       if (toy) { this.rivalIdx = -1; this.R = Object.assign(toyDef(toy), { xp: 30, scale: null }); }
       else { this.rivalIdx = this.data0.rival || 0; this.R = RIVALS[this.rivalIdx]; }
       this.world = this.R.world || 0;
     }
     create() {
-      this._leaving = false;
-      const R = this.R;
+      this._leaving = false; this.hero = null; this.over = false; this.busy = false;
       this.cameras.main.fadeIn(400, 15, 18, 64);
       sky(this, this.world);
+      const owned = BOOSTS.filter(b => (Save.data.boosts[b.id] || 0) > 0);
+      if (this.res) this.setup(this.res.boost, this.res);
+      else if (owned.length) this.pickBooster(owned);
+      else this.setup(null, null);
+    }
+    // before the duel: pick one booster from the capsule collection (or none)
+    pickBooster(owned) {
+      const layer = this.add.container(0, 0).setDepth(80);
+      const cols = PORTRAIT ? 2 : Math.min(5, owned.length + 1), cw = PORTRAIT ? 470 : 300, ch = PORTRAIT ? 190 : 250;
+      const items = owned.concat([null]);
+      const rows = Math.ceil(items.length / cols);
+      const y0 = (PORTRAIT ? 420 : 300) + ch / 2;
+      layer.add(txt(this, W / 2, PORTRAIT ? 220 : 110, 'PICK A BOOSTER!', PORTRAIT ? 80 : 76, '#ffd23f', { stroke: '#0f1240', st: 12 }));
+      layer.add(txt(this, W / 2, PORTRAIT ? 310 : 195, 'vs ' + this.R.name + '  ·  ' + diff().name, 34, '#bcc0ee', { st: 6 }));
+      const done = this._pick = (b) => {
+        if (b) { Save.data.boosts[b.id]--; if (Save.data.boosts[b.id] <= 0) delete Save.data.boosts[b.id]; Save.store(); }
+        this.tweens.add({ targets: layer, alpha: 0, duration: 250, onComplete: () => { layer.destroy(true); bb.destroy(); this.setup(b ? b.id : null, null); } });
+      };
+      items.forEach((b, i) => {
+        const inRow = Math.floor(i / cols) === rows - 1 ? items.length - cols * (rows - 1) : cols;
+        const x = W / 2 + ((i % cols) - (inRow - 1) / 2) * (cw + 24), y = y0 + Math.floor(i / cols) * (ch + 24);
+        const c = this.add.container(x, y);
+        const g = this.add.graphics();
+        g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-cw / 2, -ch / 2 + 10, cw, ch, 34);
+        g.fillStyle(b ? C.cream : C.night2); g.fillRoundedRect(-cw / 2, -ch / 2, cw, ch, 34);
+        if (b) { g.lineStyle(6, Phaser.Display.Color.HexStringToColor(RARITY[b.r].color).color); g.strokeRoundedRect(-cw / 2, -ch / 2, cw, ch, 34); }
+        c.add(g);
+        if (b) {
+          const ix = PORTRAIT ? -cw / 2 + 80 : 0, iy = PORTRAIT ? 0 : -50;
+          const ic = img(this, ix, iy, b.icon); ic.setScale(iconScale(b.icon, PORTRAIT ? 110 : 100)); c.add(ic);
+          this.tweens.add({ targets: ic, angle: { from: -8, to: 8 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+          const tx = PORTRAIT ? -cw / 2 + 150 : 0, ox = PORTRAIT ? 0 : 0.5;
+          c.add(fit(txt(this, tx, PORTRAIT ? -30 : 34, b.name, 34, C.ink, { st: 0, shadow: false, ox }), cw - (PORTRAIT ? 170 : 30)));
+          c.add(fit(txt(this, tx, PORTRAIT ? 22 : 80, b.desc, 24, '#4a4f8c', { st: 0, shadow: false, weight: '500', ox, wrap: PORTRAIT ? 0 : cw - 30 }), cw - (PORTRAIT ? 170 : 30)));
+          c.add(chip(this, cw / 2 - 44, -ch / 2 + 6, '×' + Save.data.boosts[b.id], C.star, 26));
+        } else c.add(txt(this, 0, 0, 'NO BOOSTER', 38, '#fff3d2', { st: 6 }));
+        c.setSize(cw, ch).setInteractive({ useHandCursor: true }).setScale(0);
+        this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 50, ease: 'Back.out' });
+        c.on('pointerup', () => { A.init(); A.click(); if (b) { A.levelUp(); } layer.list.forEach(o => o.disableInteractive && o.disableInteractive()); done(b); });
+        layer.add(c);
+      });
+      const bb = backButton(this, () => fade(this, this.rivalIdx < 0 ? 'squad' : 'map', { world: this.world }));
+      muteButton(this);
+    }
+    setup(boostId, res) {
+      const R = this.R;
+      const boost = boostId && BOOST_BY_ID[boostId];
+      this.boost = boost || null;
       const space = this.world === SPACE;
-      // difficulty grows with the player's level ("too easy!" said the chief tester)
-      const lvl = levelOf(Save.data.xp).l;
-      const hpMul = space ? clamp(1 + 0.05 * (lvl - 4), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4);
-      const dmgMul = space ? clamp(1 + 0.04 * (lvl - 4), 1, 1.2) : clamp(1 + 0.05 * (lvl - 1), 1, 1.3);
+      // difficulty: chosen mode + it grows with the player's level ("too easy!" said the chief tester)
+      const lvl = levelOf(Save.data.xp).l, D = diff();
+      const hpMul = D.hp * (!D.scale ? 1 : space ? clamp(1 + 0.05 * (lvl - 4), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4));
+      const dmgMul = D.dmg * (!D.scale ? 1 : space ? clamp(1 + 0.04 * (lvl - 4), 1, 1.2) : clamp(1 + 0.05 * (lvl - 1), 1, 1.3));
       this.rHp = Math.round(R.hp * hpMul / 5) * 5;
       this.H = heroDef(this);
-      this.moves = this.H.moves;
+      this.moves = this.H.moves.slice();
+      if (boost && boost.move) this.moves.push(Object.assign({}, boost.move));
       // card layout
       const n = this.moves.length; const rects = []; let top;
       if (PORTRAIT) {
-        const rows = Math.ceil(n / 2), h = rows > 2 ? 172 : 200, gy = h + 22, w = 490;
+        const cols = n > 4 && H < 1900 ? 3 : 2;
+        const rows = Math.ceil(n / cols), h = rows > 2 ? 172 : 200, gy = h + 22, w = cols === 3 ? 330 : 490;
         const y0 = H - 70 - h / 2 - (rows - 1) * gy;
-        for (let i = 0; i < n; i++) rects.push({ x: W / 2 + (i % 2 ? 1 : -1) * 258, y: y0 + Math.floor(i / 2) * gy, w, h });
+        for (let i = 0; i < n; i++) {
+          const row = Math.floor(i / cols), inRow = row === rows - 1 ? n - cols * (rows - 1) : cols;
+          rects.push({ x: W / 2 + ((i % cols) - (inRow - 1) / 2) * (w + 18), y: y0 + row * gy, w, h });
+        }
         top = y0 - h / 2;
       } else {
         const rows = n <= 4 ? 1 : 2, cols = Math.ceil(n / rows);
@@ -959,7 +1116,7 @@
       const compact = !PORTRAIT && n > 4;
       const groundY = PORTRAIT ? Math.max(H * 0.5, top - 200) : (compact ? top - 80 : H * 0.68);
       this.groundY = groundY;
-      const zoom = compact ? 0.82 : 1;
+      const zoom = compact ? 0.82 : (PORTRAIT && H < 1900 ? 0.8 : 1);
       const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, space ? 'planet' : 'moon').setScale((PORTRAIT ? 0.6 : 0.62 * zoom) * (space ? 1.15 : 1)).setAlpha(0.95);
       this.tweens.add({ targets: moon, angle: -6, y: moon.y + 12, duration: 2800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), space ? 'ground2' : 'ground').setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
@@ -979,7 +1136,8 @@
       const hT = (PORTRAIT ? 520 : 465) * zoom, wM = (PORTRAIT ? 470 : 540) * zoom;
       const heroScale = this.H.isJack ? (PORTRAIT ? 0.9 : 0.8) * zoom : fitScale(this.H.tex, hT, wM);
       const rivScale = (R.scale ? R.scale * (PORTRAIT ? 1.1 : 1) * zoom : fitScale(R.tex, hT, wM)) * (PORTRAIT ? 1 : (R.big || 1));
-      this.hero = this.fighter(W * (PORTRAIT ? 0.27 : 0.28), groundY, this.H.tex, heroScale, 1, this.H.hp, false);
+      const heroMax = this.H.hp + (boostId === 'breakfast' ? 25 : 0);
+      this.hero = this.fighter(W * (PORTRAIT ? 0.27 : 0.28), groundY, this.H.tex, heroScale, 1, heroMax, false);
       this.rival = this.fighter(W * (PORTRAIT ? 0.74 : 0.72), groundY, R.tex, rivScale, -1, this.rHp, !!R.isToy);
       if (R.ghostly) this.tweens.add({ targets: this.rival.spr, alpha: 0.6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.hero.name = this.H.name; this.hero.napTex = this.H.napTex; this.hero.isJack = this.H.isJack;
@@ -992,10 +1150,12 @@
       });
 
       const hy = PORTRAIT ? 200 : 150;
-      this.hero.bar = this.hpBar(W * 0.27, hy, this.H.short, this.H.color, this.H.hp);
+      this.hero.bar = this.hpBar(W * 0.27, hy, this.H.short, this.H.color, heroMax);
       this.rival.bar = this.hpBar(W * 0.73, hy, R.short, R.color, this.rHp);
       const vs = txt(this, W / 2, hy + 10, 'VS', PORTRAIT ? 56 : 72, '#ffd23f', { stroke: '#0f1240', st: 12 });
       this.tweens.add({ targets: vs, scale: 1.12, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      if (D !== DIFFS.normal) chip(this, W / 2, hy + (PORTRAIT ? 70 : 90), D.name, D.color, 24).setDepth(30);
+      this.smart = D.smart; this.xpMul = D.xp * (boostId === 'superstar' ? 2 : 1);
       const intro = (R.intro || '').replace(/Jack/g, this.H.name);
       this.logT = txt(this, W / 2, groundY + (PORTRAIT ? 90 : (compact ? 42 : 55)), intro, 34, '#fff3d2', { st: 6, wrap: W * 0.9 });
 
@@ -1008,8 +1168,37 @@
       backButton(this, () => { if (!this.busy || this.over) fade(this, this.rivalIdx < 0 ? 'squad' : 'map', { world: this.world }); });
       muteButton(this);
       this.over = false; this.busy = false;
+      // booster effects
+      const P = this.hero, T = this.rival;
+      if (boostId === 'fort') P.shield = true;
+      if (boostId === 'lucky') P.bonus = 3;
+      if (boostId === 'rocket') P.firstBonus = 10;
+      if (boostId === 'moon') T.dizzy = true;
+      if (boostId === 'heart') P.spare = true;
+      if (boost) {
+        const bc = chip(this, W * 0.27, hy + (PORTRAIT ? 70 : 76), '      ' + boost.name, 0xfff3d2, 24).setDepth(30);
+        const bi = img(this, -bc.w / 2 + 34, 0, boost.icon); bi.setScale(iconScale(boost.icon, 40)); bc.add(bi);
+        this.boostChip = bc;
+      }
+      // coming back after the screen was rotated: restore the duel exactly
+      if (res) {
+        const put = (f, o) => { ['hp', 'max', 'used', 'dizzy', 'shield', 'spare', 'bonus', 'firstBonus', 'lastType'].forEach(k => { if (o[k] !== undefined) f[k] = o[k]; }); f.bar.setMax(f.max); f.bar.set(f.hp, this); };
+        put(P, res.h); put(T, res.r);
+        if (res.charging >= 0 && this.rmoves[res.charging]) { T.charging = this.rmoves[res.charging]; this.chargeFx(T); }
+        if (res.log) this.logT.setText(res.log);
+      }
+      this.setStatus(P); this.setStatus(T);
+      if (boost && !res) {
+        A.levelUp(); this.popWord(P.center().x, P.center().y - 260, boost.name.toUpperCase() + '!', '#ffd23f', 70, -6);
+        this.sparks.explode(24, P.center().x, P.center().y);
+        if (boostId === 'breakfast') this.heals.explode(30, P.root.x, P.root.y - 40);
+      }
       this.banner('YOUR TURN', C.star);
       this.setCards(true);
+    }
+    snapshot() {
+      const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType });
+      return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '' };
     }
 
     fighter(x, y, key, scale, dir, maxHp, flip) {
@@ -1049,6 +1238,7 @@
       const val = txt(this, w / 2 - 4, -h / 2 - 34, 'PEP ' + max, PORTRAIT ? 28 : 32, '#bcc0ee', { ox: 1, st: 6 });
       c.add([back, ghost, fill, shine, label, val]);
       return {
+        setMax: (m) => { max = m; },
         set: (hp, scene) => {
           const tw2 = w * Math.max(0, hp) / max;
           scene.tweens.add({ targets: [fill, shine], width: tw2, duration: 260, ease: 'Quad.out' });
@@ -1127,9 +1317,14 @@
       this.tweens.add({ targets: t, y: y - 60, alpha: 0, duration: 500, delay: 650, onComplete: () => t.destroy() });
       return t;
     }
-    async hitStop(ms) { this.tweens.pauseAll(); await new Promise(r => setTimeout(r, ms)); this.tweens.resumeAll(); }
+    async hitStop(ms) { this.tweens.pauseAll(); await new Promise(r => setTimeout(r, ms)); if (this.sys && this.sys.isActive()) this.tweens.resumeAll(); }
     async impact(target, dmg, kind = 'pillow', quiet = false) {
       const p = target.center();
+      // boosters that make the hero's hits stronger
+      if (target === this.rival && dmg > 0) {
+        if (this.hero.bonus) dmg += this.hero.bonus;
+        if (this.hero.firstBonus) { dmg += this.hero.firstBonus; this.hero.firstBonus = 0; this.popWord(p.x, p.y - 300, 'ROCKET START!', '#ff8a3d', 64, 6); }
+      }
       if (target.shield && dmg > 0) {
         dmg = Math.ceil(dmg / 2); target.shield = false; this.setStatus(target);
         A.block(); this.popWord(p.x, p.y - 220, 'BLOCKED!', '#9fdcff', 70, -6);
@@ -1451,6 +1646,7 @@
       // a little smarter: go for the finish, avoid hitting a shield, heal when really low
       const wOf = m => {
         let w = m.w;
+        if (!this.smart) return w;
         if (m.dmg && !m.charge && P.hp <= m.dmg[0] && !P.shield) w *= 4;
         if (m.dmg && P.shield) w *= 0.5;
         if ((m.type === 'heal' || m.type === 'nap') && T.hp < T.max * 0.35) w *= 2.5;
@@ -1463,14 +1659,17 @@
 
     // ---- Inferno Rain: a rival gathers fire for a turn, then fireballs fall from the sky.
     // Block it with the fire extinguisher (or, for rivals, with milk!)
-    async startCharge(m, T) {
-      T.charging = m;
-      this.log(T.name + ' takes a deep breath... the sky turns red! INFERNO RAIN is coming! Tap BLOCK IT!');
-      A.inhale(); this.time.delayedCall(350, () => A.fire());
+    chargeFx(T) {
       this.tweens.add({ targets: this.fireFx, fillAlpha: 0.3, duration: 600 });
       this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: 0.14, duration: 700, yoyo: true, repeat: -1, delay: 600 });
       T.spr.setTint(0xffb08a);
       this.embers = this.add.particles(0, 0, 'dot', { x: { min: T.root.x - 150, max: T.root.x + 150 }, y: T.root.y - 20, speedY: { min: -520, max: -260 }, speedX: { min: -60, max: 60 }, lifespan: 1100, scale: { start: 0.35, end: 0 }, tint: [0xff6b2b, 0xffd23f, 0xff3b1f], blendMode: 'ADD', frequency: 40 }).setDepth(12);
+    }
+    async startCharge(m, T) {
+      T.charging = m;
+      this.log(T.name + ' takes a deep breath... the sky turns red! INFERNO RAIN is coming! Tap BLOCK IT!');
+      A.inhale(); this.time.delayedCall(350, () => A.fire());
+      this.chargeFx(T);
       await tw(this, { targets: T.squash, scaleX: 1.12, scaleY: 1.12, duration: 600, ease: 'Sine.in' });
       this.popWord(T.center().x, T.center().y - 240, 'GATHERING FIRE...', '#ff8a3d', 64, 6);
       await tw(this, { targets: T.squash, scaleX: 1, scaleY: 1, duration: 300 });
@@ -1568,6 +1767,15 @@
     }
     checkEnd() {
       if (this.rival.hp <= 0) { this.finish(true); return true; }
+      if (this.hero.hp <= 0 && this.hero.spare) {
+        // Spare Heart booster: bounce back once
+        const P = this.hero; P.spare = false;
+        this.heal(P, 40); A.levelUp();
+        this.popWord(P.center().x, P.center().y - 280, 'SPARE HEART!', '#ff9ed8', 80, -6);
+        this.tweens.add({ targets: P.squash, scaleX: 1.2, scaleY: 0.85, duration: 140, yoyo: true, repeat: 1 });
+        if (this.boostChip) this.tweens.add({ targets: this.boostChip, alpha: 0.3, duration: 400 });
+        return false;
+      }
       if (this.hero.hp <= 0) { this.finish(false); return true; }
       return false;
     }
@@ -1602,9 +1810,12 @@
       const stars = won ? (this.hero.hp >= this.hero.max * 0.7 ? 3 : this.hero.hp >= this.hero.max * 0.35 ? 2 : 1) : 0;
       const prevStars = isCampaign ? (Save.data.stars[id] || 0) : 0;
       const firstClear = isCampaign && won && prevStars === 0;
-      const gain = won ? R.xp + (firstClear ? 20 : 0) : 10;
+      const gain = Math.round((won ? R.xp + (firstClear ? 20 : 0) : 10) * (this.xpMul || 1));
       const before = levelOf(Save.data.xp);
       Save.data.xp += gain; if (won) Save.data.wins++;
+      // capsules: every first win over a rival + every 3rd win
+      const caps = won ? (firstClear ? 1 : 0) + (Save.data.wins % 3 === 0 ? 1 : 0) : 0;
+      Save.data.caps += caps;
       if (isCampaign && stars > prevStars) Save.data.stars[id] = stars;
       Save.store();
       const after = levelOf(Save.data.xp);
@@ -1614,7 +1825,7 @@
 
       const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(60).setInteractive();
       this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 });
-      const pw = PORTRAIT ? 920 : 1000, ph = PORTRAIT ? 1150 : 940, T0 = -ph / 2;
+      const pw = PORTRAIT ? 920 : 1000, ph = PORTRAIT ? 1230 : 1020, T0 = -ph / 2;
       const p = this.add.container(W / 2, H / 2).setDepth(61).setScale(0);
       p.add(panel(this, 0, 0, pw, ph, C.night2, 0));
       const icon = this.add.image(0, T0 + 120, won ? 'trophy' : 'zzz').setScale(0.7);
@@ -1629,15 +1840,17 @@
       const lvT = txt(this, -bw / 2, T0 + 610, 'LEVEL ' + before.l, 34, '#fff3d2', { ox: 0, st: 0 });
       const barBg = this.add.rectangle(0, T0 + 660, bw, 34, C.night3).setStrokeStyle(4, C.seam);
       const bar = this.add.rectangle(-bw / 2, T0 + 660, Math.max(4, bw * before.r / before.n), 26, C.star).setOrigin(0, 0.5);
-      const note = txt(this, 0, T0 + 728, '', 34, '#ffd23f', { st: 6, wrap: pw - 100 });
+      const note = txt(this, 0, T0 + 700, '', 34, '#ffd23f', { st: 6, wrap: pw - 100, oy: 0 });
       p.add([xpT, lvT, barBg, bar, note]);
       const notes = [];
       if (firstClear) notes.push('First win bonus +20 XP');
       if (unlockedNext && worldOf(nextIdx) !== this.world) notes.push('NEW WORLD: ' + WORLDS[worldOf(nextIdx)].name + '! Rival: ' + RIVALS[nextIdx].name);
       else if (unlockedNext) notes.push('New rival unlocked: ' + RIVALS[nextIdx].name + '!');
       if (newMoves.length && this.hero.isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
-      note.setText(notes.join('\n')); if (notes.length > 1) note.setFontSize(30);
-      const by = T0 + (PORTRAIT ? 860 : 845);
+      if (caps) notes.push('+' + caps + ' capsule' + (caps > 1 ? 's' : '') + '! Open on the map');
+      if (this.xpMul > 1) notes.push((this.boost && this.boost.id === 'superstar' ? 'Super Star ' : '') + (Save.data.diff === 'hard' ? 'Hard mode ' : '') + 'bonus XP!');
+      note.setText(notes.join('\n')); if (notes.length > 1) note.setFontSize(notes.length > 2 ? 27 : 30);
+      const by = T0 + (PORTRAIT ? 940 : 925);
       const primary = isCampaign && won && nextIdx < RIVALS.length && isUnlocked(nextIdx)
         ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: nextIdx })]
         : ['REMATCH', () => fade(this, 'battle', this.data0)];
@@ -1821,24 +2034,240 @@
     }
   }
 
-  // ---------- start
-  function start() {
-    const game = new Phaser.Game({
-      type: Phaser.AUTO, parent: 'game', backgroundColor: '#1d2163', width: W, height: H,
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-      dom: { createContainer: true },
-      fps: { smoothStep: !DEBUG },
-      input: { activePointers: 2 }, render: { antialias: true, powerPreference: 'high-performance' },
-      scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene],
-    });
-    window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB;
-    let o = PORTRAIT;
-    window.addEventListener('resize', () => {
-      const p = window.innerHeight > window.innerWidth;
-      if (p !== o) { o = p; if (!document.getElementById('toyfile') || document.activeElement.tagName !== 'INPUT') location.reload(); }
-    });
-    document.addEventListener('visibilitychange', () => { if (!A.ctx) return; document.hidden ? A.ctx.suspend() : A.ctx.resume(); });
+  // ---------- Capsule machine (gacha): turn the crank, get a surprise booster. Nothing to buy, ever.
+  const CAP_COLORS = [0xff6b5b, 0xffd23f, 0x7fd6c2, 0x9aa2ff, 0xff9ed8, 0x7fe39a, 0xff8a3d];
+  class GachaScene extends Phaser.Scene {
+    constructor() { super('gacha'); }
+    init(data) { this.world = (data && data.world) || 0; }
+    create() {
+      this._leaving = false; this.busy = false;
+      this.cameras.main.fadeIn(350, 15, 18, 64);
+      sky(this, this.world);
+      txt(this, W / 2, PORTRAIT ? 190 : 80, 'CAPSULE MACHINE', PORTRAIT ? 76 : 70, '#fff3d2', { stroke: '#0f1240', st: 12 });
+      this.countT = txt(this, W / 2, PORTRAIT ? 275 : 155, '', 36, '#ffd23f', { st: 6 });
+      const short = PORTRAIT && H < 1900;
+      this.mx = PORTRAIT ? W / 2 : W * 0.3; this.my = PORTRAIT ? (short ? 620 : 760) : 560; this.ms = short ? 0.8 : 1;
+      this.machine();
+      const by = this.my + (PORTRAIT ? 330 * this.ms + 90 : 390);
+      this.turnBtn = button(this, this.mx, by, 380, 120, 'TURN!', C.star, () => this.turn(), { size: 56 });
+      this.tweens.add({ targets: this.turnBtn, scale: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      this.noneT = txt(this, this.mx, by, 'Win duels to get capsules.\nOne more is free every day!', 32, '#bcc0ee', { st: 5, weight: '500' });
+      this.gridTop = PORTRAIT ? by + 140 : 250;
+      this.grid = this.add.container(0, 0);
+      this.refresh();
+      backButton(this, () => fade(this, 'map', { world: this.world }));
+      muteButton(this);
+    }
+    machine() {
+      const m = this.m = this.add.container(this.mx, this.my).setScale(this.ms).setDepth(5);
+      const g = this.add.graphics();
+      // base + body
+      g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-230, 10, 460, 320, 40);
+      g.fillStyle(0xc9443a); g.fillRoundedRect(-240, 250, 480, 70, 24);
+      g.fillStyle(C.coral); g.fillRoundedRect(-210, -10, 420, 290, 40);
+      g.fillStyle(0xffffff, 0.22); g.fillRoundedRect(-190, 4, 380, 40, 20);
+      g.lineStyle(6, 0x0f1240, 0.5); g.strokeRoundedRect(-210, -10, 420, 290, 40);
+      // chute
+      g.fillStyle(0x2b1a40); g.fillRoundedRect(-80, 180, 160, 80, 24);
+      g.fillStyle(0x000000, 0.4); g.fillRoundedRect(-66, 192, 132, 50, 18);
+      // dome
+      g.fillStyle(0xbfe6ff, 0.16); g.fillCircle(0, -170, 215);
+      m.add(g);
+      // capsules inside the dome
+      this.inside = [];
+      for (let i = 0; i < 14; i++) {
+        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 150;
+        const x = Math.cos(a) * r, y = -130 + Math.abs(Math.sin(a)) * r * 0.55 - Math.random() * 60 + 20;
+        const cg = this.add.graphics(); drawCapsule(cg, 0, 0, 40, CAP_COLORS[i % CAP_COLORS.length]);
+        const cc = this.add.container(x, y, [cg]).setAngle(rnd(-40, 40));
+        m.add(cc); this.inside.push(cc);
+      }
+      const gl = this.add.graphics();
+      gl.lineStyle(10, 0xffffff, 0.9); gl.strokeCircle(0, -170, 215);
+      gl.lineStyle(14, 0xffffff, 0.45); gl.beginPath(); gl.arc(0, -170, 180, Math.PI * 1.1, Math.PI * 1.45); gl.strokePath();
+      gl.fillStyle(C.coral); gl.fillRoundedRect(-70, -405, 140, 50, 20); gl.fillStyle(C.star); gl.fillCircle(0, -410, 22);
+      m.add(gl);
+      // crank
+      const ck = this.crank = this.add.container(0, 90);
+      const kg = this.add.graphics();
+      kg.fillStyle(0x0f1240, 0.35); kg.fillCircle(4, 6, 62);
+      kg.fillStyle(C.cream); kg.fillCircle(0, 0, 60); kg.lineStyle(6, 0x0f1240, 0.5); kg.strokeCircle(0, 0, 60);
+      kg.fillStyle(C.star); kg.fillRoundedRect(-70, -16, 140, 32, 16); kg.fillStyle(C.coral); kg.fillCircle(-62, 0, 20);
+      ck.add(kg); m.add(ck);
+      // little lights on the body
+      for (let i = 0; i < 5; i++) {
+        const l = this.add.circle(-150 + i * 75, 20, 11, CAP_COLORS[i]); m.add(l);
+        this.tweens.add({ targets: l, alpha: 0.3, duration: 400, yoyo: true, repeat: -1, delay: i * 120 });
+      }
+    }
+    refresh() {
+      const n = Save.data.caps;
+      this.countT.setText(n ? 'You have ' + n + ' capsule' + (n > 1 ? 's' : '') + '!' : 'No capsules right now');
+      this.turnBtn.setVisible(n > 0); this.noneT.setVisible(n <= 0);
+      // collection: all 10 boosters, unknown ones as "?"
+      this.grid.removeAll(true);
+      const cols = 5, cw = PORTRAIT ? 190 : Math.min(200, (W * 0.55 - 120) / 5), ch = PORTRAIT ? 220 : Math.round(cw * 1.3);
+      const gx = PORTRAIT ? W / 2 : W * 0.72, gy = this.gridTop;
+      const seen = BOOSTS.filter(b => Save.data.seen[b.id]).length;
+      this.grid.add(txt(this, gx, gy, 'MY BOOSTERS  ' + seen + ' / ' + BOOSTS.length, 38, '#fff3d2', { st: 7 }));
+      BOOSTS.forEach((b, i) => {
+        const x = gx + ((i % cols) - 2) * (cw + 14), y = gy + 70 + ch / 2 + Math.floor(i / cols) * (ch + 16);
+        const known = !!Save.data.seen[b.id], cnt = Save.data.boosts[b.id] || 0;
+        const c = this.add.container(x, y);
+        const g = this.add.graphics();
+        g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-cw / 2, -ch / 2 + 8, cw, ch, 26);
+        g.fillStyle(known ? C.cream : 0x161946); g.fillRoundedRect(-cw / 2, -ch / 2, cw, ch, 26);
+        g.lineStyle(5, known ? Phaser.Display.Color.HexStringToColor(RARITY[b.r].color).color : C.seam); g.strokeRoundedRect(-cw / 2, -ch / 2, cw, ch, 26);
+        c.add(g);
+        if (known) {
+          const ic = img(this, 0, -ch * 0.14, b.icon); ic.setScale(iconScale(b.icon, cw * 0.5)); c.add(ic);
+          c.add(fit(txt(this, 0, ch * 0.22, b.name, 24, C.ink, { st: 0, shadow: false }), cw - 16));
+          for (let k = 0; k < b.r; k++) c.add(this.add.image((k - (b.r - 1) / 2) * 26, ch / 2 - 24, 'star').setScale(0.1));
+          if (cnt) c.add(chip(this, cw / 2 - 24, -ch / 2 + 8, '×' + cnt, C.star, 22));
+          else c.setAlpha(0.6);
+        } else c.add(txt(this, 0, -10, '?', 90, '#6a72d6', { st: 0, shadow: false }));
+        c.setSize(cw, ch).setInteractive();
+        c.on('pointerup', () => { if (known) { A.click(); this.hint2(b.name + ': ' + b.desc); } });
+        this.grid.add(c);
+      });
+    }
+    hint2(s) {
+      if (this._h) this._h.destroy();
+      const t = this._h = fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
+      this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
+    }
+    async turn() {
+      if (this.busy || Save.data.caps <= 0) return;
+      this.busy = true; this.turnBtn.setVisible(false);
+      const b = rollBoost(), isNew = !Save.data.seen[b.id];
+      Save.data.caps--; Save.data.boosts[b.id] = (Save.data.boosts[b.id] || 0) + 1; Save.data.seen[b.id] = true; Save.store();
+      // crank + shake + capsules tumbling
+      A.spin();
+      for (let i = 0; i < 6; i++) this.time.delayedCall(i * 140, () => A.tick());
+      this.tweens.add({ targets: this.crank, angle: 360, duration: 900, ease: 'Sine.inOut', onComplete: () => this.crank.setAngle(0) });
+      this.tweens.add({ targets: this.m, x: this.mx + 10, duration: 60, yoyo: true, repeat: 7 });
+      this.inside.forEach(c => this.tweens.add({ targets: c, y: c.y - rnd(20, 70), angle: c.angle + rnd(-120, 120), duration: 200, yoyo: true, repeat: 1, ease: 'Quad.out' }));
+      await wait(this, 1000);
+      // a capsule drops out of the chute
+      const col = CAP_COLORS[rnd(0, CAP_COLORS.length - 1)];
+      const cap = this.bigCapsule(col);
+      const sx = this.mx, sy = this.my + 220 * this.ms;
+      cap.c.setPosition(sx, sy).setScale(0.35).setDepth(20);
+      A.thump(0.5);
+      await tw(this, { targets: cap.c, y: sy + 150, scale: 0.6, duration: 380, ease: 'Bounce.out' });
+      A.bounce();
+      // ...and rolls to the middle of the screen
+      const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(18).setInteractive();
+      this.tweens.add({ targets: dim, fillAlpha: 0.75, duration: 400 });
+      await tw(this, { targets: cap.c, x: W / 2, y: H * 0.45, scale: 1.6, angle: 360, duration: 650, ease: 'Back.out' });
+      cap.c.setAngle(0);
+      const tap = txt(this, W / 2, H * 0.45 + 200, 'TAP TO OPEN!', 56, '#ffd23f', { stroke: '#0f1240', st: 10 }).setDepth(21);
+      this.tweens.add({ targets: tap, scale: 1.12, duration: 400, yoyo: true, repeat: -1 });
+      const wob = this.tweens.add({ targets: cap.c, angle: { from: -8, to: 8 }, duration: 160, yoyo: true, repeat: -1 });
+      await new Promise(r => { dim.once('pointerup', r); this.time.delayedCall(6000, r); });
+      tap.destroy(); wob.stop(); cap.c.setAngle(0);
+      for (let i = 0; i < 3; i++) { A.tick(); await tw(this, { targets: cap.c, angle: i % 2 ? 14 : -14, scale: 1.6 + i * 0.12, duration: 110, yoyo: true }); }
+      // pop!
+      A.poof(); A.thump(0.7); buzz(50);
+      const flash = this.add.rectangle(W / 2, H / 2, W, H, 0xffffff, 0.9).setDepth(30);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 450, onComplete: () => flash.destroy() });
+      this.tweens.add({ targets: cap.top, y: -260, x: -120, angle: -70, alpha: 0, duration: 650, ease: 'Quad.out' });
+      this.tweens.add({ targets: cap.bot, y: 240, x: 120, angle: 50, alpha: 0, duration: 650, ease: 'Quad.out', onComplete: () => cap.c.destroy() });
+      this.reveal(b, isNew, dim);
+    }
+    bigCapsule(col) {
+      const r = 110;
+      const top = this.add.graphics(); top.fillStyle(col); top.slice(0, 0, r, Math.PI, 0, false); top.fillPath();
+      top.lineStyle(10, 0x0f1240, 0.8); top.beginPath(); top.arc(0, 0, r, Math.PI, 0, false); top.strokePath(); top.lineBetween(-r, 0, r, 0);
+      top.fillStyle(0xffffff, 0.5); top.fillEllipse(-r * 0.35, -r * 0.5, r * 0.5, r * 0.26);
+      const bot = this.add.graphics(); bot.fillStyle(C.cream); bot.slice(0, 0, r, 0, Math.PI, false); bot.fillPath();
+      bot.lineStyle(10, 0x0f1240, 0.8); bot.beginPath(); bot.arc(0, 0, r, 0, Math.PI, false); bot.strokePath();
+      const c = this.add.container(0, 0, [bot, top]);
+      return { c, top, bot };
+    }
+    reveal(b, isNew, dim) {
+      const R = RARITY[b.r], cx = W / 2, cy = H * 0.42;
+      const layer = this.add.container(0, 0).setDepth(25);
+      const rays = this.add.image(cx, cy, 'glow').setScale(b.r === 3 ? 3.4 : 2.6).setAlpha(0.9).setTint(Phaser.Display.Color.HexStringToColor(R.color).color);
+      this.tweens.add({ targets: rays, scale: rays.scale * 1.15, alpha: 0.6, duration: 700, yoyo: true, repeat: -1 });
+      layer.add(rays);
+      for (let i = 0; i < 10; i++) {
+        const sp = this.add.image(cx, cy, 'spark').setTint(C.star).setScale(0.6).setAlpha(0.8);
+        const a = i / 10 * Math.PI * 2;
+        this.tweens.add({ targets: sp, x: cx + Math.cos(a) * 260, y: cy + Math.sin(a) * 260, angle: 180, alpha: 0, scale: 0.2, duration: 900, repeat: -1, delay: i * 90 });
+        layer.add(sp);
+      }
+      const ic = img(this, cx, cy, b.icon); const s0 = iconScale(b.icon, 280); ic.setScale(0); layer.add(ic);
+      this.tweens.add({ targets: ic, scale: s0, angle: { from: -30, to: 0 }, duration: 500, ease: 'Back.out' });
+      this.tweens.add({ targets: ic, y: cy - 16, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: 500 });
+      const rt = txt(this, cx, cy - 250, R.name, b.r === 3 ? 64 : 50, R.color, { stroke: '#0f1240', st: 10 }); layer.add(rt);
+      const nt = fit(txt(this, cx, cy + 200, b.name, 76, '#fff3d2', { stroke: '#0f1240', st: 12 }), W - 80); layer.add(nt);
+      const dt = fit(txt(this, cx, cy + 285, b.desc, 38, '#bcc0ee', { st: 6, weight: '500' }), W - 80); layer.add(dt);
+      if (isNew) { const nc = chip(this, cx + 170, cy - 150, 'NEW!', C.coral, 34).setAngle(12); layer.add(nc); this.tweens.add({ targets: nc, scale: 1.15, duration: 400, yoyo: true, repeat: -1 }); }
+      [rt, nt, dt].forEach((t, i) => { const sc = t.scale; t.setScale(0); this.tweens.add({ targets: t, scale: sc, duration: 300, delay: 200 + i * 120, ease: 'Back.out' }); });
+      b.r >= 2 ? A.win() : A.levelUp();
+      const conf = this.add.particles(0, 0, 'conf', { emitting: false, speed: { min: 500, max: 1300 }, angle: { min: 230, max: 310 }, gravityY: 1100, lifespan: 2600, rotate: { min: 0, max: 360 }, tint: CAP_COLORS }).setDepth(40);
+      conf.explode(b.r === 3 ? 200 : b.r === 2 ? 110 : 60, W / 2, H);
+      if (b.r === 3) this.time.delayedCall(500, () => { conf.explode(120, W * 0.2, H); conf.explode(120, W * 0.8, H); A.starDing(2); });
+      const ok = button(this, cx, cy + 420, 380, 120, Save.data.caps > 0 ? 'ONE MORE!' : 'NICE!', C.star, () => {
+        ok.disableInteractive();
+        this.tweens.add({ targets: [layer, ok, dim], alpha: 0, duration: 250, onComplete: () => {
+          layer.destroy(true); ok.destroy(); dim.destroy(); this.time.delayedCall(2600, () => conf.destroy());
+          this.busy = false; this.refresh();
+          if (Save.data.caps > 0) this.turn();
+        } });
+      }, { size: 50 }).setDepth(26);
+    }
   }
+
+  // ---------- start
+  function snapshot(game) {
+    const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');
+    if (!sc) return null;
+    const key = sc.scene.key, data = Object.assign({}, sc.sys.settings.data || {});
+    delete data.resume;
+    if (key === 'battle') {
+      if (sc.over) return { key: sc.rivalIdx < 0 ? 'squad' : 'map', data: { world: sc.world } };
+      if (sc.hero) return { key, data, battle: sc.snapshot() };
+    }
+    if (key === 'studio') return { key: 'title', data: {} };
+    return { key, data };
+  }
+  const game = new Phaser.Game({
+    type: Phaser.AUTO, parent: 'game', backgroundColor: '#1d2163', width: W, height: H,
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    dom: { createContainer: true },
+    fps: { smoothStep: !DEBUG },
+    input: { activePointers: 2 }, render: { antialias: true, powerPreference: 'high-performance' },
+    scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, GachaScene],
+  });
+  window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
+  window.__psPortrait = PORTRAIT;
+  window.__psSnapshot = () => snapshot(game);
+  // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)
+  window.__psBlockRotate = () => game.scene.isActive('studio');
+  } // end main
+
+  let rotT = 0, built = false;
+  function rebuild(target) {
+    const snap = target || (window.__psSnapshot && window.__psSnapshot());
+    const old = window.__game;
+    if (old) { try { old.destroy(true); } catch (e) {} }
+    window.__game = null;
+    main(snap);
+  }
+  window.__psRebuild = rebuild;
+  window.addEventListener('resize', () => {
+    clearTimeout(rotT);
+    rotT = setTimeout(() => {
+      if (!built) return;
+      const p = window.innerHeight > window.innerWidth;
+      if (p === window.__psPortrait) return;
+      if (window.__psBlockRotate && window.__psBlockRotate()) return; // fade() rebuilds on the next scene change
+      rebuild();
+    }, 300);
+  });
+  document.addEventListener('visibilitychange', () => { const A = window.PSAudio; if (!A.ctx) return; document.hidden ? A.ctx.suspend() : A.ctx.resume(); });
   const fontsReady = (document.fonts && document.fonts.load) ? Promise.all([document.fonts.load('700 40px Poppins'), document.fonts.load('500 40px Poppins')]).catch(() => {}) : Promise.resolve();
-  Promise.race([fontsReady, new Promise(r => setTimeout(r, 2500))]).then(start);
+  Promise.race([fontsReady, new Promise(r => setTimeout(r, 2500))]).then(() => { built = true; main(null); });
 })();

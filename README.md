@@ -21,7 +21,7 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 
 ## What's inside
 - `index.html` — page shell, PWA meta
-- `js/game.js` — the game (Boot → Title → Map / Squad / Studio / Star Catch → Battle scenes)
+- `js/game.js` — the game (Boot → Title → Map / Squad / Studio / Star Catch / Capsules → Battle scenes)
 - `js/audio.js` — all sounds & music are synthesized live with Web Audio (no audio files)
 - `js/toys.js` — toy types, elements, personalities and the hero generator (no AI text, just rules)
 - `js/toyworker.js` — on-device background removal + type guess (transformers.js, `vendor/tjs`)
@@ -30,6 +30,12 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - `sw.js`, `manifest.json` — offline + install
 
 ## Versions
+- **v0.6**
+  - **Difficulty: EASY / NORMAL / HARD** switch on the map (saved). Easy = softer rivals; Hard = tougher rivals and ×1.5 XP.
+  - **Rotate any time:** turning the phone/iPad rebuilds the game for the new orientation and puts you back where you were, even mid-duel (pep, used moves, dizzy, shields are kept).
+  - **Capsule machine:** turn the crank, a capsule rolls out, tap to open a surprise **booster** (10 kinds: common / rare / super rare).
+    Capsules come from first wins over each rival, every 3rd win and one free capsule a day. No shop, nothing to buy.
+    Before a duel you can pick one booster: Big Breakfast, Pillow Fort, Warm Milk, Lucky Star, Feather Storm, Snow Globe, Sleepy Moon, Rocket Start, Spare Heart, Super Star.
 - **v0.5** — ideas from our chief tester's survey:
   - **World 2: SPACE** (unlocks after Professor Hoot): Robo-Bop → Polandball → Boo the Space Ghost → boss **Giant Dragon Boss**. World tabs on the map.
   - **Inferno Rain**: the Dragon Boss gathers fire for a turn, then fireballs fall from the sky. Tap **BLOCK IT!** to grab the fire extinguisher:
@@ -46,5 +52,5 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - **v0.2** — Phaser rewrite of the pillow duel: particles, hit-stop, screen shake, synthesized sound, PWA.
 
 ## Roadmap
-- v0.6 Real-life quests & daily streak, sticker collection, ocean / Canada worlds
-- v0.7 Two players on one iPad, then online duels via link
+- v0.7 Real-life quests & daily streak, Ocean / Canada worlds
+- v0.8 Two players on one iPad, then online duels via link
