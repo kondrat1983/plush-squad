@@ -17,7 +17,9 @@
     // so there is no need to keep clear of it inside the page
     const sh = Math.max(screen.width, screen.height), sw = Math.min(screen.width, screen.height);
     const full = window.innerHeight > window.innerWidth ? sh : sw;
-    if (navigator.standalone) i.b = Math.max(0, i.b - Math.max(0, full - window.innerHeight));
+    i.dead = navigator.standalone ? Math.max(0, full - window.innerHeight) : 0;
+    if (i.dead < 8) i.dead = 0;
+    i.b = Math.max(0, i.b - i.dead);
     return i;
   }
   function main(RESUME) {
@@ -49,21 +51,33 @@
   function bottomGround(scene, key, sy, alpha) {
     const img = scene.add.image(W / 2, H + 40 + SB, key).setOrigin(0.5, 1);
     img.setScale(1, sy + SB / img.height); if (alpha != null) img.setAlpha(alpha);
+    bottomFade(scene);
     return img;
   }
-  // the page behind the canvas (iOS 26 web-app strip under the game, Safari toolbar) takes the colour of the scene's bottom edge
+  // iOS 26 home-screen web app: a strip under the page can't be drawn on (WebKit bug 301108), only coloured.
+  // The scene's bottom edge fades into one flat colour and the page behind gets the same colour, so the strip blends in.
+  const DEAD = INS.dead || 0, FADE = 260;
+  window.__psFadeCol = window.__psFadeCol || 0x1d2163;
+  function bottomFade(scene) {
+    if (!DEAD) return;
+    const f = scene.add.image(BLEED.cx, H + SB, 'fadeB').setOrigin(0.5, 1).setDisplaySize(GW + 8, FADE).setTint(window.__psFadeCol);
+    (scene._psFades = scene._psFades || []).push(f);
+  }
   function tintPage(game) {
     const r = game.renderer; if (!r || !r.snapshotPixel) return;
     try {
-      r.snapshotPixel(Math.round(GW * 0.04), GH - 2, c => {
+      // with the fade: sample just above it, at the right edge (the version label sits bottom-left)
+      r.snapshotPixel(DEAD ? GW - 6 : Math.round(GW * 0.04), DEAD ? GH - FADE - 6 : GH - 2, c => {
         if (!c) return;
-        const col = 'rgb(' + c.r + ',' + c.g + ',' + c.b + ')';
+        const n = (c.r << 16) | (c.g << 8) | c.b, col = 'rgb(' + c.r + ',' + c.g + ',' + c.b + ')';
         document.documentElement.style.background = col; document.body.style.background = col;
+        window.__psFadeCol = n;
+        game.scene.getScenes(true).forEach(sc => (sc._psFades || []).forEach(f => f.active && f.setTint(n)));
       });
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.7.3';
+  const VERSION = '0.7.4';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -208,6 +222,7 @@
       scene.tweens.add({ targets: cl, x: cl.x + W * 0.35, duration: sp * 2, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
     scene.time.addEvent({ delay: 4200, loop: true, callback: () => { if (Math.random() < 0.6) shootingStar(scene); } });
+    bottomFade(scene);
   }
   // Halloween world: bats flapping across, an orange glow, cobwebs in the corners
   function spookyDecor(scene) {
@@ -331,6 +346,9 @@
       const st = this.textures.createCanvas('streak', 240, 8), sx = st.getContext();
       const sg = sx.createLinearGradient(0, 0, 240, 0); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(1, 'rgba(255,255,255,1)');
       sx.fillStyle = sg; sx.beginPath(); sx.moveTo(0, 4); sx.lineTo(236, 0); sx.arc(236, 4, 4, -Math.PI / 2, Math.PI / 2); sx.closePath(); sx.fill(); st.refresh();
+      const fb = this.textures.createCanvas('fadeB', 4, 256), fx = fb.getContext(), fg = fx.createLinearGradient(0, 0, 0, 256);
+      fg.addColorStop(0, 'rgba(255,255,255,0)'); fg.addColorStop(0.55, 'rgba(255,255,255,0.75)'); fg.addColorStop(1, 'rgba(255,255,255,1)');
+      fx.fillStyle = fg; fx.fillRect(0, 0, 4, 256); fb.refresh();
       const gl = this.textures.createCanvas('glow', 400, 400), gx = gl.getContext();
       const rg = gx.createRadialGradient(200, 200, 0, 200, 200, 200); rg.addColorStop(0, 'rgba(255,220,120,0.55)'); rg.addColorStop(0.4, 'rgba(160,150,255,0.18)'); rg.addColorStop(1, 'rgba(120,120,255,0)');
       gx.fillStyle = rg; gx.fillRect(0, 0, 400, 400); gl.refresh();
@@ -1323,6 +1341,7 @@
       this.tweens.add({ targets: moon, angle: -6, y: moon.y + 12, duration: 2800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       const bg = this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), groundKey(this.world)).setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
       if (bg.y + bg.displayHeight < H + SB + 4) bg.setScale(1, (H + SB + 4 - bg.y) / bg.height); // reach the bottom edge
+      bottomFade(this);
       this.fireFx = this.add.rectangle(W / 2, H / 2, W, H, 0xff3b1f, 0).setDepth(5);
 
       this.feathers = this.add.particles(0, 0, 'feather', { emitting: false, speed: { min: 250, max: 750 }, angle: { min: 200, max: 340 }, gravityY: 900, lifespan: { min: 1100, max: 1700 }, rotate: { start: 0, end: 540 }, scale: { start: 0.7, end: 0.45 }, alpha: { start: 1, end: 0 } }).setDepth(20);
@@ -2477,7 +2496,7 @@
   });
   // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
   game.events.once('ready', () => game.scene.scenes.forEach(sc => {
-    sc.events.on('start', () => safeCam(sc));
+    sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
     sc.events.on('create', () => { safeCam(sc); emit('scene', { key: sc.scene.key }, sc); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
   window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
