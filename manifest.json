@@ -1,7 +1,7 @@
 {
   "name": "Plush Squad",
   "short_name": "Plush Squad",
-  "description": "Jack the plush dragon vs Timmy the Tiger — a pillow duel.",
+  "description": "Jack the plush dragon and your own toys in gentle pillow duels.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

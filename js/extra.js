@@ -232,7 +232,7 @@
           b.setSize(150, 150).setInteractive({ useHandCursor: true });
           b.on('pointerup', () => { d.costume = c.id; Save.store(); A.click(); this.scene.restart(); });
         });
-        if (owned.length === 1) txt(this, cx, yC + 190, PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat the Dragon Boss to win the Royal Crown!', 28, '#bcc0ee', { st: 5, weight: '500' });
+        if (owned.length === 1) txt(this, cx, yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat the Dragon Boss to win the Royal Crown!', 28, '#bcc0ee', { st: 5, weight: '500' });
         // account
         const yA = PORTRAIT ? H - 260 : H - 55;
         if (Net && Net.ready) {

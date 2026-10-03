@@ -3,14 +3,20 @@
   'use strict';
   // main() builds the whole game for the current screen orientation. On rotate the game is destroyed and
   // main() runs again with a snapshot (RESUME) of the scene the kid was in, so nothing is lost.
+  // the game box excludes the iPhone status bar / home bar (safe areas, see index.html)
+  function viewSize() {
+    const el = document.getElementById('game'), r = el && el.getBoundingClientRect();
+    return { w: Math.max((r && r.width) || window.innerWidth, 1), h: Math.max((r && r.height) || window.innerHeight, 1) };
+  }
   function main(RESUME) {
-  const PORTRAIT = window.innerHeight > window.innerWidth;
-  const ASPECT = Math.max(window.innerWidth, 1) / Math.max(window.innerHeight, 1);
+  const VIEW = viewSize();
+  const PORTRAIT = VIEW.h > VIEW.w;
+  const ASPECT = VIEW.w / VIEW.h;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const W = PORTRAIT ? 1080 : Math.round(clamp(1080 * ASPECT, 1440, 2340));
   const H = PORTRAIT ? Math.round(clamp(1080 / ASPECT, 1500, 2340)) : 1080;
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.7.1';
+  const VERSION = '0.7.2';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -455,7 +461,8 @@
     scene.cameras.main.fadeOut(320, 15, 18, 64);
     scene.cameras.main.once('camerafadeoutcomplete', () => {
       // the screen was rotated while we couldn't rebuild (e.g. in the toy studio): rebuild now, straight into the next scene
-      if ((window.innerHeight > window.innerWidth) !== PORTRAIT && window.__psRebuild) window.__psRebuild({ key, data: data || {} });
+      const v = viewSize();
+      if ((v.h > v.w) !== PORTRAIT && window.__psRebuild) window.__psRebuild({ key, data: data || {} });
       else scene.scene.start(key, data);
     });
   }
@@ -2422,7 +2429,7 @@
   // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
   game.events.once('ready', () => game.scene.scenes.forEach(sc => sc.events.on('create', () => emit('scene', { key: sc.scene.key }, sc))));
   window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
-  window.__psPortrait = PORTRAIT;
+  window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT;
   window.__psSnapshot = () => snapshot(game);
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)
   window.__psBlockRotate = () => game.scene.isActive('studio') || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName));
@@ -2441,8 +2448,10 @@
     clearTimeout(rotT);
     rotT = setTimeout(() => {
       if (!built) return;
-      const p = window.innerHeight > window.innerWidth;
-      if (p === window.__psPortrait) return;
+      // rebuild when the phone is rotated, or when the usable screen changes a lot
+      // (e.g. iOS home-screen web app settling its size after launch)
+      const v = viewSize(), p = v.h > v.w, a = v.w / v.h;
+      if (p === window.__psPortrait && Math.abs(a - window.__psAspect) / window.__psAspect < 0.06) return;
       if (window.__psBlockRotate && window.__psBlockRotate()) return; // fade() rebuilds on the next scene change
       rebuild();
     }, 300);
