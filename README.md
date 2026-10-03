@@ -1,6 +1,6 @@
 # Plush Squad 🐉🛏️
 
-A pillow duel starring **Jack** the plush dragon vs **Timmy the Tiger**.
+A pillow duel starring **Jack** the plush dragon, his rivals and your own toys.
 Pure HTML5 (Phaser 3), works in any browser, installs as an app (PWA) and plays offline.
 
 ## Play locally
@@ -21,7 +21,7 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 
 ## What's inside
 - `index.html` — page shell, PWA meta
-- `js/game.js` — the game (Boot → Title → Battle scenes)
+- `js/game.js` — the game (Boot → Title → Map / Squad / Studio / Star Catch → Battle scenes)
 - `js/audio.js` — all sounds & music are synthesized live with Web Audio (no audio files)
 - `js/toys.js` — toy types, elements, personalities and the hero generator (no AI text, just rules)
 - `js/toyworker.js` — on-device background removal + type guess (transformers.js, `vendor/tjs`)
@@ -30,6 +30,12 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - `sw.js`, `manifest.json` — offline + install
 
 ## Versions
+- **v0.5** — ideas from our chief tester's survey:
+  - **World 2: SPACE** (unlocks after Professor Hoot): Robo-Bop → Polandball → Boo the Space Ghost → boss **Giant Dragon Boss**. World tabs on the map.
+  - **Inferno Rain**: the Dragon Boss gathers fire for a turn, then fireballs fall from the sky. Tap **BLOCK IT!** to grab the fire extinguisher:
+    the rain turns to steam and the boss gets dizzy. Rivals with milk can block it too. Jack learns Inferno Rain at Lv5.
+  - **Harder rivals** as you level up (more pep, stronger hits, smarter choices), because the game was "too easy 😎".
+  - **Star Catch** mini-game: 30 seconds, catch stars (+1) and dumplings (+3), dodge pillows. Score = XP.
 - **v0.4** — **+ Toy**: take a photo of any plush → the background is removed on the device (ormbg, Apache-2.0) →
   "who is it?" is guessed on the device (MobileCLIP S0, Apple sample-code licence) from 44 types → a hero is built from rules:
   type → signature move, main colour → element move, a random personality → extra move, name you can edit.
@@ -40,5 +46,5 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - **v0.2** — Phaser rewrite of the pillow duel: particles, hit-stop, screen shake, synthesized sound, PWA.
 
 ## Roadmap
-- v0.5 Real-life quests & daily streak, sticker collection
-- v0.6 Two players on one iPad, then online duels via link
+- v0.6 Real-life quests & daily streak, sticker collection, ocean / Canada worlds
+- v0.7 Two players on one iPad, then online duels via link

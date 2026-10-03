@@ -84,6 +84,13 @@
     stomp() { this.tone(70, 0.6, { vol: 0.6, slide: 0.5 }); this.noise(0.5, { f: 200, vol: 0.5, slide: 0.4 }); },
     starDing(i) { this.tone(1047 * Math.pow(1.26, i), 0.4, { type: 'triangle', vol: 0.2 }); },
     spin() { this.noise(0.5, { f: 800, slide: 3, q: 2, vol: 0.25, attack: 0.05 }); },
+    laser() { for (let i = 0; i < 3; i++) this.tone(1800, 0.14, { type: 'square', vol: 0.07, slide: 0.25, delay: i * 0.11 }); },
+    beep() { [988, 659, 988, 1319].forEach((f, i) => this.tone(f, 0.1, { type: 'square', vol: 0.08, delay: i * 0.12 })); },
+    boo() { this.tone(260, 1.0, { type: 'sine', vol: 0.25, slide: 0.6, attack: 0.25 }); this.tone(390, 1.0, { type: 'triangle', vol: 0.08, slide: 0.55, attack: 0.3 }); this.noise(0.9, { f: 600, q: 4, vol: 0.12, attack: 0.3, slide: 0.5 }); },
+    fire() { this.noise(1.1, { type: 'lowpass', f: 900, vol: 0.45, attack: 0.25, slide: 0.4 }); this.tone(80, 1.0, { type: 'sawtooth', vol: 0.1, slide: 0.6, attack: 0.2 }); },
+    steam() { this.noise(0.9, { type: 'highpass', f: 2500, vol: 0.4, attack: 0.02, slide: 1.5 }); },
+    bounce() { this.tone(300, 0.18, { vol: 0.3, slide: 2.4 }); },
+    catchStar() { this.tone(1319 + Math.random() * 300, 0.18, { type: 'triangle', vol: 0.16 }); this.tone(1760, 0.2, { type: 'sine', vol: 0.08, delay: 0.05 }); },
     levelUp() { [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.2, delay: i * 0.09 })); },
 
     // ---- lullaby

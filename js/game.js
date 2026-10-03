@@ -1,4 +1,4 @@
-// Plush Squad v0.4 — Jack the plush dragon, his rivals and YOUR toys (+ Toy). Phaser 3.
+// Plush Squad v0.5 — Jack the plush dragon, his rivals, YOUR toys (+ Toy), the Space world and Star Catch. Phaser 3.
 (function () {
   'use strict';
   const PORTRAIT = window.innerHeight > window.innerWidth;
@@ -71,27 +71,44 @@
   function iconScale(key, size) { // scale so the icon is ~size px
     if (!key) return 1;
     if (key.startsWith('i:')) return size / 144;
-    const base = { pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
+    const base = { comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
     return size / base;
   }
 
   // ---------- shared scenery
-  function sky(scene) {
-    scene.add.image(W / 2, H / 2, 'sky');
+  const SPACE = 1;
+  function sky(scene, world = 0) {
+    const sp = world === SPACE;
+    scene.add.image(W / 2, H / 2, sp ? 'sky2' : 'sky');
     const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(0.55);
     scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    for (let i = 0; i < (PORTRAIT ? 70 : 90); i++) {
-      const s = scene.add.image(Math.random() * W, Math.random() * H * 0.62, 'dot')
+    for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : 1); i++) {
+      const s = scene.add.image(Math.random() * W, Math.random() * H * (sp ? 0.75 : 0.62), 'dot')
         .setScale(0.12 + Math.random() * 0.22).setTint(Math.random() < 0.3 ? C.star : 0xffffff).setAlpha(0.3 + Math.random() * 0.6);
       scene.tweens.add({ targets: s, alpha: 0.08, duration: 900 + Math.random() * 2200, yoyo: true, repeat: -1, delay: Math.random() * 2000, ease: 'Sine.inOut' });
     }
-    for (let i = 0; i < 5; i++) {
+    if (sp) spaceDecor(scene, scene.scene.key === 'battle' ? 15000 : 7000);
+    else for (let i = 0; i < 5; i++) {
       const cl = scene.add.image(Math.random() * W, H * (0.08 + Math.random() * 0.42), 'cloud')
         .setAlpha(0.13 + Math.random() * 0.12).setScale(0.8 + Math.random() * 1.3);
       const sp = 9000 + Math.random() * 12000;
       scene.tweens.add({ targets: cl, x: cl.x + W * 0.35, duration: sp * 2, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
     scene.time.addEvent({ delay: 4200, loop: true, callback: () => { if (Math.random() < 0.6) shootingStar(scene); } });
+  }
+  // Space world: a far planet, a drifting UFO and a rocket that zooms by now and then
+  function spaceDecor(scene, rocketEvery = 7000) {
+    const pl = scene.add.image(W * 0.12, H * (PORTRAIT ? 0.1 : 0.16), 'planet').setScale(0.7).setAlpha(0.55).setTint(0xc9b6ff);
+    scene.tweens.add({ targets: pl, angle: 360, duration: 60000, repeat: -1 });
+    const u = scene.add.image(-150, H * (PORTRAIT ? 0.33 : 0.3), 'ufo').setScale(0.42).setAlpha(0.8);
+    scene.tweens.add({ targets: u, x: W + 150, duration: 26000, repeat: -1, delay: 1500 });
+    scene.tweens.add({ targets: u, y: u.y - 40, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    scene.time.addEvent({ delay: rocketEvery, loop: true, callback: () => {
+      const y = H * (0.08 + Math.random() * 0.3);
+      const r = scene.add.image(W + 140, y, 'rocket').setScale(0.4).setAngle(-135).setAlpha(0.9);
+      const tr = scene.add.particles(0, 0, 'dot', { follow: r, frequency: 30, lifespan: 600, scale: { start: 0.35, end: 0 }, alpha: { start: 0.7, end: 0 }, tint: [0xffd23f, 0xff8a3d, 0xffffff], speed: 30 });
+      scene.tweens.add({ targets: r, x: -160, y: y + H * 0.15, duration: 3800, ease: 'Sine.inOut', onComplete: () => { tr.stop(); r.destroy(); scene.time.delayedCall(700, () => tr.destroy()); } });
+    } });
   }
   function shootingStar(scene) {
     const x = Math.random() * W * 0.7 + W * 0.1, y = Math.random() * H * 0.25;
@@ -139,7 +156,8 @@
       this.add.rectangle(W / 2, H / 2, 608, 34).setStrokeStyle(4, C.seam);
       this.load.on('progress', p => bar.width = 600 * p);
       ['jack_side', 'jack_upside', 'jack_front', 'tiger', 'cow', 'snake', 'owl', 'moon', 'cloud', 'zzz', 'snow', 'star', 'trophy', 'heart', 'sparkles',
-        'dumpling', 'milk', 'books', 'lock', 'dizzy', 'dance', 'crown', 'note', 'shield']
+        'dumpling', 'milk', 'books', 'lock', 'dizzy', 'dance', 'crown', 'note', 'shield',
+        'robot', 'ghost', 'dragonboss', 'polandball', 'planet', 'rocket', 'extinguisher', 'comet', 'ufo']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
     }
@@ -172,6 +190,12 @@
       const sk = this.textures.createCanvas('sky', W, H), cx = sk.getContext();
       const gr = cx.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#0f1240'); gr.addColorStop(0.55, '#262b7c'); gr.addColorStop(1, '#3a3f9e');
       cx.fillStyle = gr; cx.fillRect(0, 0, W, H); sk.refresh();
+      const sk2 = this.textures.createCanvas('sky2', W, H), cx2 = sk2.getContext();
+      const gr2 = cx2.createLinearGradient(0, 0, 0, H); gr2.addColorStop(0, '#05041a'); gr2.addColorStop(0.5, '#1c0f4d'); gr2.addColorStop(1, '#3b1d70');
+      cx2.fillStyle = gr2; cx2.fillRect(0, 0, W, H);
+      const neb = (x, y, r, col) => { const ng = cx2.createRadialGradient(x, y, 0, x, y, r); ng.addColorStop(0, col); ng.addColorStop(1, 'rgba(0,0,0,0)'); cx2.fillStyle = ng; cx2.fillRect(0, 0, W, H); };
+      neb(W * 0.75, H * 0.25, W * 0.35, 'rgba(255,90,180,0.16)'); neb(W * 0.2, H * 0.45, W * 0.3, 'rgba(90,200,255,0.12)');
+      sk2.refresh();
       const st = this.textures.createCanvas('streak', 240, 8), sx = st.getContext();
       const sg = sx.createLinearGradient(0, 0, 240, 0); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(1, 'rgba(255,255,255,1)');
       sx.fillStyle = sg; sx.beginPath(); sx.moveTo(0, 4); sx.lineTo(236, 0); sx.arc(236, 4, 4, -Math.PI / 2, Math.PI / 2); sx.closePath(); sx.fill(); st.refresh();
@@ -187,6 +211,17 @@
       for (let i = 1; i < 6; i++) { q.beginPath(); q.ellipse(GW / 2, RY + i * GH * 0.11, GW / 2 - i * 20, RY, 0, Math.PI, 0); q.stroke(); }
       for (let i = -8; i <= 8; i++) { q.beginPath(); q.moveTo(GW / 2 + i * GW * 0.035, GH * 0.02); q.lineTo(GW / 2 + i * GW * 0.11, GH); q.stroke(); }
       q.restore(); gt.refresh();
+      // moon-dust ground for the Space world
+      const gt2 = this.textures.createCanvas('ground2', GW, GH), q2 = gt2.getContext();
+      q2.save(); q2.beginPath(); q2.ellipse(GW / 2, RY, GW / 2, RY, 0, Math.PI, 0); q2.lineTo(GW, GH); q2.lineTo(0, GH); q2.closePath(); q2.clip();
+      const qg2 = q2.createLinearGradient(0, 0, 0, GH); qg2.addColorStop(0, '#a99ad8'); qg2.addColorStop(0.35, '#6a5aa8'); qg2.addColorStop(1, '#2d2463');
+      q2.fillStyle = qg2; q2.fillRect(0, 0, GW, GH);
+      for (let i = 0; i < 26; i++) {
+        const x = Math.random() * GW, y = RY * 0.5 + Math.random() * (GH - RY * 0.5), r = 20 + Math.random() * 70 * (0.4 + y / GH);
+        q2.fillStyle = 'rgba(40,28,100,0.35)'; q2.beginPath(); q2.ellipse(x, y, r, r * 0.38, 0, 0, Math.PI * 2); q2.fill();
+        q2.fillStyle = 'rgba(220,210,255,0.25)'; q2.beginPath(); q2.ellipse(x, y - r * 0.12, r * 0.8, r * 0.22, 0, Math.PI, 0); q2.fill();
+      }
+      q2.restore(); gt2.refresh();
       // load saved toy pictures, then go
       Promise.all(Save.data.toys.map(t => IDB.get(t.id).then(url => url && addTexture(this, 'toy_' + t.id, url)).catch(() => {})))
         .then(() => this.scene.start('title'), () => this.scene.start('title'));
@@ -204,6 +239,12 @@
     { k: 'dumpling', lvl: 2, uses: 2, title: 'Dumpling Snack', sub: '+20 pep', icon: 'dumpling', type: 'heal', tex: 'dumpling', amt: 20, log: 'Snack break! {a} gobbles a dumpling. Nom!' },
     { k: 'sixseven', lvl: 3, uses: 1, title: 'Six-Seven Dance', sub: 'rival gets dizzy', icon: 'dance', type: 'dance', log: '{a} busts out the SIX-SEVEN dance! {d} gets dizzy watching!' },
     { k: 'tailspin', lvl: 4, uses: 0, title: 'Tail Spin', sub: '3 hits × 5–9', icon: 'dizzy', type: 'multi', hits: 3, dmg: [5, 9], log: 'TAIL SPIN! {a} whirls like a plush tornado!' },
+    { k: 'inferno', lvl: 5, uses: 1, title: 'Inferno Rain', sub: '22–30 pep', icon: 'comet', type: 'rain', dmg: [22, 30], log: '{a} calls down INFERNO RAIN from the sky!' },
+  ];
+  // worlds (rivals are unlocked in order across all worlds)
+  const WORLDS = [
+    { name: 'PILLOW HILLS', icon: 'moon' },
+    { name: 'SPACE', icon: 'rocket' },
   ];
   const RIVALS = [
     { id: 'timmy', name: 'Timmy the Tiger', nick: 'Timmy', short: 'TIMMY', tex: 'tiger', scale: 2.0, color: C.orange, hp: 100, xp: 40,
@@ -226,9 +267,39 @@
         { type: 'dizzy', color: 0xffe08a, word: 'STARE...', uses: 2, w: 15, sound: 'hoot', log: '{a} gives {d} THE STARE...' },
         { type: 'heal', tex: 'milk', amt: 25, uses: 1, w: 10, log: '{a} sips some warm milk. Ahh.' },
         { type: 'roar', word: 'HOOT HOOT!', color: 0xffe08a, sound: 'hoot', dmg: [14, 22], w: 15, log: '{a} hoots so loud the moon wobbles!' }] },
+    // ---- World 2: SPACE
+    { id: 'robot', world: SPACE, name: 'Robo-Bop', nick: 'Robo-Bop', short: 'ROBO-BOP', tex: 'robot', color: 0x6ff7ff, hp: 135, xp: 110,
+      intro: 'Robo-Bop beeps: "TARGET: JACK. MODE: PILLOW FIGHT."', laugh: 'Robo-Bop laughed so hard his bolts popped out. BEEP... GG.',
+      moves: [{ type: 'spray', tex: 'spark', tint: [0x6ff7ff, 0xffffff], word: 'PEW PEW!', sound: 'laser', dmg: [12, 20], w: 35, log: '{a} fires the tickle laser at {d}!' },
+        { type: 'rush', word: 'CLANK!', dmg: [11, 19], w: 30, log: '{a} rolls in at full speed!' },
+        { type: 'roar', word: 'BEEP BOOP!', color: 0x6ff7ff, sound: 'beep', dmg: [13, 21], w: 15, log: '{a} plays the loudest BEEP in the galaxy!' },
+        { type: 'dance', words: ['BEEP!', 'BOOP!'], uses: 1, w: 12, log: '{a} does the robot dance! {d} gets dizzy watching!' },
+        { type: 'heal', tex: 'sparkles', amt: 22, uses: 1, w: 15, log: '{a} plugs in to recharge. Battery full!' }] },
+    { id: 'polandball', world: SPACE, name: 'Polandball', nick: 'Polandball', short: 'POLANDBALL', tex: 'polandball', color: 0xff4d6d, hp: 145, xp: 120,
+      intro: 'Polandball bounces: "Today I will into space! But first... YOU."', laugh: 'Polandball rolled away giggling: "Next time I into space, yes?"',
+      moves: [{ type: 'throw', tex: 'dumpling', dmg: [12, 19], w: 35, log: 'PIEROGI TOSS! {a} throws a hot pierogi at {d}!' },
+        { type: 'hop', word: 'BOUNCE BOUNCE!', dmg: [11, 20], w: 30, log: '{a} goes bounce bounce bounce!' },
+        { type: 'quake', jump: 1, word: 'CANNOT INTO SPACE!', sound: 'bounce', dmg: [15, 24], w: 20, uses: 2, log: '{a} tries to fly into space... CANNOT! Falls right on {d}!' },
+        { type: 'shield', w: 20, log: '{a} puts on a shiny hussar helmet. Next hit only does half!' }] },
+    { id: 'ghost', world: SPACE, name: 'Boo the Space Ghost', nick: 'Boo', short: 'BOO', tex: 'ghost', color: 0xd8e6ff, hp: 155, xp: 130, ghostly: true,
+      intro: 'Boo floats out of a crater: "Boooo! Are you scared yet, Jack?"', laugh: 'Boo giggled so hard he turned see-through. Bye-booo!',
+      moves: [{ type: 'roar', word: 'BOOOO!', color: 0xd8e6ff, sound: 'boo', dmg: [13, 22], w: 25, log: '{a} jumps out and yells BOO at {d}!' },
+        { type: 'spray', tex: 'dot', tint: [0x9dff9a, 0xd8ffd0], hitTint: 0x9dff9a, word: 'SLIME!', sound: 'whoosh', dmg: [12, 20], w: 30, log: '{a} sneezes space slime at {d}!' },
+        { type: 'dizzy', color: 0x9dff9a, word: 'SPOOKY...', uses: 2, w: 15, sound: 'boo', log: '{a} spins spooky circles... {d} feels wobbly!' },
+        { type: 'shield', w: 20, log: '{a} turns see-through. Next hit only does half!' },
+        { type: 'tickle', dmg: [6, 22], w: 20 }] },
+    { id: 'dragonboss', world: SPACE, name: 'Giant Dragon Boss', nick: 'Dragon Boss', short: 'DRAGON BOSS', tex: 'dragonboss', big: 1.15, ownCrown: true, color: 0xff8a3d, hp: 200, xp: 180, boss: true,
+      intro: 'The Giant Dragon Boss puffs smoke: "So YOU are the little dragon everyone talks about..."', laugh: 'The Dragon Boss laughed so hard he sneezed sparkles. Jack is the new champion!',
+      moves: [{ type: 'rain', charge: true, dmg: [24, 30], uses: 2, w: 35, log: '{a} rains fire from the sky!' },
+        { type: 'multi', hits: 3, dmg: [6, 10], w: 25, log: 'TAIL SPIN! {a} whirls like a giant tornado!' },
+        { type: 'roar', word: 'ROOOAR!', color: 0xff8a3d, sound: 'roar', dmg: [15, 23], w: 20, log: '{a} ROARS and the stars shake!' },
+        { type: 'spray', tex: 'i:fire', inhale: true, hitTint: 0xffb36b, word: 'ACHOO!', sound: 'sneeze', dmg: [14, 21], w: 20, log: 'Ah... ah... ACHOO! A fiery sneeze!' }] },
   ];
-  const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
+  const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
   const isUnlocked = i => i === 0 || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
+  const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
+  const worldOpen = w => RIVALS.some((r, i) => (r.world || 0) === w && isUnlocked(i));
+  const furthest = () => { let c = 0; RIVALS.forEach((r, i) => { if (isUnlocked(i)) c = i; }); return c; };
   const totalStars = () => RIVALS.reduce((s, r) => s + (Save.data.stars[r.id] || 0), 0);
   const toyById = id => Save.data.toys.find(t => t.id === id);
   const elColor = t => (TOYS.ELEMENTS[t.element] || TOYS.ELEMENTS.magic).color;
@@ -332,28 +403,33 @@
       this.tweens.add({ targets: tp, scale: 1.06, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       button(this, bx, byy + (PORTRAIT ? 150 : 150), PORTRAIT ? 480 : 420, 100, '+ ADD A TOY', C.cream, () => { A.init(); A.startMusic(); fade(this, 'studio'); }, { size: 40 });
       muteButton(this);
-      txt(this, 24, H - 26, 'v0.4.1', 24, '#6a72d6', { ox: 0, st: 0, shadow: false, weight: '500' });
+      txt(this, 24, H - 26, 'v0.5', 24, '#6a72d6', { ox: 0, st: 0, shadow: false, weight: '500' });
       this.input.keyboard && this.input.keyboard.once('keydown-SPACE', () => this.go());
     }
     go() { A.init(); A.startMusic(); A.whoosh(); fade(this, 'map'); }
   }
 
-  // ---------- Map: choose a rival
+  // ---------- Map: choose a world + rival
   class MapScene extends Phaser.Scene {
     constructor() { super('map'); }
+    init(data) { this.world = data && data.world != null ? data.world : worldOf(furthest()); if (!worldOpen(this.world)) this.world = 0; }
     create() {
       this._leaving = false;
+      const wd = this.world;
       this.cameras.main.fadeIn(350, 15, 18, 64);
-      sky(this);
-      this.add.image(W / 2, H + 40, 'ground').setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.45 : 0.5).setAlpha(0.8);
-      txt(this, W / 2, PORTRAIT ? 190 : 95, 'CHOOSE A RIVAL', PORTRAIT ? 76 : 70, '#fff3d2', { stroke: '#0f1240', st: 12 });
+      sky(this, wd);
+      this.add.image(W / 2, H + 40, wd === SPACE ? 'ground2' : 'ground').setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.45 : 0.5).setAlpha(0.8);
+      // world tabs
+      const ty = PORTRAIT ? 190 : 95, tw0 = PORTRAIT ? 420 : 440;
+      WORLDS.forEach((w, i) => this.tab(w, i, W / 2 + (i - (WORLDS.length - 1) / 2) * (tw0 + 30), ty, tw0));
       const lv = levelOf(Save.data.xp);
-      txt(this, W / 2, PORTRAIT ? 270 : 165, 'Level ' + lv.l + '  ·  ★ ' + totalStars() + ' / ' + RIVALS.length * 3, 34, '#ffd23f', { st: 6 });
+      txt(this, W / 2, PORTRAIT ? 285 : 180, 'Level ' + lv.l + '  ·  ★ ' + totalStars() + ' / ' + RIVALS.length * 3, 34, '#ffd23f', { st: 6 });
       const pts = PORTRAIT
         ? [[0.3, 0.8], [0.7, 0.64], [0.3, 0.48], [0.66, 0.3]].map(([x, y]) => [W * x, H * y])
-        : [[0.14, 0.66], [0.37, 0.4], [0.61, 0.66], [0.85, 0.4]].map(([x, y]) => [W * x, H * y]);
+        : [[0.14, 0.6], [0.37, 0.37], [0.61, 0.6], [0.85, 0.37]].map(([x, y]) => [W * x, H * y]);
+      const idx = RIVALS.map((r, i) => i).filter(i => worldOf(i) === wd);
       const g = this.add.graphics(); g.lineStyle(10, 0xfff3d2, 0.55);
-      for (let i = 0; i < pts.length - 1; i++) {
+      for (let i = 0; i < idx.length - 1; i++) {
         const [x1, y1] = pts[i], [x2, y2] = pts[i + 1]; const n = 14;
         for (let k = 0; k < n; k += 2) {
           const t1 = k / n, t2 = (k + 1) / n;
@@ -361,22 +437,50 @@
           g.lineBetween(bx(t1), by(t1), bx(t2), by(t2));
         }
       }
+      const far = furthest();
       let current = 0;
-      RIVALS.forEach((r, i) => { if (isUnlocked(i)) current = i; });
-      RIVALS.forEach((r, i) => this.node(r, i, pts[i][0], pts[i][1], isUnlocked(i), i === current));
-      // hero marker at current node
+      idx.forEach((ri, k) => { if (isUnlocked(ri)) current = k; });
+      idx.forEach((ri, k) => this.node(RIVALS[ri], ri, pts[k][0], pts[k][1], isUnlocked(ri), ri === far));
+      // hero marker at the furthest open node of this world
       const hero = heroDef(this);
       const [cx, cy] = pts[current];
-      const j = this.add.image(cx - (RIVALS[current].boss ? 130 : 110) - 80, cy + 40, hero.tex).setOrigin(0.5, 1).setDepth(5);
+      const nr = RIVALS[idx[current]].boss ? 130 : 110;
+      const j = this.add.image(cx - nr - 80 < 90 ? cx + nr + 80 : cx - nr - 80, cy + 40, hero.tex).setOrigin(0.5, 1).setDepth(5);
       j.setScale(Math.min(150 / j.height, 150 / j.width));
       this.tweens.add({ targets: j, y: j.y - 20, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      // squad button
-      const sx = PORTRAIT ? W / 2 : W - 200, sy = PORTRAIT ? H - 110 : H - 90;
-      const sq = button(this, sx, sy, 330, 110, 'MY SQUAD', C.cream, () => fade(this, 'squad'), { size: 44 });
+      // squad + mini-game buttons
+      const by = PORTRAIT ? H - 110 : H - 90;
+      const sq = button(this, PORTRAIT ? W * 0.73 : W - 200, by, 330, 110, 'MY SQUAD', C.cream, () => fade(this, 'squad'), { size: 44 });
       const face = this.add.image(-125, 0, hero.isJack ? 'jack_front' : hero.tex); face.setScale(Math.min(84 / face.height, 84 / face.width));
       sq.add(face); sq.list[1].x = 25;
+      const mg = button(this, PORTRAIT ? W * 0.27 : 220, by, 360, 110, 'STAR CATCH', C.mint, () => fade(this, 'catch', { world: wd }), { size: 42 });
+      const st = this.add.image(-140, 0, 'star').setScale(0.36); mg.add(st); mg.list[1].x = 28;
+      this.tweens.add({ targets: st, angle: 360, duration: 4000, repeat: -1 });
       backButton(this, () => fade(this, 'title'));
       muteButton(this);
+    }
+    tab(w, i, x, y, tw0) {
+      const open = worldOpen(i), on = i === this.world, h = 96;
+      const c = this.add.container(x, y).setDepth(6);
+      const g = this.add.graphics();
+      g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-tw0 / 2, -h / 2 + 8, tw0, h, h / 2);
+      g.fillStyle(on ? C.star : (open ? C.night2 : 0x161946)); g.fillRoundedRect(-tw0 / 2, -h / 2, tw0, h, h / 2);
+      g.lineStyle(5, on ? 0xffffff : C.seam); g.strokeRoundedRect(-tw0 / 2, -h / 2, tw0, h, h / 2);
+      const ic = this.add.image(-tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
+      const t = fit(txt(this, 26, 0, open ? w.name : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140);
+      c.add([g, ic, t]);
+      c.setSize(tw0, h).setInteractive({ useHandCursor: true });
+      c.on('pointerup', () => {
+        A.init();
+        if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); this.hint('Beat Professor Hoot to fly to SPACE!'); return; }
+        if (on) return;
+        A.click(); A.whoosh(); fade(this, 'map', { world: i });
+      });
+    }
+    hint(s) {
+      if (this._hint) this._hint.destroy();
+      const t = this._hint = txt(this, W / 2, PORTRAIT ? 360 : 250, s, 36, '#ff9ed8', { st: 7 }).setDepth(70);
+      this.tweens.add({ targets: t, alpha: 0, delay: 1800, duration: 500, onComplete: () => t.destroy() });
     }
     node(r, i, x, y, open, current) {
       const R = r.boss ? 130 : 110;
@@ -388,7 +492,7 @@
       g.lineStyle(8, stars > 0 ? C.star : (open ? C.cream : C.seam)); g.strokeCircle(0, 0, R);
       const im = this.add.image(0, 8, r.tex); im.setScale((R * 1.55) / Math.max(im.width, im.height));
       c.add([g, im]);
-      if (r.boss) c.add(this.add.image(0, -R - 10, 'crown').setScale(0.42));
+      if (r.boss && !r.ownCrown) c.add(this.add.image(0, -R - 10, 'crown').setScale(0.42));
       if (!open) { im.setTint(0x000000).setAlpha(0.75); c.add(this.add.image(0, 10, 'lock').setScale(0.42)); }
       c.add(fit(txt(this, 0, R + 46, open ? r.name : '???', 38, open ? '#fff3d2' : '#8a8fd6', { st: 7 }), 420));
       if (open) c.add(starRow(this, 0, R + 104, stars, 64, 70));
@@ -400,7 +504,7 @@
       c.setSize(R * 2, R * 2 + 120).setInteractive({ useHandCursor: true });
       c.on('pointerup', () => {
         A.init();
-        if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 14, duration: 60, yoyo: true, repeat: 3 }); return; }
+        if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 14, duration: 60, yoyo: true, repeat: 3 }); if (i > 0) this.hint('Beat ' + RIVALS[i - 1].name + ' first!'); return; }
         A.click(); A.whoosh(); fade(this, 'battle', { rival: i });
       });
     }
@@ -821,12 +925,19 @@
       const toy = this.data0.toy && toyById(this.data0.toy);
       if (toy) { this.rivalIdx = -1; this.R = Object.assign(toyDef(toy), { xp: 30, scale: null }); }
       else { this.rivalIdx = this.data0.rival || 0; this.R = RIVALS[this.rivalIdx]; }
+      this.world = this.R.world || 0;
     }
     create() {
       this._leaving = false;
       const R = this.R;
       this.cameras.main.fadeIn(400, 15, 18, 64);
-      sky(this);
+      sky(this, this.world);
+      const space = this.world === SPACE;
+      // difficulty grows with the player's level ("too easy!" said the chief tester)
+      const lvl = levelOf(Save.data.xp).l;
+      const hpMul = space ? clamp(1 + 0.05 * (lvl - 4), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4);
+      const dmgMul = space ? clamp(1 + 0.04 * (lvl - 4), 1, 1.2) : clamp(1 + 0.05 * (lvl - 1), 1, 1.3);
+      this.rHp = Math.round(R.hp * hpMul / 5) * 5;
       this.H = heroDef(this);
       this.moves = this.H.moves;
       // card layout
@@ -849,38 +960,52 @@
       const groundY = PORTRAIT ? Math.max(H * 0.5, top - 200) : (compact ? top - 80 : H * 0.68);
       this.groundY = groundY;
       const zoom = compact ? 0.82 : 1;
-      const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, 'moon').setScale(PORTRAIT ? 0.6 : 0.62 * zoom).setAlpha(0.95);
+      const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, space ? 'planet' : 'moon').setScale((PORTRAIT ? 0.6 : 0.62 * zoom) * (space ? 1.15 : 1)).setAlpha(0.95);
       this.tweens.add({ targets: moon, angle: -6, y: moon.y + 12, duration: 2800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), 'ground').setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
+      this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), space ? 'ground2' : 'ground').setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
+      this.fireFx = this.add.rectangle(W / 2, H / 2, W, H, 0xff3b1f, 0).setDepth(5);
 
       this.feathers = this.add.particles(0, 0, 'feather', { emitting: false, speed: { min: 250, max: 750 }, angle: { min: 200, max: 340 }, gravityY: 900, lifespan: { min: 1100, max: 1700 }, rotate: { start: 0, end: 540 }, scale: { start: 0.7, end: 0.45 }, alpha: { start: 1, end: 0 } }).setDepth(20);
       this.sparks = this.add.particles(0, 0, 'spark', { emitting: false, speed: { min: 300, max: 900 }, lifespan: 450, scale: { start: 0.9, end: 0 }, tint: [C.star, 0xffffff], blendMode: 'ADD' }).setDepth(21);
       this.heals = this.add.particles(0, 0, 'dot', { emitting: false, speedY: { min: -500, max: -200 }, speedX: { min: -80, max: 80 }, lifespan: 1000, scale: { start: 0.45, end: 0 }, tint: [0x7fe39a, 0xd7ffb0, 0xffffff], blendMode: 'ADD' }).setDepth(21);
       this.dust = this.add.particles(0, 0, 'dot', { emitting: false, speed: { min: 200, max: 600 }, angle: { min: 180, max: 360 }, gravityY: 500, lifespan: 800, scale: { start: 0.6, end: 0 }, alpha: { start: 0.7, end: 0 }, tint: [0xd8c7a3, 0xffffff] }).setDepth(19);
       this.notes = this.add.particles(0, 0, 'note', { emitting: false, speedY: { min: -400, max: -200 }, speedX: { min: -200, max: 200 }, lifespan: 1200, scale: { start: 0.25, end: 0.1 }, rotate: { min: -30, max: 30 }, alpha: { start: 1, end: 0 } }).setDepth(22);
+      this.steamP = this.add.particles(0, 0, 'dot', { emitting: false, speed: { min: 120, max: 420 }, angle: { min: 200, max: 340 }, lifespan: 900, scale: { start: 0.5, end: 1.3 }, alpha: { start: 0.85, end: 0 }, tint: [0xffffff, 0xdfe8ff, 0xc9d3f0] }).setDepth(28);
+      this.fireP = this.add.particles(0, 0, 'dot', { emitting: false, speed: { min: 200, max: 650 }, lifespan: 500, scale: { start: 0.55, end: 0 }, tint: [0xff6b2b, 0xffd23f, 0xff3b1f], blendMode: 'ADD' }).setDepth(28);
       this.confetti = this.add.particles(0, 0, 'conf', { emitting: false, speed: { min: 500, max: 1300 }, angle: { min: 230, max: 310 }, gravityY: 1100, lifespan: 2600, rotate: { min: 0, max: 360 }, scaleX: { start: 1, end: 0.2 }, tint: [0xff6b5b, 0xffd23f, 0x7fd6c2, 0x9aa2ff, 0xff9ed8] }).setDepth(40);
 
       // fighters
       const fitScale = (key, hTarget, wMax) => { const f = this.textures.get(key).getSourceImage(); return Math.min(hTarget / f.height, wMax / f.width); };
       const hT = (PORTRAIT ? 520 : 465) * zoom, wM = (PORTRAIT ? 470 : 540) * zoom;
       const heroScale = this.H.isJack ? (PORTRAIT ? 0.9 : 0.8) * zoom : fitScale(this.H.tex, hT, wM);
-      const rivScale = R.scale ? R.scale * (PORTRAIT ? 1.1 : 1) * zoom : fitScale(R.tex, hT, wM);
+      const rivScale = (R.scale ? R.scale * (PORTRAIT ? 1.1 : 1) * zoom : fitScale(R.tex, hT, wM)) * (PORTRAIT ? 1 : (R.big || 1));
       this.hero = this.fighter(W * (PORTRAIT ? 0.27 : 0.28), groundY, this.H.tex, heroScale, 1, this.H.hp, false);
-      this.rival = this.fighter(W * (PORTRAIT ? 0.74 : 0.72), groundY, R.tex, rivScale, -1, R.hp, !!R.isToy);
+      this.rival = this.fighter(W * (PORTRAIT ? 0.74 : 0.72), groundY, R.tex, rivScale, -1, this.rHp, !!R.isToy);
+      if (R.ghostly) this.tweens.add({ targets: this.rival.spr, alpha: 0.6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.hero.name = this.H.name; this.hero.napTex = this.H.napTex; this.hero.isJack = this.H.isJack;
       this.rival.name = R.nick || R.name;
-      this.rmoves = R.moves.map((m, i) => Object.assign({ k: 'r' + i, w: DEF_W[m.type] || 20 }, m));
+      this.rmoves = R.moves.map((m, i) => {
+        const o = Object.assign({ k: 'r' + i, w: DEF_W[m.type] || 20 }, m);
+        if (o.dmg) o.dmg = o.dmg.map(v => Math.round(v * dmgMul));
+        if (o.amt) o.amt = Math.round(o.amt * hpMul);
+        return o;
+      });
 
       const hy = PORTRAIT ? 200 : 150;
       this.hero.bar = this.hpBar(W * 0.27, hy, this.H.short, this.H.color, this.H.hp);
-      this.rival.bar = this.hpBar(W * 0.73, hy, R.short, R.color, R.hp);
+      this.rival.bar = this.hpBar(W * 0.73, hy, R.short, R.color, this.rHp);
       const vs = txt(this, W / 2, hy + 10, 'VS', PORTRAIT ? 56 : 72, '#ffd23f', { stroke: '#0f1240', st: 12 });
       this.tweens.add({ targets: vs, scale: 1.12, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       const intro = (R.intro || '').replace(/Jack/g, this.H.name);
       this.logT = txt(this, W / 2, groundY + (PORTRAIT ? 90 : (compact ? 42 : 55)), intro, 34, '#fff3d2', { st: 6, wrap: W * 0.9 });
 
       this.moves.forEach((m, i) => { m.card = this.actionCard(rects[i].x, rects[i].y, rects[i].w, rects[i].h, m); });
-      backButton(this, () => { if (!this.busy || this.over) fade(this, this.rivalIdx < 0 ? 'squad' : 'map'); });
+      // the fire extinguisher button: appears while a rival is gathering fire
+      const bby = PORTRAIT ? Math.max(330, groundY - hT - 90) : Math.max(280, groundY - hT - 75);
+      const bb = this.blockBtn = button(this, W / 2, bby, PORTRAIT ? 420 : 400, 120, 'BLOCK IT!', C.coral, () => this.playerBlock(), { size: 50, color: '#fff3d2' }).setDepth(35).setVisible(false);
+      const ex = this.add.image(-(PORTRAIT ? 210 : 200) + 10, -10, 'extinguisher').setScale(0.55).setAngle(-12); bb.add(ex); bb.list[1].x = 40;
+      this.tweens.add({ targets: bb, scale: 1.08, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      backButton(this, () => { if (!this.busy || this.over) fade(this, this.rivalIdx < 0 ? 'squad' : 'map', { world: this.world }); });
       muteButton(this);
       this.over = false; this.busy = false;
       this.banner('YOUR TURN', C.star);
@@ -972,7 +1097,10 @@
       };
       return c;
     }
-    setCards(on) { this.moves.forEach(m => m.card.refresh(on && !this.over)); }
+    setCards(on) {
+      this.moves.forEach(m => m.card.refresh(on && !this.over));
+      if (this.blockBtn) this.blockBtn.setVisible(!!(on && !this.over && this.rival.charging));
+    }
     log(s) {
       this.logT.setText(s);
       this.tweens.add({ targets: this.logT, scale: { from: 1.12, to: 1 }, alpha: { from: 0.4, to: 1 }, duration: 260, ease: 'Back.out' });
@@ -1011,7 +1139,7 @@
       target.spr.setTintFill(0xffffff);
       this.time.delayedCall(90, () => target.spr.clearTint());
       this.sparks.explode(crit ? 26 : (quiet ? 8 : 14), p.x, p.y);
-      if (kind !== 'roar') this.feathers.explode(quiet ? 5 : 8 + Math.round(dmg / 2), p.x, p.y - 20);
+      if (kind !== 'roar' && kind !== 'fire') this.feathers.explode(quiet ? 5 : 8 + Math.round(dmg / 2), p.x, p.y - 20);
       const ring = this.add.image(p.x, p.y, 'ring').setDepth(22).setScale(0.3).setAlpha(0.9);
       this.tweens.add({ targets: ring, scale: crit ? 2.6 : 1.8, alpha: 0, duration: 380, ease: 'Quad.out', onComplete: () => ring.destroy() });
       this.cameras.main.shake(crit ? 320 : 180, crit ? 0.014 : (quiet ? 0.004 : 0.006));
@@ -1128,7 +1256,8 @@
           const cone = this.add.particles(f.x, f.y, atlas ? 'icons' : tex, cfg).setDepth(26);
           await wait(this, 420); cone.stop(); this.time.delayedCall(800, () => cone.destroy());
           await this.impact(def, d, 'spray');
-          if (tex === 'snow') { def.spr.setTint(0x9fdcff); this.time.delayedCall(1100, () => def.spr.clearTint()); }
+          const ht = m.hitTint || (tex === 'snow' ? 0x9fdcff : 0);
+          if (ht) { def.spr.setTint(ht); this.time.delayedCall(1100, () => def.spr.clearTint()); }
           break;
         }
         case 'nap': {
@@ -1164,8 +1293,9 @@
           const sx = att.root.x;
           for (let i = 0; i < 4; i++) {
             this.notes.explode(3, att.root.x, att.root.y - att.height() * 0.8);
-            if (i === 1) this.popWord(att.root.x - 60, att.root.y - att.height() - 40, 'SIX!', '#ff9ed8', 90, -10);
-            if (i === 3) this.popWord(att.root.x + 80, att.root.y - att.height() - 40, 'SEVEN!', '#7fd6c2', 90, 10);
+            const wd = m.words || ['SIX!', 'SEVEN!'];
+            if (i === 1) this.popWord(att.root.x - 60, att.root.y - att.height() - 40, wd[0], '#ff9ed8', 90, -10);
+            if (i === 3) this.popWord(att.root.x + 80, att.root.y - att.height() - 40, wd[1], '#7fd6c2', 90, 10);
             await tw(this, { targets: att.root, x: sx + (i % 2 ? 40 : -40), y: this.groundY - 60, angle: i % 2 ? 12 : -12, duration: 170, ease: 'Quad.out' });
             await tw(this, { targets: att.root, y: this.groundY, duration: 140, ease: 'Quad.in' });
           }
@@ -1194,6 +1324,22 @@
         }
         case 'quake': {
           this.sfx(m.sound || 'stomp');
+          if (m.jump) {
+            // "Cannot into space!": rockets up off the screen, wobbles... and falls right onto the target
+            this.tweens.add({ targets: att.squash, scaleX: 0.85, scaleY: 1.15, duration: 200, yoyo: true });
+            await tw(this, { targets: att.root, y: -200, duration: 650, ease: 'Quad.out' });
+            this.popWord(W / 2, PORTRAIT ? H * 0.2 : H * 0.18, m.word || 'CANNOT!', '#ff4d6d', 84, -6);
+            A.dizzy(); await wait(this, 750);
+            att.root.x = def.root.x; att.root.y = -250;
+            await tw(this, { targets: att.root, y: def.root.y - def.height() * 0.6, angle: 360, duration: 420, ease: 'Quad.in' });
+            att.root.setAngle(0);
+            this.tweens.add({ targets: def.squash, scaleX: 1.3, scaleY: 0.65, duration: 120, yoyo: true });
+            await this.impact(def, d, 'roar');
+            A.bounce();
+            await tw(this, { targets: att.root, x: att.home, y: this.groundY - 260, duration: 300, ease: 'Quad.out' });
+            await tw(this, { targets: att.root, y: this.groundY, duration: 220, ease: 'Bounce.out' });
+            break;
+          }
           await tw(this, { targets: att.root, y: this.groundY - 220, duration: 320, ease: 'Quad.out' });
           await tw(this, { targets: att.root, y: this.groundY, duration: 180, ease: 'Quad.in' });
           A.stomp(); buzz(90);
@@ -1212,6 +1358,7 @@
           await this.impact(def, d);
           att.squash.setScale(1); await this.back(att); break;
         }
+        case 'rain': await this.rain(m, att, def, d); break;
         case 'hop': {
           const sx = att.root.x, tx = def.root.x - att.dir * (PORTRAIT ? 330 : 400);
           for (let i = 1; i <= 3; i++) {
@@ -1220,7 +1367,7 @@
             await tw(this, { targets: att.root, y: this.groundY, duration: 150, ease: 'Quad.in' });
             this.tweens.add({ targets: att.squash, scaleX: 1.15, scaleY: 0.85, duration: 80, yoyo: true });
           }
-          this.popWord(def.center().x, def.center().y - 220, 'BOING!', '#7fd6c2', 84, -8);
+          this.popWord(def.center().x, def.center().y - 220, m.word || 'BOING!', '#7fd6c2', 84, -8);
           await this.impact(def, d); await this.back(att); break;
         }
         case 'volley': {
@@ -1246,6 +1393,10 @@
       P.used[k] = (P.used[k] || 0) + 1;
       await this.doMove(m, P, T);
       if (this.checkEnd()) return;
+      await this.afterPlayer();
+    }
+    async afterPlayer() {
+      const P = this.hero;
       await this.rivalTurn();
       if (this.checkEnd()) return;
       await wait(this, 250);
@@ -1264,18 +1415,26 @@
       this.busy = false; this.setCards(true);
     }
     async rivalTurn() {
+      await this.rivalTurn0();
+      if (!this.rival.charging) this.dropExtinguisher();
+    }
+    async rivalTurn0() {
       const T = this.rival;
       await wait(this, 450);
       this.banner(T.name.toUpperCase() + '\'S TURN', this.R.color === 0xf2f2f7 ? C.cream : this.R.color);
       await wait(this, 1100);
       if (T.dizzy) {
         T.dizzy = false; this.setStatus(T);
-        this.log(T.name + ' is too dizzy to move!'); A.dizzy();
+        if (T.charging) { this.endCharge(T); this.log(T.name + ' is too dizzy... the fire fizzles out!'); A.steam(); }
+        else this.log(T.name + ' is too dizzy to move!');
+        A.dizzy();
         await tw(this, { targets: T.root, angle: { from: -12, to: 12 }, duration: 180, yoyo: true, repeat: 2, onComplete: () => T.root.setAngle(0) });
         await wait(this, 500); return;
       }
+      if (T.charging) { await this.doMove(T.charging, T, this.hero); return; }
       const m = this.pickMove();
       T.used[m.k] = (T.used[m.k] || 0) + 1; T.lastType = m.type;
+      if (m.charge) { await this.startCharge(m, T); return; }
       await this.doMove(m, T, this.hero);
     }
     pickMove() {
@@ -1285,12 +1444,127 @@
         if (m.type === 'heal' || m.type === 'nap') return T.hp < T.max * 0.65;
         if (m.type === 'shield') return !T.shield;
         if (m.type === 'dizzy' || m.type === 'dance') return !P.dizzy && T.lastType !== m.type;
+        if (m.charge) return T.lastType !== m.type;
         return true;
       });
-      const pool = ok.length ? ok : this.rmoves.filter(m => m.dmg);
-      const sum = pool.reduce((s, m) => s + m.w, 0); let r = Math.random() * sum;
-      for (const m of pool) { r -= m.w; if (r <= 0) return m; }
+      const pool = ok.length ? ok : this.rmoves.filter(m => m.dmg && !m.charge);
+      // a little smarter: go for the finish, avoid hitting a shield, heal when really low
+      const wOf = m => {
+        let w = m.w;
+        if (m.dmg && !m.charge && P.hp <= m.dmg[0] && !P.shield) w *= 4;
+        if (m.dmg && P.shield) w *= 0.5;
+        if ((m.type === 'heal' || m.type === 'nap') && T.hp < T.max * 0.35) w *= 2.5;
+        return w;
+      };
+      const sum = pool.reduce((s, m) => s + wOf(m), 0); let r = Math.random() * sum;
+      for (const m of pool) { r -= wOf(m); if (r <= 0) return m; }
       return pool[0];
+    }
+
+    // ---- Inferno Rain: a rival gathers fire for a turn, then fireballs fall from the sky.
+    // Block it with the fire extinguisher (or, for rivals, with milk!)
+    async startCharge(m, T) {
+      T.charging = m;
+      this.log(T.name + ' takes a deep breath... the sky turns red! INFERNO RAIN is coming! Tap BLOCK IT!');
+      A.inhale(); this.time.delayedCall(350, () => A.fire());
+      this.tweens.add({ targets: this.fireFx, fillAlpha: 0.3, duration: 600 });
+      this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: 0.14, duration: 700, yoyo: true, repeat: -1, delay: 600 });
+      T.spr.setTint(0xffb08a);
+      this.embers = this.add.particles(0, 0, 'dot', { x: { min: T.root.x - 150, max: T.root.x + 150 }, y: T.root.y - 20, speedY: { min: -520, max: -260 }, speedX: { min: -60, max: 60 }, lifespan: 1100, scale: { start: 0.35, end: 0 }, tint: [0xff6b2b, 0xffd23f, 0xff3b1f], blendMode: 'ADD', frequency: 40 }).setDepth(12);
+      await tw(this, { targets: T.squash, scaleX: 1.12, scaleY: 1.12, duration: 600, ease: 'Sine.in' });
+      this.popWord(T.center().x, T.center().y - 240, 'GATHERING FIRE...', '#ff8a3d', 64, 6);
+      await tw(this, { targets: T.squash, scaleX: 1, scaleY: 1, duration: 300 });
+      await wait(this, 600);
+    }
+    endCharge(T) {
+      T.charging = null; T.spr.clearTint();
+      if (this.chargeTw) { this.chargeTw.stop(); this.chargeTw = null; }
+      if (this.embers) { const e = this.embers; e.stop(); this.time.delayedCall(1200, () => e.destroy()); this.embers = null; }
+      this.tweens.add({ targets: this.fireFx, fillAlpha: 0, duration: 500 });
+    }
+    async playerBlock() {
+      if (this.busy || this.over || !this.rival.charging) return;
+      this.busy = true; this.setCards(false);
+      const P = this.hero;
+      P.blocker = true;
+      this.log(P.name + ' grabs the fire extinguisher. Bring it on!');
+      A.block(); buzz(30);
+      const c = P.center();
+      const ex = this.extHold = this.add.image(c.x + 110, c.y + 30, 'extinguisher').setDepth(27).setScale(0).setAngle(-15);
+      await tw(this, { targets: ex, scale: 0.55, duration: 320, ease: 'Back.out' });
+      this.extTw = this.tweens.add({ targets: ex, angle: 5, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      this.popWord(c.x, c.y - 260, 'READY!', '#9fdcff', 84, -6);
+      await wait(this, 800);
+      await this.afterPlayer();
+    }
+    dropExtinguisher() {
+      this.hero.blocker = false;
+      if (this.extTw) { this.extTw.stop(); this.extTw = null; }
+      if (this.extHold) { const e = this.extHold; this.extHold = null; this.tweens.add({ targets: e, scale: 0, duration: 250, onComplete: () => e.destroy() }); }
+    }
+    async rain(m, att, def, d) {
+      A.fire(); buzz(80);
+      this.tweens.add({ targets: this.fireFx, fillAlpha: 0.28, duration: 300 });
+      this.popWord(W / 2, PORTRAIT ? H * 0.22 : H * 0.2, 'INFERNO RAIN!', '#ff8a3d', 100, -4);
+      // who blocks? the hero holding the extinguisher, or a rival who still has milk
+      let block = null;
+      if (def.blocker) block = 'ext';
+      else if (def === this.rival) {
+        const mk = this.rmoves.find(x => x.type === 'heal' && x.tex === 'milk' && !(x.uses && (def.used[x.k] || 0) >= x.uses));
+        if (mk) { block = 'milk'; def.used[mk.k] = (def.used[mk.k] || 0) + 1; }
+      }
+      const c = def.center(), topY = def.root.y - def.height() - 120;
+      let tool = null, foam = null;
+      if (block) {
+        tool = block === 'ext' && this.extHold ? this.extHold : this.add.image(c.x + def.dir * 110, c.y + 30, block === 'ext' ? 'extinguisher' : 'milk').setDepth(27).setScale(0.55);
+        if (this.extTw) { this.extTw.stop(); this.extTw = null; }
+        this.extHold = null;
+        this.tweens.add({ targets: tool, angle: -def.dir * 25, y: tool.y - 30, duration: 200 });
+        foam = this.add.particles(0, 0, 'dot', { x: { min: c.x - 120, max: c.x + 120 }, y: tool.y - 120, speedY: { min: -1100, max: -700 }, speedX: { min: -240, max: 240 }, lifespan: 520, scale: { start: 0.45, end: 1.1 }, alpha: { start: 0.9, end: 0 }, tint: block === 'ext' ? [0xffffff, 0xe6f4ff] : [0xffffff, 0xfff6dc], frequency: 10 }).setDepth(26);
+        A.steam();
+        this.popWord(c.x, c.y - 120, block === 'ext' ? 'FOAM!' : 'MILK SPLASH!', '#ffffff', 70, 6);
+      }
+      const n = 5, per = Math.ceil(d / n); let dealt = 0;
+      for (let i = 0; i < n; i++) {
+        const tx = c.x + rnd(-140, 140), ty = c.y + rnd(-70, 50);
+        const sx = tx + 320 + rnd(-40, 40), sy = -150;
+        const ex = block ? sx + (tx - sx) * ((topY - sy) / (ty - sy)) : tx, ey = block ? topY + rnd(-40, 30) : ty;
+        const fb = this.add.image(sx, sy, 'comet').setDepth(25).setScale(0.6);
+        fb.setAngle(Phaser.Math.RadToDeg(Math.atan2(ey - sy, ex - sx)) - 135);
+        const trail = this.add.particles(0, 0, 'dot', { follow: fb, frequency: 25, lifespan: 380, scale: { start: 0.45, end: 0 }, tint: [0xff6b2b, 0xffd23f], blendMode: 'ADD', speed: 40 }).setDepth(24);
+        A.whoosh();
+        await tw(this, { targets: fb, x: ex, y: ey, duration: 300, ease: 'Quad.in' });
+        trail.stop(); this.time.delayedCall(500, () => trail.destroy());
+        fb.destroy();
+        if (block) {
+          this.steamP.explode(14, ex, ey); this.fireP.explode(6, ex, ey);
+          if (i % 2 === 0) A.steam();
+          this.popWord(ex + rnd(-40, 40), ey - 40, 'PSSH!', '#e6f4ff', 58, rnd(-12, 12));
+          await wait(this, 160);
+        } else {
+          const dmg = i < n - 1 ? Math.min(per, d - dealt) : Math.max(1, d - dealt); dealt += dmg;
+          this.fireP.explode(18, ex, ey);
+          def.spr.setTint(0xffb36b); this.time.delayedCall(500, () => def.spr.clearTint());
+          if (dmg > 0) await this.impact(def, dmg, 'fire', true);
+          if (def.hp <= 0) break;
+        }
+      }
+      if (att.charging) this.endCharge(att); else this.tweens.add({ targets: this.fireFx, fillAlpha: 0, duration: 600 });
+      if (block) {
+        foam.stop(); this.time.delayedCall(700, () => foam.destroy());
+        this.tweens.add({ targets: tool, scale: 0, alpha: 0, duration: 300, delay: 300, onComplete: () => tool.destroy() });
+        this.popWord(c.x, topY - 80, 'PSSHHHH!', '#e6f4ff', 100, -6);
+        this.steamP.explode(40, c.x, topY);
+        if (block === 'ext') {
+          def.blocker = false;
+          this.log(def.name + ' blocked the Inferno Rain! ' + att.name + ' is all steamed up!');
+          await wait(this, 500);
+          await this.makeDizzy(def, att, 0x9fdcff, 'STEAMED!');
+        } else {
+          this.log(def.name + ' splashes milk on the fire! PSSHHH! Blocked!');
+          await wait(this, 900);
+        }
+      }
     }
     checkEnd() {
       if (this.rival.hp <= 0) { this.finish(true); return true; }
@@ -1300,6 +1574,8 @@
     async finish(won) {
       this.over = true; this.busy = true; this.setCards(false);
       const P = this.hero, T = this.rival;
+      if (T.charging) this.endCharge(T);
+      this.dropExtinguisher();
       if (won) {
         this.log((this.R.laugh || (T.name + ' giggled so hard they gave up.')) + ' ' + P.name + ' wins!');
         await tw(this, { targets: T.root, angle: 28 * -T.dir, duration: 380, ease: 'Back.out' });
@@ -1357,7 +1633,8 @@
       p.add([xpT, lvT, barBg, bar, note]);
       const notes = [];
       if (firstClear) notes.push('First win bonus +20 XP');
-      if (unlockedNext) notes.push('New rival unlocked: ' + RIVALS[nextIdx].name + '!');
+      if (unlockedNext && worldOf(nextIdx) !== this.world) notes.push('NEW WORLD: ' + WORLDS[worldOf(nextIdx)].name + '! Rival: ' + RIVALS[nextIdx].name);
+      else if (unlockedNext) notes.push('New rival unlocked: ' + RIVALS[nextIdx].name + '!');
       if (newMoves.length && this.hero.isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
       note.setText(notes.join('\n')); if (notes.length > 1) note.setFontSize(30);
       const by = T0 + (PORTRAIT ? 860 : 845);
@@ -1365,7 +1642,7 @@
         ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: nextIdx })]
         : ['REMATCH', () => fade(this, 'battle', this.data0)];
       p.add(button(this, PORTRAIT ? 0 : -215, by, 390, 120, primary[0], C.star, primary[1], { size: 46 }));
-      p.add(button(this, PORTRAIT ? 0 : 215, PORTRAIT ? by + 150 : by, 390, 120, isCampaign ? 'MAP' : 'SQUAD', C.cream, () => fade(this, isCampaign ? 'map' : 'squad'), { size: 46 }));
+      p.add(button(this, PORTRAIT ? 0 : 215, PORTRAIT ? by + 150 : by, 390, 120, isCampaign ? 'MAP' : 'SQUAD', C.cream, () => fade(this, isCampaign ? 'map' : 'squad', { world: this.world }), { size: 46 }));
       this.tweens.add({ targets: p, scale: 1, duration: 420, ease: 'Back.out' });
       for (let i = 0; i < stars && sr.length; i++) {
         this.time.delayedCall(600 + i * 280, () => {
@@ -1392,6 +1669,158 @@
     }
   }
 
+  // ---------- Star Catch: 30-second mini-game
+  class CatchScene extends Phaser.Scene {
+    constructor() { super('catch'); }
+    init(data) { this.world = (data && data.world) || 0; }
+    create() {
+      this._leaving = false;
+      this.cameras.main.fadeIn(350, 15, 18, 64);
+      sky(this, this.world);
+      this.add.image(W / 2, H + 40, this.world === SPACE ? 'ground2' : 'ground').setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.35 : 0.45).setAlpha(0.9);
+      const hero = heroDef(this);
+      this.groundY = H - (PORTRAIT ? 120 : 70);
+      this.sh = this.add.image(W / 2, this.groundY + 4, 'shadow').setScale(0.9, 0.8).setDepth(9);
+      this.p = this.add.image(W / 2, this.groundY, hero.isJack ? 'jack_front' : hero.tex).setOrigin(0.5, 1).setDepth(10);
+      const ps = PORTRAIT ? 300 : 280;
+      this.pScale = Math.min(ps / this.p.height, ps / this.p.width); this.p.setScale(this.pScale);
+      this.tx = W / 2; this.vx = 0; this.stun = 0;
+      this.items = []; this.score = 0; this.left = 30; this.running = false; this.spawnT = 0; this.elapsed = 0;
+      this.sparks = this.add.particles(0, 0, 'spark', { emitting: false, speed: { min: 200, max: 600 }, lifespan: 450, scale: { start: 0.7, end: 0 }, tint: [C.star, 0xffffff], blendMode: 'ADD' }).setDepth(21);
+      this.feathers = this.add.particles(0, 0, 'feather', { emitting: false, speed: { min: 250, max: 650 }, angle: { min: 200, max: 340 }, gravityY: 900, lifespan: 1200, rotate: { start: 0, end: 540 }, scale: { start: 0.6, end: 0.4 }, alpha: { start: 1, end: 0 } }).setDepth(20);
+      this.confetti = this.add.particles(0, 0, 'conf', { emitting: false, speed: { min: 500, max: 1300 }, angle: { min: 230, max: 310 }, gravityY: 1100, lifespan: 2600, rotate: { min: 0, max: 360 }, tint: [0xff6b5b, 0xffd23f, 0x7fd6c2, 0x9aa2ff, 0xff9ed8] }).setDepth(70);
+      // HUD
+      const hy = PORTRAIT ? 200 : 80;
+      this.add.image(W / 2 - 70, hy, 'star').setScale(0.36).setDepth(30);
+      this.scoreT = txt(this, W / 2 - 10, hy, '0', 80, '#ffd23f', { ox: 0, st: 12 }).setDepth(30);
+      this.timeT = txt(this, PORTRAIT ? W / 2 : W - 220, PORTRAIT ? hy + 100 : hy, '30', 64, '#fff3d2', { st: 10 }).setDepth(30);
+      backButton(this, () => fade(this, 'map', { world: this.world }));
+      muteButton(this);
+      // controls: drag / tap anywhere, or arrow keys
+      const aim = p => { if (p.y > (PORTRAIT ? 260 : 150)) this.tx = clamp(p.x, 80, W - 80); };
+      this.input.on('pointerdown', aim); this.input.on('pointermove', aim);
+      this.keys = this.input.keyboard && this.input.keyboard.createCursorKeys();
+      this.intro();
+    }
+    async intro() {
+      const c = this.add.container(W / 2, H * 0.42).setDepth(60);
+      const pw = PORTRAIT ? 900 : 1000, ph = PORTRAIT ? 760 : 620;
+      c.add(panel(this, 0, 0, pw, ph, C.night2, 0));
+      c.add(txt(this, 0, -ph / 2 + 100, 'STAR CATCH!', 90, '#ffd23f', { stroke: '#0f1240', st: 14 }));
+      const rows = [['star', '+1', '#ffd23f'], ['dumpling', '+3', '#7fe39a'], ['pillow', 'OUCH! -2', '#ff6b5b']];
+      rows.forEach(([k, l, col], i) => {
+        const x = (i - 1) * (PORTRAIT ? 280 : 300), y = -10;
+        c.add(img(this, x, y, k).setScale(iconScale(k, 130)));
+        c.add(txt(this, x, y + 110, l, 48, col, { st: 8 }));
+      });
+      c.add(txt(this, 0, ph / 2 - (PORTRAIT ? 150 : 110), PORTRAIT ? 'Drag left and right\nto catch the falling stars!' : 'Drag or use arrows to catch the falling stars!', 36, '#fff3d2', { st: 0, weight: '500' }));
+      c.setScale(0);
+      await tw(this, { targets: c, scale: 1, duration: 380, ease: 'Back.out' });
+      await wait(this, 2300);
+      await tw(this, { targets: c, scale: 0, alpha: 0, duration: 250, ease: 'Quad.in' });
+      c.destroy();
+      for (const n of ['3', '2', '1', 'GO!']) {
+        const t = txt(this, W / 2, H * 0.42, n, n === 'GO!' ? 200 : 180, n === 'GO!' ? '#7fe39a' : '#fff3d2', { stroke: '#0f1240', st: 18 }).setDepth(60).setScale(0);
+        n === 'GO!' ? A.levelUp() : A.tick();
+        await tw(this, { targets: t, scale: 1, duration: 260, ease: 'Back.out' });
+        await wait(this, 380);
+        this.tweens.add({ targets: t, scale: 1.5, alpha: 0, duration: 250, onComplete: () => t.destroy() });
+      }
+      this.running = true;
+    }
+    spawn() {
+      const r = Math.random(), sp = this.elapsed / 30;
+      const kind = r < 0.2 + sp * 0.12 ? 'pillow' : (r < 0.33 + sp * 0.12 ? 'dumpling' : 'star');
+      const o = img(this, rnd(90, W - 90), -80, kind).setDepth(15);
+      o.setScale(iconScale(kind, kind === 'pillow' ? 150 : 110));
+      const base = H * (PORTRAIT ? 0.32 : 0.45);
+      this.items.push({ o, kind, vy: base * (1 + Math.random() * 0.5) * (1 + sp * 0.8), spin: rnd(-200, 200), wob: Math.random() * 6 });
+      if (kind === 'star') this.tweens.add({ targets: o, scale: o.scale * 1.15, duration: 300, yoyo: true, repeat: -1 });
+    }
+    float(x, y, s, col) {
+      const t = txt(this, x, y, s, 70, col, { stroke: '#0f1240', st: 10 }).setDepth(40);
+      this.tweens.add({ targets: t, y: y - 140, alpha: 0, duration: 700, ease: 'Quad.out', onComplete: () => t.destroy() });
+    }
+    update(time, dtMs) {
+      const dt = Math.min(dtMs, 50) / 1000;
+      if (this.keys) { if (this.keys.left.isDown) this.tx = clamp(this.tx - 1400 * dt, 80, W - 80); if (this.keys.right.isDown) this.tx = clamp(this.tx + 1400 * dt, 80, W - 80); }
+      // hero follows the finger
+      const px = this.p.x;
+      if (this.stun > 0) this.stun -= dt;
+      else this.p.x += (this.tx - this.p.x) * Math.min(1, dt * 12);
+      this.vx = (this.p.x - px) / Math.max(dt, 0.001);
+      this.p.setAngle(clamp(this.vx / 90, -14, 14));
+      this.sh.x = this.p.x;
+      if (!this.running) return;
+      this.elapsed += dt; this.left -= dt;
+      const sec = Math.max(0, Math.ceil(this.left));
+      if (this.timeT.text !== String(sec)) {
+        this.timeT.setText(String(sec));
+        if (sec <= 5) { this.timeT.setColor('#ff6b5b'); A.tick(); this.tweens.add({ targets: this.timeT, scale: { from: 1.3, to: 1 }, duration: 250 }); }
+      }
+      if (this.left <= 0) { this.end(); return; }
+      this.spawnT -= dt;
+      if (this.spawnT <= 0) { this.spawn(); this.spawnT = clamp(0.62 - this.elapsed * 0.012, 0.3, 0.62); }
+      const cx = this.p.x, cy = this.p.y - this.p.displayHeight * 0.6, rr = this.p.displayWidth * 0.42 + 40;
+      for (let i = this.items.length - 1; i >= 0; i--) {
+        const it = this.items[i];
+        it.o.y += it.vy * dt; it.o.angle += it.spin * dt; it.o.x += Math.sin(time / 300 + it.wob) * 40 * dt;
+        const dx = it.o.x - cx, dy = it.o.y - cy;
+        if (dx * dx + dy * dy < rr * rr) { this.grab(it); this.items.splice(i, 1); continue; }
+        if (it.o.y > H + 100) { it.o.destroy(); this.items.splice(i, 1); }
+      }
+    }
+    grab(it) {
+      const x = it.o.x, y = it.o.y; it.o.destroy();
+      if (it.kind === 'pillow') {
+        this.score = Math.max(0, this.score - 2); this.stun = 0.6;
+        A.thump(0.8); buzz(40); this.feathers.explode(12, x, y);
+        this.cameras.main.shake(200, 0.008);
+        this.p.setTintFill(0xffffff); this.time.delayedCall(90, () => this.p.setTint(0xb0b6ff)); this.time.delayedCall(600, () => this.p.clearTint());
+        this.tweens.add({ targets: this.p, scaleY: this.pScale * 0.8, scaleX: this.pScale * 1.15, duration: 90, yoyo: true });
+        this.float(x, y - 40, 'OUCH!', '#ff6b5b');
+      } else {
+        const n = it.kind === 'dumpling' ? 3 : 1; this.score += n;
+        it.kind === 'dumpling' ? A.gulp() : A.catchStar();
+        this.sparks.explode(it.kind === 'dumpling' ? 16 : 10, x, y);
+        this.tweens.add({ targets: this.p, scaleY: this.pScale * 1.08, scaleX: this.pScale * 0.95, duration: 80, yoyo: true });
+        this.float(x, y - 40, '+' + n, it.kind === 'dumpling' ? '#7fe39a' : '#ffd23f');
+      }
+      this.scoreT.setText(String(this.score));
+      this.tweens.add({ targets: this.scoreT, scale: { from: 1.25, to: 1 }, duration: 200, ease: 'Back.out' });
+    }
+    end() {
+      this.running = false; this.timeT.setText('0');
+      this.items.forEach(it => { this.tweens.add({ targets: it.o, alpha: 0, scale: 0, duration: 300, onComplete: () => it.o.destroy() }); }); this.items = [];
+      const best = Save.data.bestCatch || 0, isBest = this.score > best;
+      const gain = Math.min(this.score, 60);
+      const before = levelOf(Save.data.xp);
+      Save.data.xp += gain; if (isBest) Save.data.bestCatch = this.score; Save.store();
+      const after = levelOf(Save.data.xp);
+      const newMoves = MOVES.filter(m => m.lvl > before.l && m.lvl <= after.l);
+      A.win(); this.confetti.explode(100, W / 2, H);
+      const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(60).setInteractive();
+      this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 });
+      const pw = PORTRAIT ? 900 : 940, ph = PORTRAIT ? 1050 : 860, T0 = -ph / 2;
+      const p = this.add.container(W / 2, H / 2).setDepth(61).setScale(0);
+      p.add(panel(this, 0, 0, pw, ph, C.night2, 0));
+      p.add(txt(this, 0, T0 + 110, 'TIME\'S UP!', 90, '#ffd23f', { stroke: '#0f1240', st: 14 }));
+      p.add(this.add.image(-90, T0 + 260, 'star').setScale(0.6));
+      p.add(txt(this, 10, T0 + 260, String(this.score), 130, '#fff3d2', { ox: 0, stroke: '#0f1240', st: 16 }));
+      p.add(txt(this, 0, T0 + 380, isBest && best > 0 ? 'NEW RECORD!' : 'Best: ' + Math.max(best, this.score), 44, isBest && best > 0 ? '#ff9ed8' : '#bcc0ee', { st: 7 }));
+      p.add(txt(this, 0, T0 + 470, '+' + gain + ' XP', 64, '#7fe39a', { stroke: '#0f1240', st: 10 }));
+      const notes = [];
+      if (after.l > before.l) notes.push('LEVEL UP! Level ' + after.l);
+      if (newMoves.length && heroDef(this).isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
+      p.add(txt(this, 0, T0 + 560, notes.join('\n'), 36, '#ffd23f', { st: 6, wrap: pw - 100 }));
+      const by = T0 + (PORTRAIT ? 760 : 730);
+      p.add(button(this, PORTRAIT ? 0 : -210, by, 380, 120, 'AGAIN!', C.star, () => fade(this, 'catch', { world: this.world }), { size: 48 }));
+      p.add(button(this, PORTRAIT ? 0 : 210, PORTRAIT ? by + 150 : by, 380, 120, 'MAP', C.cream, () => fade(this, 'map', { world: this.world }), { size: 48 }));
+      this.tweens.add({ targets: p, scale: 1, duration: 420, ease: 'Back.out' });
+      if (after.l > before.l) this.time.delayedCall(700, () => { A.levelUp(); this.confetti.explode(120, W / 2, H * 0.6); });
+    }
+  }
+
   // ---------- start
   function start() {
     const game = new Phaser.Game({
@@ -1400,7 +1829,7 @@
       dom: { createContainer: true },
       fps: { smoothStep: !DEBUG },
       input: { activePointers: 2 }, render: { antialias: true, powerPreference: 'high-performance' },
-      scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle],
+      scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene],
     });
     window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB;
     let o = PORTRAIT;
