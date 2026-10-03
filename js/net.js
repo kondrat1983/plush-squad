@@ -246,7 +246,10 @@
         } catch (e) { wait.destroy(); A.block(); err(this, PS, e.message || 'Something went wrong', this.errY); }
         this.busy = false;
       }
+      // DOM inputs float above the canvas: hide them under full-screen overlays
+      hideInputs() { [this.name, this.pass, this.code].forEach(el => { if (el) { el.blur(); el.style.visibility = 'hidden'; } }); }
       showRecovery(rc) {
+        this.hideInputs();
         const lay = this.add.container(0, 0).setDepth(90);
         lay.add(this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0.94).setInteractive());
         lay.add(txt(this, W / 2, H * 0.22, 'Welcome, ' + Net.user.name + '!', 64, '#ffd23f', { st: 9 }));
@@ -256,6 +259,7 @@
         lay.add(button(this, W / 2, H * 0.72, 520, 120, 'I WROTE IT DOWN', C.star, () => this.done(), { size: 42 }));
       }
       choose(c) {
+        this.hideInputs();
         const lay = this.add.container(0, 0).setDepth(90);
         lay.add(this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0.94).setInteractive());
         lay.add(txt(this, W / 2, H * 0.25, 'Which progress do you want to keep?', 52, '#ffd23f', { st: 8, wrap: W - 100 }));

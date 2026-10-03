@@ -166,7 +166,7 @@
     ],
   };
   function whatsNew(scene, PS) {
-    const d = S(), v = PS.VERSION, list = WHATS_NEW[v];
+    const d = S(), v = PS.VERSION.split('.').slice(0, 2).join('.'), list = WHATS_NEW[v];
     if (!list || d.seenVersion === v || window.__psWN) return;
     if (!(d.xp || 0) && !(d.wins || 0)) { d.seenVersion = v; store(); return; } // brand-new players don't need patch notes
     window.__psWN = true; // shown once per app launch
