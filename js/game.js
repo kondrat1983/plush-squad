@@ -3,20 +3,67 @@
   'use strict';
   // main() builds the whole game for the current screen orientation. On rotate the game is destroyed and
   // main() runs again with a snapshot (RESUME) of the scene the kid was in, so nothing is lost.
-  // the game box excludes the iPhone status bar / home bar (safe areas, see index.html)
+  // v0.7.2b: the canvas fills the whole screen (also under the iPhone status bar / home bar) and the camera
+  // shifts the scene so buttons stay inside the safe area; backgrounds and dims bleed to the screen edges.
   function viewSize() {
     const el = document.getElementById('game'), r = el && el.getBoundingClientRect();
     return { w: Math.max((r && r.width) || window.innerWidth, 1), h: Math.max((r && r.height) || window.innerHeight, 1) };
   }
+  function insets() {
+    const el = document.getElementById('safe'); if (!el) return { t: 0, b: 0, l: 0, r: 0 };
+    const cs = getComputedStyle(el), n = v => parseFloat(v) || 0;
+    const i = { t: n(cs.paddingTop), b: n(cs.paddingBottom), l: n(cs.paddingLeft), r: n(cs.paddingRight) };
+    // iOS 26 home-screen web app: the page is shorter than the screen and the home bar sits below it,
+    // so there is no need to keep clear of it inside the page
+    const sh = Math.max(screen.width, screen.height), sw = Math.min(screen.width, screen.height);
+    const full = window.innerHeight > window.innerWidth ? sh : sw;
+    if (navigator.standalone) i.b = Math.max(0, i.b - Math.max(0, full - window.innerHeight));
+    return i;
+  }
   function main(RESUME) {
-  const VIEW = viewSize();
-  const PORTRAIT = VIEW.h > VIEW.w;
-  const ASPECT = VIEW.w / VIEW.h;
+  const VIEW = viewSize(), INS = insets();
+  const UW = Math.max(VIEW.w - INS.l - INS.r, 1), UH = Math.max(VIEW.h - INS.t - INS.b, 1);
+  const PORTRAIT = UH > UW;
+  const ASPECT = UW / UH;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const W = PORTRAIT ? 1080 : Math.round(clamp(1080 * ASPECT, 1440, 2340));
   const H = PORTRAIT ? Math.round(clamp(1080 / ASPECT, 1500, 2340)) : 1080;
+  // safe-area margins in game units, and the full canvas around the W x H play area
+  const KU = PORTRAIT ? W / UW : H / UH;
+  const ST = Math.round(INS.t * KU), SB = Math.round(INS.b * KU), SL = Math.round(INS.l * KU), SR = Math.round(INS.r * KU);
+  const GW = W + SL + SR, GH = H + ST + SB;
+  const BLEED = { W, H, cx: W / 2 + (SR - SL) / 2, cy: H / 2 + (SB - ST) / 2, w: GW, h: GH };
+  window.__psBleed = BLEED;
+  // full-screen rectangles (dims, flashes) automatically cover the safe-area margins too
+  const GOF = Phaser.GameObjects.GameObjectFactory.prototype;
+  if (!GOF.__psRect) {
+    GOF.__psRect = GOF.rectangle;
+    GOF.rectangle = function (x, y, w, h, c, a) {
+      const b = window.__psBleed;
+      if (b && x === b.W / 2 && y === b.H / 2 && w === b.W && h === b.H) { x = b.cx; y = b.cy; w = b.w; h = b.h; }
+      return GOF.__psRect.call(this, x, y, w, h, c, a);
+    };
+  }
+  const safeCam = scene => scene.cameras.main.setScroll(-SL, -ST);
+  // ground strips anchored to the bottom stretch down into the home-bar margin
+  function bottomGround(scene, key, sy, alpha) {
+    const img = scene.add.image(W / 2, H + 40 + SB, key).setOrigin(0.5, 1);
+    img.setScale(1, sy + SB / img.height); if (alpha != null) img.setAlpha(alpha);
+    return img;
+  }
+  // the page behind the canvas (iOS 26 web-app strip under the game, Safari toolbar) takes the colour of the scene's bottom edge
+  function tintPage(game) {
+    const r = game.renderer; if (!r || !r.snapshotPixel) return;
+    try {
+      r.snapshotPixel(Math.round(GW * 0.04), GH - 2, c => {
+        if (!c) return;
+        const col = 'rgb(' + c.r + ',' + c.g + ',' + c.b + ')';
+        document.documentElement.style.background = col; document.body.style.background = col;
+      });
+    } catch (e) {}
+  }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.7.2';
+  const VERSION = '0.7.3';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -144,7 +191,7 @@
   const groundKey = w => w === SPACE ? 'ground2' : w === SPOOKY ? 'ground3' : 'ground';
   function sky(scene, world = 0) {
     const sp = world === SPACE, spook = world === SPOOKY;
-    scene.add.image(W / 2, H / 2, sp ? 'sky2' : spook ? 'sky3' : 'sky');
+    scene.add.image(BLEED.cx, BLEED.cy, sp ? 'sky2' : spook ? 'sky3' : 'sky').setDisplaySize(GW, GH);
     const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(0.55);
     scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : 1); i++) {
@@ -229,6 +276,7 @@
   class Boot extends Phaser.Scene {
     constructor() { super('boot'); }
     preload() {
+      safeCam(this);
       const bar = this.add.rectangle(W / 2 - 300, H / 2, 4, 26, C.star).setOrigin(0, 0.5);
       this.add.rectangle(W / 2, H / 2, 608, 34).setStrokeStyle(4, C.seam);
       this.load.on('progress', p => bar.width = 600 * p);
@@ -534,7 +582,7 @@
       this._leaving = false;
       this.cameras.main.fadeIn(400, 15, 18, 64);
       sky(this, EVENT_ON ? SPOOKY : 0);
-      this.add.image(W / 2, H + 40, EVENT_ON ? 'ground3' : 'ground').setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.55 : 0.6);
+      bottomGround(this, EVENT_ON ? 'ground3' : 'ground', PORTRAIT ? 0.55 : 0.6);
       const moon = this.add.image(PORTRAIT ? W * 0.82 : W * 0.84, PORTRAIT ? 300 : H * 0.2, 'moon').setScale(PORTRAIT ? 0.9 : 1.3);
       if (EVENT_ON) moon.setTint(0xffa64d);
       this.tweens.add({ targets: moon, angle: 8, y: moon.y + 14, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -611,7 +659,7 @@
       const wd = this.world;
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this, wd);
-      this.add.image(W / 2, H + 40, groundKey(wd)).setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.45 : 0.5).setAlpha(0.8);
+      bottomGround(this, groundKey(wd), PORTRAIT ? 0.45 : 0.5, 0.8);
       // world tabs
       const ty = PORTRAIT ? 190 : 95, tw0 = Math.min(PORTRAIT ? 420 : 440, (PORTRAIT ? W - 60 : W - 480) / WORLDS.length - 30);
       WORLDS.forEach((w, i) => this.tab(w, i, W / 2 + (i - (WORLDS.length - 1) / 2) * (tw0 + 30), ty, tw0));
@@ -961,7 +1009,7 @@
       this._leaving = false; this.busyState = false;
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this);
-      this.add.image(W / 2, H + 40, 'ground').setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.45 : 0.5).setAlpha(0.8);
+      bottomGround(this, 'ground', PORTRAIT ? 0.45 : 0.5, 0.8);
       this.title = txt(this, W / 2, PORTRAIT ? 190 : 95, 'NEW TOY', PORTRAIT ? 80 : 72, '#fff3d2', { stroke: '#0f1240', st: 12 });
       this.layer = this.add.container(0, 0);
       backButton(this, () => { if (!this.busyState) fade(this, Save.data.toys.length ? 'squad' : 'title'); });
@@ -1273,7 +1321,8 @@
       const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, space ? 'planet' : 'moon').setScale((PORTRAIT ? 0.6 : 0.62 * zoom) * (space ? 1.15 : 1)).setAlpha(0.95);
       if (this.world === SPOOKY) moon.setTint(0xffa64d).setScale(moon.scale * 1.3);
       this.tweens.add({ targets: moon, angle: -6, y: moon.y + 12, duration: 2800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), groundKey(this.world)).setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
+      const bg = this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), groundKey(this.world)).setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
+      if (bg.y + bg.displayHeight < H + SB + 4) bg.setScale(1, (H + SB + 4 - bg.y) / bg.height); // reach the bottom edge
       this.fireFx = this.add.rectangle(W / 2, H / 2, W, H, 0xff3b1f, 0).setDepth(5);
 
       this.feathers = this.add.particles(0, 0, 'feather', { emitting: false, speed: { min: 250, max: 750 }, angle: { min: 200, max: 340 }, gravityY: 900, lifespan: { min: 1100, max: 1700 }, rotate: { start: 0, end: 540 }, scale: { start: 0.7, end: 0.45 }, alpha: { start: 1, end: 0 } }).setDepth(20);
@@ -2065,7 +2114,7 @@
       this._leaving = false;
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this, this.world);
-      this.add.image(W / 2, H + 40, groundKey(this.world)).setOrigin(0.5, 1).setScale(1, PORTRAIT ? 0.35 : 0.45).setAlpha(0.9);
+      bottomGround(this, groundKey(this.world), PORTRAIT ? 0.35 : 0.45, 0.9);
       const hero = heroDef(this);
       this.groundY = H - (PORTRAIT ? 120 : 70);
       this.sh = this.add.image(W / 2, this.groundY + 4, 'shadow').setScale(0.9, 0.8).setDepth(9);
@@ -2085,7 +2134,7 @@
       backButton(this, () => fade(this, 'map', { world: this.world }));
       muteButton(this);
       // controls: drag / tap anywhere, or arrow keys
-      const aim = p => { if (p.y > (PORTRAIT ? 260 : 150)) this.tx = clamp(p.x, 80, W - 80); };
+      const aim = p => { if (p.worldY > (PORTRAIT ? 260 : 150)) this.tx = clamp(p.worldX, 80, W - 80); };
       this.input.on('pointerdown', aim); this.input.on('pointermove', aim);
       this.keys = this.input.keyboard && this.input.keyboard.createCursorKeys();
       this.intro();
@@ -2419,7 +2468,7 @@
     return { key, data };
   }
   const game = new Phaser.Game({
-    type: Phaser.AUTO, parent: 'game', backgroundColor: '#1d2163', width: W, height: H,
+    type: Phaser.AUTO, parent: 'game', backgroundColor: '#1d2163', width: GW, height: GH,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     dom: { createContainer: true },
     fps: { smoothStep: !DEBUG },
@@ -2427,9 +2476,12 @@
     scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, GachaScene].concat(EXTRA_SCENES),
   });
   // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
-  game.events.once('ready', () => game.scene.scenes.forEach(sc => sc.events.on('create', () => emit('scene', { key: sc.scene.key }, sc))));
+  game.events.once('ready', () => game.scene.scenes.forEach(sc => {
+    sc.events.on('start', () => safeCam(sc));
+    sc.events.on('create', () => { safeCam(sc); emit('scene', { key: sc.scene.key }, sc); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
+  }));
   window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
-  window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT;
+  window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
   window.__psSnapshot = () => snapshot(game);
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)
   window.__psBlockRotate = () => game.scene.isActive('studio') || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName));
@@ -2450,8 +2502,9 @@
       if (!built) return;
       // rebuild when the phone is rotated, or when the usable screen changes a lot
       // (e.g. iOS home-screen web app settling its size after launch)
-      const v = viewSize(), p = v.h > v.w, a = v.w / v.h;
-      if (p === window.__psPortrait && Math.abs(a - window.__psAspect) / window.__psAspect < 0.06) return;
+      const v = viewSize(), i = insets(), uw = v.w - i.l - i.r, uh = v.h - i.t - i.b, p = uh > uw, a = uw / uh, o = window.__psInsets || i;
+      const same = ['t', 'b', 'l', 'r'].every(k => Math.abs(i[k] - o[k]) < 2);
+      if (same && p === window.__psPortrait && Math.abs(a - window.__psAspect) / window.__psAspect < 0.03) return;
       if (window.__psBlockRotate && window.__psBlockRotate()) return; // fade() rebuilds on the next scene change
       rebuild();
     }, 300);

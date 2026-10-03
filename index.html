@@ -17,14 +17,15 @@
 @font-face{font-family:Poppins;src:url(assets/Poppins-Bold.ttf) format("truetype");font-weight:700;font-display:block}
 @font-face{font-family:Poppins;src:url(assets/Poppins-Medium.ttf) format("truetype");font-weight:500;font-display:block}
 html,body{margin:0;height:100%;background:#1d2163;overflow:hidden;overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
-/* keep the game out of the iPhone status bar and home-indicator areas (web app mode); Safari reports 0 there */
-#game{position:fixed;top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px)}
+/* the game fills the whole screen; #safe only measures the iPhone safe areas (status bar, home bar, notch) for the game layout */
+#game{position:fixed;left:0;top:0;right:0;bottom:0}
+#safe{position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 #game canvas{display:block}
 .pre{position:fixed;left:-999px;font-family:Poppins}
 </style>
 </head>
 <body>
-<div id="game"></div>
+<div id="game"></div><div id="safe"></div>
 <span class="pre" style="font-weight:700">.</span><span class="pre" style="font-weight:500">.</span>
 <script src="vendor/phaser.min.js"></script>
 <script src="vendor/supabase.js"></script>
