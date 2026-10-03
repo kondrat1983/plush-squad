@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.7.5';
+  const VERSION = '0.7.6';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -2047,6 +2047,7 @@
       const P = this.hero, T = this.rival;
       if (T.charging) this.endCharge(T);
       this.dropExtinguisher();
+      A.music(null); // duel music stops for the win / lose jingle
       if (won) {
         this.log((this.R.laugh || (T.name + ' giggled so hard they gave up.')) + ' ' + P.name + ' wins!');
         await tw(this, { targets: T.root, angle: 28 * -T.dir, duration: 380, ease: 'Back.out' });
@@ -2069,6 +2070,7 @@
       this.result(won);
     }
     result(won) {
+      this.time.delayedCall(1600, () => A.music('calm'));
       const R = this.R, isCampaign = this.mode === 'campaign', id = R.id;
       const stars = won ? (this.hero.hp >= this.hero.max * 0.7 ? 3 : this.hero.hp >= this.hero.max * 0.35 ? 2 : 1) : 0;
       const prevStars = isCampaign ? (Save.data.stars[id] || 0) : 0;
@@ -2079,7 +2081,7 @@
       // capsules: every first win over a rival + every 3rd win
       const caps = won ? (firstClear ? 1 : 0) + (Save.data.wins % 3 === 0 ? 1 : 0) : 0;
       Save.data.caps += caps;
-      const nextWasOpen = this.rivalIdx + 1 < RIVALS.length && isUnlocked(this.rivalIdx + 1);
+      const nextWasOpen = isCampaign && this.rivalIdx + 1 < RIVALS.length && isUnlocked(this.rivalIdx + 1);
       if (isCampaign && stars > prevStars) Save.data.stars[id] = stars;
       const newCostume = won && R.reward && !Save.data.costumes[R.reward] ? COSTUMES.find(c => c.id === R.reward) : null;
       if (newCostume) Save.data.costumes[R.reward] = true;
@@ -2527,7 +2529,7 @@
   // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
   game.events.once('ready', () => game.scene.scenes.forEach(sc => {
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
-    sc.events.on('create', () => { safeCam(sc); emit('scene', { key: sc.scene.key }, sc); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
+    sc.events.on('create', () => { safeCam(sc); A.music(sc.scene.key !== 'battle' ? 'calm' : sc.R && sc.R.boss ? 'boss' : 'battle'); emit('scene', { key: sc.scene.key }, sc); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
   window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
