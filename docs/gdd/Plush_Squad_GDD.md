@@ -183,7 +183,7 @@ Fully automatic and private. The photo never leaves the device unless the player
 | Snow / Shadow | Snowball / Shadow Puff | Spinny | Twirl Spin |
 
 ## 7. Rivals and worlds
-Rivals are characters with an intro line, a "laugh" line when they give up and 4–5 moves. They unlock in order: beat one to open the next. Each world ends with a boss wearing a crown.
+Rivals are characters with an intro line, a "laugh" line when they give up and 3–5 moves (G33). They unlock in order: beat one to open the next. Each world ends with a boss wearing a crown.
 
 | World | Rival | Pep | XP (win) | Moves |
 |---|---|---|---|---|
@@ -195,7 +195,7 @@ Rivals are characters with an intro line, a "laugh" line when they give up and 4
 | | Polandball | 145 | 120 | Pierogi Toss, Bounce Bounce, Cannot Into Space!, hussar helmet |
 | | Boo the Space Ghost | 155 | 130 | BOO, slime, spooky circles, see-through |
 | | Giant Dragon Boss | 200 | 180 | Inferno Rain, tail spin, fire sneeze |
-| Spooky (Halloween event, October) | Pumpkin Pete | 110 | 50 | Pumpkin toss, candy storm, MWAHAHA |
+| Spooky (Halloween event, 1 Oct – 7 Nov, G34) | Pumpkin Pete | 110 | 50 | Pumpkin toss, candy storm, MWAHAHA |
 | | Batty the Bat | 125 | 60 | Swoop, sonar, upside-down nap |
 | | Webster the Spider | 140 | 70 | Sticky web, eight-leg tickle |
 | | Count Fang (boss) | 175 | 120 | Bat attack, hypno stare, cape |
@@ -235,8 +235,8 @@ The tester found v0.4 too easy, so difficulty now has two layers: the player's c
 Space rivals start scaling later (from level 4) and cap lower: pep × (1 + 0.05·(L−4)), max 1.25; damage × (1 + 0.04·(L−4)), max 1.2, because their base values are already higher (G25). Spooky rivals scale like Pillow Hills. The Kraken's pep never scales (fixed 220); its damage does (G26).
 
 ### Unlocks
-- Next rival: after one star on the previous rival. Next world: after its previous boss. Event worlds are open from day one of the event.
-- Jack's moves: level 2, 3, 4, 5 (section 6). Costumes: from event rivals and the Dragon Boss. Titles: from stickers.
+- Next rival: after one star on the previous rival. Next world: after its previous boss. Event worlds are open from day one of the event (Spooky: 1 October to 7 November).
+- Jack's moves: level 2, 3, 4, 5 (section 6). Costumes: from the Spooky event rivals (Pumpkin Pete: pumpkin, Batty: top hat, Webster: witch hat, Count Fang: crown) (G32). Titles: from stickers.
 - Real-life quests feed progression too (section 10). Me: player card with title, stats and costumes.
 
 ## 9. Rewards: capsules, boosters, stickers
@@ -467,7 +467,7 @@ What comes next, in order. Every item is a proposal to test with the chief teste
 
 ### v1.0 · Seasons (idea)
 **Goal:** a free themed season every few months keeps the game fresh without selling a pass.
-- October Spooky (live now), December Snow Fort, February Hearts, April Egg Hunt, July Beach.
+- Spooky (1 Oct – 7 Nov, live now), December Snow Fort, February Hearts, April Egg Hunt, July Beach.
 - Each season: 4 rivals, 3 hats, 6 stickers and a themed Star Catch.
 
 ### v1.0 · Launch readiness (idea)

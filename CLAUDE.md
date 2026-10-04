@@ -37,7 +37,7 @@ This repo is **public**. Never commit secrets, personal names of the family, e-m
 - `js/toys.js`, `js/toyworker.js`: toy types and the hero generator; on-device background removal (ormbg) + type guess (MobileCLIP S0) with transformers.js (`vendor/tjs`).
 - `supabase/schema.sql`: database schema (v2), applied by hand in the Supabase SQL editor. Row Level Security everywhere.
 - `assets/`: Jack cut-outs, Fluent Emoji 3D (MIT), Poppins (OFL), icon atlases.
-- `docs/gdd/`: the GDD (main version, `Plush_Squad_GDD.md`), `decisions.md` (owner decisions), `ideas.md` (idea log, newest on top), `findings.md` (GDD vs code, G-IDs, next after G31), design docs `<version>-<feature>.md`.
+- `docs/gdd/`: the GDD (main version, `Plush_Squad_GDD.md`), `decisions.md` (owner decisions), `ideas.md` (idea log, newest on top), `findings.md` (GDD vs code, G-IDs, next after G34), design docs `<version>-<feature>.md`.
 - `docs/qa/`: QA reports by the `qa-tester` agent, one per version.
 - `.claude/agents/`: `qa-tester.md`, `game-designer.md`.
 
