@@ -93,6 +93,11 @@
     // v0.8 Canada: Max's honk (a moo a fifth lower, shorter), Bob's chewing
     honk() { this.tone(120, 0.6, { type: 'sawtooth', vol: 0.14, slide: 0.7, attack: 0.08 }); this.tone(121, 0.6, { type: 'triangle', vol: 0.2, slide: 0.68, attack: 0.08 }); },
     chomp() { for (let i = 0; i < 4; i++) { this.noise(0.05, { f: 2400, q: 2, vol: 0.25, delay: i * 0.09 }); this.tone(300, 0.05, { type: 'square', vol: 0.05, delay: i * 0.09 }); } },
+    // v0.8 SAVE IT!: stick on puck, puck on ice, glove THWACK, a friendly hockey horn
+    slap() { this.noise(0.08, { type: 'highpass', f: 3000, vol: 0.5, attack: 0.002 }); this.tone(110, 0.2, { vol: 0.4, slide: 0.5 }); },
+    slide() { this.noise(0.5, { f: 900, q: 3, vol: 0.18, attack: 0.05, slide: 2.2 }); },
+    glove() { this.tone(95, 0.22, { vol: 0.5, slide: 0.6 }); this.noise(0.06, { f: 2600, q: 1.5, vol: 0.3, delay: 0.01 }); },
+    goalHorn() { [0, 0.42].forEach(d => { this.tone(392, 0.38, { type: 'square', vol: 0.07, delay: d }); this.tone(587, 0.38, { type: 'square', vol: 0.05, delay: d }); }); },
     // v0.8 Space: three rising chirps (the Blips), a wobbly rising hum (tractor beam), umbrella pop + flap
     blip() { [880, 1175, 1568].forEach((f, i) => this.tone(f, 0.09, { type: 'square', vol: 0.06, slide: 1.3, delay: i * 0.08 })); },
     beam() { for (let i = 0; i < 6; i++) this.tone(330 + i * 70, 0.24, { type: 'sine', vol: 0.12, slide: 1.12, delay: i * 0.18 }); this.tone(165, 1.2, { type: 'triangle', vol: 0.08, slide: 1.6, attack: 0.3 }); },

@@ -126,6 +126,20 @@
     hard: { name: 'HARD', color: 0xff6b5b, hp: 1.2, dmg: 1.15, scale: true, smart: true, xp: 1.5 },
   };
   const diff = () => DIFFS[Save.data.diff] || DIFFS.normal;
+  // SAVE IT! (v0.8 Canada, docs/gdd/0.8-canada.md section 4). Times in ms after the puck leaves the stick; F = flight time.
+  const SAVE_T = {
+    easy: { pause: [800, 800], F: 2000 },
+    normal: { pause: [600, 600], F: 1200, perfect: [880, 1280], good: [480, 880] },
+    hard: { pause: [300, 1000], F: 1000, perfect: [810, 1060], good: [560, 810] },
+  };
+  // a tap t ms after launch (negative = during the pause): 'perfect', 'good', 'early' or 'late'. EASY: any tap until F + 300 is perfect.
+  function judgeSave(t, d) {
+    const T = SAVE_T[d] || SAVE_T.normal;
+    if (!T.perfect) return t <= T.F + 300 ? 'perfect' : 'late';
+    if (t >= T.perfect[0] && t <= T.perfect[1]) return 'perfect';
+    if (t >= T.good[0] && t < T.good[1]) return 'good';
+    return t < T.good[0] ? 'early' : 'late';
+  }
 
   // ---------- boosters from the capsule machine (just for the surprise, nothing to buy)
   // rarity: 1 common, 2 rare, 3 super rare. Each booster is used up in one duel.
@@ -214,7 +228,7 @@
   function iconScale(key, size) { // scale so the icon is ~size px
     if (!key) return 1;
     if (key.startsWith('i:') || key.startsWith('j:')) return size / 144;
-    const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, snowball: 120, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
+    const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
     return size / base;
   }
 
@@ -367,6 +381,8 @@
       g.generateTexture('pillow', 216, 150); g.clear();
       g.fillStyle(0x9fc3ea); g.fillCircle(60, 62, 56); g.fillStyle(0xffffff); g.fillCircle(56, 56, 52); g.fillStyle(0xe6f1ff); g.fillCircle(72, 72, 22);
       g.generateTexture('snowball', 120, 120); g.clear();
+      g.fillStyle(0x0b0d1a); g.fillEllipse(50, 34, 96, 44); g.fillStyle(0x2a2f4a); g.fillEllipse(50, 26, 96, 40); g.fillStyle(0x4a5070, 0.8); g.fillEllipse(42, 22, 50, 14);
+      g.generateTexture('puck', 100, 60); g.clear();
       g.destroy();
       // sky gradient + glow + quilt ground (canvas textures)
       const sk = this.textures.createCanvas('sky', W, H), cx = sk.getContext();
@@ -540,11 +556,12 @@
         { type: 'roar', word: 'WE COME IN PEACE!', color: 0xc6a8ff, sound: 'beam', dmg: [16, 24], w: 20, log: '{a} shouts "WE COME IN PEACE!" so loud the stars wobble!' },
         { type: 'spray', tex: 'spark', tint: [0xff9ed8, 0xffd23f, 0x7fd6c2, 0x9aa2ff], hitTint: 0xffd6ff, word: 'GLITTER RAY!', sound: 'laser', dmg: [15, 22], w: 15, log: '{a} zaps {d} with a sparkly glitter ray!' }] },
     // ---- World 3: CANADA (v0.8, docs/gdd/0.8-canada.md). Harder than Space: +10 pep per slot, scaling from level 6.
-    // (Max's Mini Slapshot and Sasquatch's SLAPSHOT + SAVE IT! come with the next part)
     { id: 'moose', world: CANADA, name: 'Max the Moose', nick: 'Max', short: 'MAX', tex: 'moose', color: 0xa0714f, hp: 145, xp: 130,
       intro: 'Max the Moose bows: "Sorry, eh! I have to pillow-fight you now. So sorry!"', laugh: 'Max laughed so hard his antlers wobbled. "Sorry for losing, eh!"',
-      moves: [{ type: 'rush', word: 'ANTLERS!', dmg: [12, 21], w: 40, log: '{a} charges in antlers first... gently!' },
-        { type: 'roar', word: 'SORRY, EH!', color: 0xffd9a0, sound: 'honk', dmg: [13, 21], w: 30, log: '{a} says SORRY so loud that {d} falls over!' },
+      // Max teaches SAVE IT! before the boss: one small slapshot
+      moves: [{ type: 'slapshot', charge: true, mini: true, dmg: [14, 20], uses: 1, w: 30, log: '{a} winds up a mini SLAPSHOT!' },
+        { type: 'rush', word: 'ANTLERS!', dmg: [12, 21], w: 30, log: '{a} charges in antlers first... gently!' },
+        { type: 'roar', word: 'SORRY, EH!', color: 0xffd9a0, sound: 'honk', dmg: [13, 21], w: 20, log: '{a} says SORRY so loud that {d} falls over!' },
         { type: 'heal', tex: 'pancakes', amt: 22, uses: 1, w: 15, log: '{a} eats a stack of pancakes with maple syrup. Yum!' }] },
     { id: 'beaver', world: CANADA, name: 'Beaver Bob', nick: 'Bob', short: 'BEAVER BOB', tex: 'beaver', color: 0xc08a5a, hp: 155, xp: 140,
       intro: 'Beaver Bob slaps his tail: "Nice pillows! I will build a dam with them."', laugh: 'Bob giggled and hid in his pillow dam. "Best game ever, eh!"',
@@ -562,8 +579,9 @@
     { id: 'sasquatch', world: CANADA, name: 'Sasquatch', nick: 'Sasquatch', short: 'SASQUATCH', tex: 'sasquatch', big: 1.15, color: 0x9c6b4a, hp: 210, xp: 200, boss: true, reward: 'toque',
       intro: 'Sasquatch peeks out from behind a pine tree: "H-hello... do you want to play hockey? I shoot REALLY hard."',
       laugh: 'Sasquatch giggled so hard the snow fell off the trees. "You are my best friend now!"',
-      moves: [{ type: 'quake', word: 'AVALANCHE!', sound: 'stomp', dmg: [16, 24], w: 30, log: '{a} stomps his giant feet. AVALANCHE!' },
-        { type: 'volley', tex: 'snowball', word: 'SNOWBALLS!', sound: 'whoosh', dmg: [16, 24], w: 25, log: '{a} throws a mountain of snowballs at {d}!' },
+      moves: [{ type: 'slapshot', charge: true, dmg: [26, 32], uses: 2, usesHard: 3, w: 35, log: '{a} shoots the hardest SLAPSHOT in the North!' },
+        { type: 'quake', word: 'AVALANCHE!', sound: 'stomp', dmg: [16, 24], w: 25, log: '{a} stomps his giant feet. AVALANCHE!' },
+        { type: 'volley', tex: 'snowball', word: 'SNOWBALLS!', sound: 'whoosh', dmg: [16, 24], w: 20, log: '{a} throws a mountain of snowballs at {d}!' },
         { type: 'roar', word: 'HELLO FRIEND!', color: 0xc9a27a, sound: 'roar', dmg: [15, 23], w: 20, log: '{a} waves and yells HELLO so loud the snow falls off the trees!' }] },
   ].concat(EVENT_ON ? [
     // ---- Halloween event world: SPOOKY (open from the start while the event runs)
@@ -614,7 +632,7 @@
       { type: 'spray', tex: 'dot', tint: [0x3b2a6e, 0x6a4fb0], word: 'INK!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} squirts pillow ink at {d}!' },
       { type: 'tickle', dmg: [8, 26], w: 25 },
       { type: 'roar', word: 'BLUB BLUB!', color: 0xff9ed8, sound: 'boo', dmg: [13, 21], w: 20, log: '{a} bubbles a giant BLUB!' }] };
-  const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, beam: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
+  const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, beam: 30, slapshot: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
   const isUnlocked = i => i === 0 || (RIVALS[i].event && !RIVALS[i - 1].event) || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
   const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
   const worldOpen = w => RIVALS.some((r, i) => (r.world || 0) === w && isUnlocked(i));
@@ -1540,6 +1558,10 @@
       this.blockBtn = toolBtn('BLOCK IT!', C.coral, 'extinguisher', () => this.playerBlock(this.rival.charging && this.rival.charging.type === 'beam' ? 'umb' : 'ext'));
       this.extBtn = toolBtn('FOAM!', C.coral, 'extinguisher', () => this.playerBlock('ext'));
       this.umbBtn = toolBtn('UMBRELLA!', 0x6c7bff, 'umbrella', () => this.playerBlock('umb'));
+      // SLAPSHOT wind-up: a reminder by the hero instead of a button
+      this.saveChip = chip(this, this.hero.root.x, bby, '        NEXT: SAVE IT!', 0xd8ecff, 34).setDepth(35).setVisible(false);
+      this.saveChip.add(img(this, -this.saveChip.w / 2 + 44, 0, 'glove').setScale(iconScale('glove', 56)));
+      this.tweens.add({ targets: this.saveChip, scale: 1.06, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       backButton(this, () => {
         if (this.busy && !this.over) return;
         // no move made yet: the booster goes back to the collection (QA B30)
@@ -1698,7 +1720,10 @@
     setCards(on) {
       this.moves.forEach(m => m.card.refresh(on && !this.over));
       if (this.blockBtn) {
-        const ch = on && !this.over ? this.rival.charging : null, beam = !!(ch && ch.type === 'beam');
+        const cur = on && !this.over ? this.rival.charging : null, slap = !!(cur && cur.type === 'slapshot');
+        const ch = slap ? null : cur, beam = !!(ch && ch.type === 'beam');
+        // SLAPSHOT has no block button: the save is a timed tap when the shot comes
+        if (this.saveChip) this.saveChip.setVisible(slap);
         const one = !!(ch && this.easy && !ch.mini), two = !!(ch && !this.easy && !ch.mini);
         this.blockBtn.setVisible(one); this.blockBtn.icon.setTexture(beam ? 'umbrella' : 'extinguisher').setScale(iconScale(beam ? 'umbrella' : 'extinguisher', 118));
         this.extBtn.setVisible(two);
@@ -1735,14 +1760,15 @@
       return t;
     }
     async hitStop(ms) { this.tweens.pauseAll(); await new Promise(r => setTimeout(r, ms)); if (this.sys && this.sys.isActive()) this.tweens.resumeAll(); }
-    async impact(target, dmg, kind = 'pillow', quiet = false) {
+    // raw: a fixed hit (the SAVE IT! bounce-back): no boosters, no shield
+    async impact(target, dmg, kind = 'pillow', quiet = false, raw = false) {
       const p = target.center();
       // boosters that make the hero's hits stronger
-      if (target === this.rival && dmg > 0) {
+      if (target === this.rival && dmg > 0 && !raw) {
         if (this.hero.bonus) dmg += this.hero.bonus;
         if (this.hero.firstBonus) { dmg += this.hero.firstBonus; this.hero.firstBonus = 0; this.popWord(p.x, p.y - 300, 'ROCKET START!', '#ff8a3d', 64, 6); }
       }
-      if (target.shield && dmg > 0) {
+      if (target.shield && dmg > 0 && !raw) {
         dmg = Math.ceil(dmg / 2); target.shield = false; this.setStatus(target);
         A.block(); this.popWord(p.x, p.y - 220, 'BLOCKED!', '#9fdcff', 70, -6);
       }
@@ -1974,6 +2000,7 @@
         }
         case 'rain': await this.rain(m, att, def, d); break;
         case 'beam': await this.beam(m, att, def, d); break;
+        case 'slapshot': await this.slapshot(m, att, def, d); break;
         case 'hop': {
           const sx = att.root.x, tx = def.root.x - att.dir * (PORTRAIT ? 330 : 400);
           for (let i = 1; i <= 3; i++) {
@@ -2044,7 +2071,13 @@
       if (T.dizzy) {
         T.dizzy = false; this.setStatus(T);
         const is = this.R.plural ? ' are' : ' is'; // the Blips are three (QA B46)
-        if (T.charging) {
+        if (T.charging && T.charging.type === 'slapshot' && this.hard) {
+          // HARD: Six-Seven only delays the shot, the wind-up stays
+          this.log(T.name + is + ' too dizzy... the SLAPSHOT waits one turn!');
+        } else if (T.charging && T.charging.type === 'slapshot') {
+          this.endCharge(T); T.afterCharge = true;
+          this.log(T.name + is + ' too dizzy... ' + (this.R.plural ? 'they drop' : 'and drops') + ' the puck!');
+        } else if (T.charging) {
           const beam = T.charging.type === 'beam';
           this.endCharge(T); T.afterCharge = true; A.steam();
           this.log(T.name + is + (beam ? ' too dizzy... the beam goes disco and fizzles!' : ' too dizzy... the fire fizzles out!'));
@@ -2089,6 +2122,15 @@
     // Block it with the fire extinguisher (or, for rivals, with milk!)
     chargeFx(T) {
       const beam = T.charging && T.charging.type === 'beam';
+      if (T.charging && T.charging.type === 'slapshot') {
+        // SLAPSHOT wind-up: frosty tint, snowflakes rising around the rival
+        this.fireFx.fillColor = 0x9fdcff;
+        this.tweens.add({ targets: this.fireFx, fillAlpha: 0.14, duration: 600 });
+        this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: 0.06, duration: 800, yoyo: true, repeat: -1, delay: 600 });
+        T.spr.setTint(0xcfeaff);
+        this.embers = this.add.particles(0, 0, 'snow', { x: { min: T.root.x - 160, max: T.root.x + 160 }, y: T.root.y - 20, speedY: { min: -360, max: -160 }, speedX: { min: -50, max: 50 }, lifespan: 1300, scale: { start: 0.14, end: 0 }, rotate: { min: 0, max: 360 }, frequency: 90 }).setDepth(12);
+        return;
+      }
       this.fireFx.fillColor = beam ? 0xc8ff3d : 0xff3b1f;
       this.tweens.add({ targets: this.fireFx, fillAlpha: beam ? 0.2 : 0.3, duration: 600 });
       this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: beam ? 0.08 : 0.14, duration: 700, yoyo: true, repeat: -1, delay: 600 });
@@ -2110,6 +2152,16 @@
     }
     async startCharge(m, T) {
       T.charging = m;
+      if (m.type === 'slapshot') {
+        this.log(T.name + ' winds up a ' + (m.mini ? 'mini ' : '') + 'SLAPSHOT! Get ready to SAVE IT!');
+        A.slide();
+        this.chargeFx(T);
+        await tw(this, { targets: T.squash, angle: -14 * T.dir, scaleX: 1.06, duration: 600, ease: 'Sine.in' });
+        this.popWord(T.center().x, T.center().y - 240, 'WINDING UP...', '#d8ecff', 60, 6);
+        await tw(this, { targets: T.squash, angle: 0, scaleX: 1, duration: 300 });
+        await wait(this, 600);
+        return;
+      }
       this.toolSwap = this.hard && Math.random() < 0.5;
       const beam = m.type === 'beam';
       const tap = m.mini ? ' Grab the UMBRELLA!' : this.easy ? ' Tap BLOCK IT!' : ' Pick your tool!';
@@ -2136,7 +2188,7 @@
     }
     // tool: 'ext' (fire extinguisher, stops Inferno Rain) or 'umb' (umbrella, stops a Tractor Beam)
     async playerBlock(tool) {
-      if (this.busy || this.over || !this.rival.charging) return;
+      if (this.busy || this.over || !this.rival.charging || this.rival.charging.type === 'slapshot') return;
       tool = tool === 'umb' ? 'umb' : 'ext';
       this.busy = true; this.acted = true; this.setCards(false);
       const P = this.hero;
@@ -2290,6 +2342,120 @@
       if (take) this.log(att.name + ' beamed up ' + def.name + '\'s ' + take.title + '! It comes back after the duel.');
       await this.impact(def, d, 'roar');
       await done();
+    }
+    // ---- SLAPSHOT + SAVE IT! (v0.8 Canada). The rival shoots a puck; the kid taps anywhere (or SPACE) when the ring closes.
+    // Perfect: 0 damage and the puck bounces back for 10. Good: half damage. Miss: full damage. No turn is used.
+    async slapshot(m, att, def, d) {
+      const P = this.hero, dk = Save.data.diff in SAVE_T ? Save.data.diff : 'normal';
+      const res = await this.saveIt(att, def);
+      if (att.charging) this.endCharge(att);
+      const c = def.center();
+      if (res === 'perfect') {
+        A.glove(); A.goalHorn(); buzz([30, 40, 30]);
+        this.popWord(c.x, c.y - 260, 'SAVE!', '#7fe39a', 110, -6);
+        this.confetti.explode(30, c.x, c.y - 100);
+        this.log(def.name + ' makes a PERFECT SAVE! The puck bounces back!');
+        const pk = this.add.image(c.x + def.dir * 120, c.y, 'puck').setDepth(26);
+        const t = att.center();
+        await tw(this, { targets: pk, x: t.x, y: t.y, angle: 720, duration: 380, ease: 'Quad.in' });
+        pk.destroy();
+        await this.impact(att, 10, 'pillow', true, true);
+      } else if (res === 'good') {
+        A.glove();
+        this.popWord(c.x, c.y - 260, 'GOOD SAVE!', '#ffd23f', 96, -6);
+        this.log('Good save! Only half of the SLAPSHOT gets through.');
+        await this.impact(def, Math.ceil(d / 2), 'pillow');
+      } else {
+        this.popWord(c.x, c.y - 260, 'BONK!', '#ff9ed8', 96, 6);
+        await this.impact(def, d, 'pillow');
+        this.log(att.name + ': "Oh! Sorry!"');
+        await wait(this, 500);
+      }
+      if (def === P) {
+        const st = Save.data.stats || (Save.data.stats = {});
+        if (!st.saveSeen) { st.saveSeen = 1; Save.store(); }
+        emit('save', { result: res, diff: dk }, this);
+      }
+    }
+    // the timed save: resolves 'perfect' | 'good' | 'miss'. Judged with performance.now() (Phaser treats slow frames as 33 ms).
+    saveIt(att, def) {
+      const dk = Save.data.diff in SAVE_T ? Save.data.diff : 'normal', T = SAVE_T[dk];
+      const auto = window.__psSaveAuto; // ?debug only: tests run at 2-3 fps and cannot time a tap
+      const tutorial = !((Save.data.stats || {}).saveSeen);
+      const f = att.front(), c = def.center();
+      const gx = c.x + def.dir * 130, gy = c.y - 20;
+      const glove = this.add.image(gx, gy, 'glove').setDepth(27).setScale(0).setFlipX(def.dir < 0);
+      const gs = iconScale('glove', 260);
+      const ring = this.add.image(gx, gy, 'ring').setDepth(28).setAlpha(0).setScale(3);
+      const puck = this.add.image(f.x, f.y + 40, 'puck').setDepth(29).setVisible(false);
+      const ready = txt(this, gx, gy - 220, 'GET READY...', 56, '#d8ecff', { st: 8 }).setDepth(30);
+      const cleanup = () => { [glove, ring, puck, ready].forEach(o => this.tweens.add({ targets: o, alpha: 0, duration: 300, delay: 200, onComplete: () => o.destroy() })); };
+      this.tweens.add({ targets: glove, scale: gs, duration: 200, ease: 'Back.out' });
+      if (auto) return new Promise(r => this.time.delayedCall(300, () => { cleanup(); r(auto === 'perfect' || auto === 'good' ? auto : 'miss'); }));
+      return new Promise(resolve => {
+        const pause = rnd(T.pause[0], T.pause[1]);
+        let t0 = performance.now() + pause, last = performance.now(), restarts = 0, early = 0, done = false, launched = false, frozen = null, tapWait = null;
+        const finish = r => {
+          if (done) return; done = true;
+          this.events.off('update', tick); this.input.off('pointerdown', onTap);
+          if (this.input.keyboard) this.input.keyboard.off('keydown-SPACE', onKey);
+          if (tapWait) tapWait.destroy();
+          cleanup(); resolve(r);
+        };
+        const wobble = word => { this.tweens.add({ targets: glove, angle: { from: -14, to: 14 }, duration: 90, yoyo: true, repeat: 2, onComplete: () => glove.setAngle(0) }); this.popWord(gx, gy - 160, word, '#ffb3b3', 56, 6); };
+        const tap = () => {
+          if (done) return;
+          const now = performance.now(), t = now - t0;
+          if (frozen) { finish('perfect'); return; } // tutorial or the EASY "TAP!" wait
+          if (tutorial) return; // the tutorial waits for its frozen moment
+          const j = judgeSave(t, dk);
+          if (j === 'perfect' || j === 'good') { glove.setTint(0xb8ffcf); finish(j); return; }
+          if (j === 'early') {
+            if (dk === 'normal' && !early++) { wobble('WAIT FOR IT!'); return; }
+            wobble('TOO EARLY!'); finish('miss'); return;
+          }
+          finish('miss');
+        };
+        const onTap = p => { if (p.worldY > (PORTRAIT ? 300 : 170)) tap(); };
+        const onKey = () => tap();
+        this.input.on('pointerdown', onTap);
+        if (this.input.keyboard) this.input.keyboard.on('keydown-SPACE', onKey);
+        const freeze = (t, word) => {
+          frozen = t; puck.setTint(0xffffff); ready.setVisible(false);
+          tapWait = txt(this, gx, gy - 230, word, 64, '#7fe39a', { st: 9 }).setDepth(31);
+          this.tweens.add({ targets: tapWait, scale: 1.15, duration: 320, yoyo: true, repeat: -1 });
+        };
+        const tick = () => {
+          if (done) return;
+          const now = performance.now(), gap = now - last; last = now;
+          // hiccup rule: a stalled frame during the flight (rotation, background, old iPad) restarts the shot; twice = a good save
+          if (launched && !frozen && gap > 250) {
+            if (++restarts > 2) { finish('good'); return; }
+            this.log(att.name + ' slips! Again!');
+            t0 = now + 400; launched = false; puck.setVisible(false); ring.setAlpha(0);
+            return;
+          }
+          const t = frozen != null ? frozen : now - t0;
+          if (t < 0) return;
+          if (!launched) { launched = true; ready.setText('SLAPSHOT!'); A.slap(); puck.setVisible(true); ring.setAlpha(0.9); }
+          const k = Math.min(1, t / T.F);
+          puck.x = f.x + (gx - f.x) * k; puck.y = f.y + 40 + (gy - f.y - 40) * k; puck.angle = t * 0.6;
+          ring.setScale(3 - 2 * k);
+          const j = judgeSave(t, dk);
+          ring.setTint(j === 'perfect' ? 0x7fe39a : j === 'good' ? 0xffd23f : 0xffffff);
+          if (frozen != null) return;
+          // the very first SAVE IT!: freeze inside the perfect window and wait for the tap
+          if (tutorial && (T.perfect ? t >= (T.perfect[0] + T.perfect[1]) / 2 - 80 : t >= T.F * 0.8)) { freeze(t, 'TAP NOW!'); return; }
+          if (!T.perfect) {
+            // EASY: the puck stops just before the glove and waits up to 3 s; no tap is still a good save
+            const stopT = T.F * (1 - 120 / Math.max(240, Math.hypot(gx - f.x, gy - f.y)));
+            if (t >= stopT) { freeze(stopT, 'TAP!'); this.time.delayedCall(3000, () => { if (!done) { this.popWord(gx, gy - 160, 'OOF!', '#ffd23f', 64, 6); finish('good'); } }); }
+            return;
+          }
+          if (t > T.perfect[1]) finish('miss');
+        };
+        this.events.on('update', tick);
+      });
     }
     // the card the beam takes: the first limited card that still has uses. Never an unlimited one, so the kid can always act.
     // Jack: Nap, Inferno Rain, Frosty Sneeze, Dumpling, booster move, Six-Seven Dance. Toys: heal / nap first, then the strongest.
@@ -2837,7 +3003,7 @@
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
     sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.R && sc.R.boss ? 'boss' : sc.R && sc.R.world === CANADA ? 'north' : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
-  window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
+  window.__psJudgeSave = judgeSave; window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
   window.__psSnapshot = () => snapshot(game);
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)

@@ -441,6 +441,7 @@
     // Firefighter counts extinguisher blocks only; umbrella blocks of the Tractor Beam count apart (v0.8)
     if (name === 'block') bump(d && d.tool === 'umbrella' ? 'beamBlocks' : 'blocks');
     if (name === 'move' && d.type === 'nap') bump('naps');
+    if (name === 'save' && d.result === 'perfect') bump('perfectSaves');
     if (name === 'capsule') { bump('capsOpened'); if (d.boost && d.boost.r === 3) bump('superRares'); }
     if (name === 'friendAdded') bump('friends');
     if (name === 'giftSent') bump('gifts');
