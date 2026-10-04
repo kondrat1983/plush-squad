@@ -236,7 +236,7 @@ Space rivals start scaling later (from level 4) and cap lower: pep Ã— (1 + 0.05Â
 
 ### Unlocks
 - Next rival: after one star on the previous rival. Next world: after its previous boss. Event worlds are open from day one of the event (Spooky: 1 October to 7 November).
-- Jack's moves: level 2, 3, 4, 5 (section 6). Costumes: from the Spooky event rivals (Pumpkin Pete: pumpkin, Batty: top hat, Webster: witch hat, Count Fang: crown) (G32). Titles: from stickers.
+- Jack's moves: level 2, 3, 4, 5 (section 6). Costumes: from the Spooky event rivals (Pumpkin Pete: pumpkin, Batty: top hat, Webster: witch hat, Count Fang: crown) (G32). Planned: the Giant Dragon Boss gives a costume too (Kondrat, 4 Oct 2026). Titles: from stickers.
 - Real-life quests feed progression too (section 10). Me: player card with title, stats and costumes.
 
 ## 9. Rewards: capsules, boosters, stickers

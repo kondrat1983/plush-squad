@@ -4,6 +4,7 @@ Newest on top. ✅ = shipped (with version). Source: Kondrat, the chief tester, 
 
 | Date | Idea | Source | Status |
 |---|---|---|---|
+| 4 Oct 2026 | Costume for beating the Giant Dragon Boss (G32). | Kondrat | decided; `game-designer` proposes the costume, then dev |
 | 4 Oct 2026 | Cooler Home Screen icon for the web app: a close-up of Jack's face that fills most of the icon, instead of the small full-body Jack on the night sky. Same for the maskable / Android icon (QA B29). | Kondrat (seen on iPhone) | backlog, next release or hotfix |
 | 4 Oct 2026 | Animated comic-book style popup (superhero comics look) when Jack arrives in a new world, e.g. Jack the dragon lands in Canada. | Kondrat | first task for `game-designer` after Kondrat says go; part of the v0.8 world doc |
 | 4 Oct 2026 | v0.8 world design doc: Canada or Ocean (the chief tester picks), with focus on "too easy". | Cowork / Kondrat | waiting for Kondrat's go |
