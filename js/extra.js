@@ -245,9 +245,11 @@
         const owned = COSTUMES.filter(c => c.id === 'none' || (d.costumes || {})[c.id]);
         const yC = cy + chh / 2 + 90;
         txt(this, cx, yC, 'COSTUME', 40, '#ffd23f', { st: 7 });
-        // more hats than fit in one row (v0.8: up to 8 + none): portrait wraps into rows, landscape shrinks the cards (no room below)
-        const step = PORTRAIT ? 170 : Math.min(170, (W - 80) / owned.length), cs = step - 20;
-        const perRow = PORTRAIT ? Math.max(1, Math.min(owned.length, Math.floor((W - 80) / 170))) : owned.length;
+        // more hats than fit in one row (v0.8: up to 8 + none): tall portrait screens wrap into two rows, others shrink the cards
+        // (a second row must stay above the account box, which starts about H - 340 in portrait; iPad portrait has no room)
+        const wrap = PORTRAIT && owned.length * 170 > W - 80 && yC + 110 + 170 + 75 < H - 340;
+        const step = wrap ? 170 : Math.min(170, (W - 80) / owned.length), cs = step - 20;
+        const perRow = wrap ? Math.floor((W - 80) / 170) : owned.length;
         owned.forEach((c, i) => {
           const row = Math.floor(i / perRow), inRow = Math.min(perRow, owned.length - row * perRow), col = i % perRow;
           const x = cx + (col - (inRow - 1) / 2) * step, y = yC + 110 + row * 170, on = d.costume === c.id;

@@ -63,6 +63,10 @@ for (const [tag, vp] of Object.entries(SIZES)) {
     await boot(page, save({ mig08: 1, costumes, costume: 'owlhat' }));
     await go(page, 'me');
     expect(await offscreen(page, 'me')).toEqual([]);
+    // hat cards stay above the LOG IN / LOG OUT button (top at H - 255 in portrait, code review); the text above it vs row 1 on iPad is B11 (#15)
+    const low = await page.evaluate(() => { const s = __game.scene.getScene('me'), H = __game.config.height, cam = s.cameras.main;
+      return s.children.list.filter(o => o.type === 'Container' && o.input && o.width >= 90 && o.width <= 150 && o.y - cam.scrollY + o.height / 2 > (__psPortrait ? H - 255 : H)).length; });
+    expect(low).toBe(0);
     // the worn owl is tinted green
     const tinted = await page.evaluate(() => __game.scene.getScene('me').children.list.some(o => o.texture && o.texture.key === 'owl' && o.tintTopLeft !== 0xffffff));
     expect(tinted).toBe(true);
