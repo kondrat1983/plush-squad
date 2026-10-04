@@ -7,6 +7,9 @@ Pure HTML5 (Phaser 3), works in any browser, installs as an app (PWA) and plays 
 Open a terminal in this folder and run `python3 -m http.server 8000`, then open http://localhost:8000.
 (Opening `index.html` by double-click won't work — browsers block loading local game files that way.)
 
+## Tests
+`npm install && npx playwright install chromium && npm test` runs the browser tests in `tests/` (Playwright). They also run on every push (GitHub Actions). Notes for AI helpers are in `CLAUDE.md`.
+
 ## Publish on GitHub Pages (free)
 1. Create a new **public** repo on github.com, e.g. `plush-squad`.
 2. Upload everything from this folder (drag & drop the files on the repo page → *Commit changes*).

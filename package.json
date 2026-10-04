@@ -1,0 +1,13 @@
+{
+  "name": "plush-squad",
+  "private": true,
+  "description": "Plush Squad: Phaser 3 PWA. No build step; package.json is only for the browser tests.",
+  "scripts": {
+    "serve": "python3 -m http.server 8765",
+    "test": "playwright test",
+    "test:smoke": "playwright test tests/smoke.spec.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.0"
+  }
+}
