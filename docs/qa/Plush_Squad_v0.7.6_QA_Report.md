@@ -159,5 +159,5 @@ Short repros that would have caught what I found. All use the existing handles (
 ## 7. Not tested
 
 - **Real devices:** IOS-01..16 + **IOS-17** rapid rotation x20 + **IOS-18** music on the oldest iPad (stutter, silent switch, lock screen and back, AirPods connect / disconnect).
-- **Online** ON-01..16 (needs Yuriy's test accounts and OK). B33's server side belongs here.
+- **Online** ON-01..16 (needs Kondrat's test accounts and OK). B33's server side belongs here.
 - Listening quality of the new tracks (no audio output in my setup; I measured levels, timing and node counts, not taste).
