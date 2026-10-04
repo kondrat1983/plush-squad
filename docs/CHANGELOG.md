@@ -2,6 +2,14 @@
 
 What happened in Plush Squad, newest on top: game releases (what changed for the player), owner decisions, new or changed docs. Details: [decisions](gdd/decisions.md), [GitHub issues](https://github.com/kondrat1983/plush-squad/issues?q=is%3Aissue).
 
+## 4 Oct 2026 (evening)
+**Game: v0.8.0** (release PR from `claude/v0.8`, live after Kondrat's OK)
+- Canada world: Max the Moose, Beaver Bob, Mountie Bear, Sasquatch; SLAPSHOT + SAVE IT!; Pond Hockey; arrival comic (#31).
+- Space rework: The Blips and The Mothership; "Fire or Beam?" with FOAM! / UMBRELLA! (parts 2 and 3, PRs #46 and #49).
+- Boss hats (part 1, PR #42), 5 new stickers including Umbrella Hero (Kondrat: yes), 6 new quests, What's new 0.8.
+- Bugs fixed: #13 (B06 album pages), #43 (B41 photo CANCEL), #45 (B44 title layout), #48 (B50 REMOVE button), and QA B42-B49.
+- QA reports: `docs/qa/` parts 1 to 7.
+
 ## 4 Oct 2026
 **Docs and process**
 - Docs website with menu and search (this site).

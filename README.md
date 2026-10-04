@@ -40,6 +40,14 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - `sw.js`, `manifest.json` — offline + install
 
 ## Versions
+- **v0.8**
+  - **Canada**, a new snowy world: Max the Moose, Beaver Bob, Mountie Bear and the boss **Sasquatch**. Harder than Space.
+  - **SAVE IT!**: Sasquatch shoots hockey pucks; tap at the right moment for a perfect save (the puck bounces back).
+  - **Pond Hockey** mini-game (after beating Beaver Bob) and a **comic** the first time you arrive in Canada.
+  - **Space rework**: The Blips (three aliens) and the boss **The Mothership**. "Fire or Beam?": FOAM! stops Inferno Rain, UMBRELLA! stops the Tractor Beam, which can take a card.
+  - **Boss hats**: Owl Hat, UFO Hat, Bat Hat, Canada Toque. The Royal Crown is now the Superstar sticker reward.
+  - 5 new stickers (27), 6 new real-life quests (24), Sticker Album pages.
+  - Fixes: CANCEL while a toy photo is processed, title layout on tall phones, a bigger REMOVE button.
 - **v0.7**
   - **Accounts** (name + password, no e-mails) with **cloud saves**, a recovery code for forgotten passwords.
   - **Friends** by code: duel your friends' toys (or their Jack), "X beat your toy! Revenge?", gift a capsule a day or a booster, send stickers.
