@@ -45,6 +45,7 @@ This repo is **public**. Never commit secrets, personal names of the family, e-m
 - `assets/`: Jack cut-outs, Fluent Emoji 3D (MIT), Poppins (OFL), icon atlases.
 - `docs/gdd/`: the GDD (main version, `Plush_Squad_GDD.md`), `decisions.md` (owner decisions), `ideas.md` (idea log, newest on top), `findings.md` (GDD vs code, G-IDs, next after G34), design docs `<version>-<feature>.md`.
 - `docs/qa/`: QA reports by the `qa-tester` agent, one per version.
+- `docs/index.html`: the docs website (docsify, reads `docs/` from `main`): https://kondrat1983.github.io/plush-squad/docs/. `docs/CHANGELOG.md` is its news feed: **every PR adds a line** (game change for the player, decision, new doc). New docs also get a line in `docs/_sidebar.md` and `docs/README.md`.
 - `.claude/agents/`: `qa-tester.md`, `game-designer.md`.
 
 ## Architecture notes

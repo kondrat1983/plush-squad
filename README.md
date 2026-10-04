@@ -1,5 +1,7 @@
 # Plush Squad 🐉🛏️
 
+**Docs (GDD, decisions, design docs, QA reports):** https://kondrat1983.github.io/plush-squad/docs/
+
 A pillow duel starring **Jack** the plush dragon, his rivals and your own toys.
 Pure HTML5 (Phaser 3), works in any browser, installs as an app (PWA) and plays offline.
 
