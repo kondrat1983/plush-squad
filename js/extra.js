@@ -16,7 +16,7 @@
     { id: 'dragon', name: 'Dragon vs Dragon', desc: 'Beat the Giant Dragon Boss', icon: 'dragonboss', title: 'Dragon Champion', ok: d => (d.stars.dragonboss || 0) > 0 },
     { id: 'fang', name: 'King of Halloween', desc: 'Beat Count Fang', icon: 'vampire', title: 'Pumpkin King', ok: d => (d.stars.fang || 0) > 0 },
     { id: 'hardboss', name: 'Hard as Pillows', desc: 'Beat a boss on HARD', icon: 'j:hundred', title: 'Hard Mode Hero', ok: d => (d.stats.hardBossWins || 0) >= 1 },
-    { id: 'allstars', name: 'Superstar', desc: 'Get all 24 stars in Pillow Hills + Space', icon: 'j:glowstar', title: 'Superstar',
+    { id: 'allstars', name: 'Superstar', desc: 'All 24 stars in Hills + Space', icon: 'j:glowstar', title: 'Superstar',
       ok: d => ['timmy', 'moo', 'sly', 'hoot', 'robot', 'polandball', 'ghost', 'dragonboss'].every(k => (d.stars[k] || 0) >= 3) },
     { id: 'block5', name: 'Firefighter', desc: 'Block Inferno Rain 5 times', icon: 'extinguisher', title: 'Firefighter', ok: d => (d.stats.blocks || 0) >= 5 },
     { id: 'caps10', name: 'Capsule Hunter', desc: 'Open 10 capsules', icon: 'gift', title: 'Capsule Hunter', ok: d => (d.stats.capsOpened || 0) >= 10 },
@@ -37,7 +37,7 @@
   let pending = [];
   function checkAch() {
     const d = S(); if (!d.ach) return;
-    ACH.forEach(a => { try { if (!d.ach[a.id] && a.ok(d)) { d.ach[a.id] = Date.now(); d.caps = (d.caps || 0) + 1; pending.push(a); } } catch (e) {} });
+    ACH.forEach(a => { try { if (!d.ach[a.id] && a.ok(d)) { d.ach[a.id] = Date.now(); d.caps = (d.caps || 0) + 1; pending.push(a); if (a.id === 'allstars' && d.costumes) d.costumes.crown = true; } } catch (e) {} });
     if (pending.length) store();
   }
   function bump(k, n = 1) { const d = S(); if (!d.stats) return; d.stats[k] = (d.stats[k] || 0) + n; }
@@ -127,7 +127,7 @@
     list.forEach((a, i) => {
       queued.set(a, tk);
       scene.time.delayedCall(400 + i * 3300, () => {
-        toast(scene, PS, a.icon, 'NEW STICKER: ' + a.name, a.desc + '  ·  +1 capsule');
+        toast(scene, PS, a.icon, a.head || 'NEW STICKER: ' + a.name, a.sub || (a.desc + '  ·  +1 capsule'));
         scene.time.delayedCall(450, () => { pending = pending.filter(x => x !== a); queued.delete(a); }); // seen
       });
     });
@@ -229,7 +229,7 @@
         const av = this.add.image(ax, ay + 110, hero.isJack ? 'jack_front' : hero.tex).setOrigin(0.5, 1);
         av.setScale(Math.min(250 / av.height, 260 / av.width));
         const hc = COSTUMES.find(c => c.id === d.costume);
-        if (hc && hc.tex) { const h = this.add.image(ax, ay + 110 - av.displayHeight * 0.96, hc.tex).setOrigin(0.5, 0.85); h.setScale(av.displayWidth * hc.w / h.width).setAngle(-6); }
+        if (hc && hc.tex) { const h = PS.hatImage(this, ax, ay + 110 - av.displayHeight * 0.96, hc).setOrigin(0.5, 0.85); h.setScale(av.displayWidth * hc.w / h.width).setAngle(-6); }
         const tx = PORTRAIT ? cx : cx - cw / 2 + 400, ox = PORTRAIT ? 0.5 : 0, ty = PORTRAIT ? cy + 30 : cy - 170;
         const name = Net && Net.user ? Net.user.name : 'Guest';
         txt(this, tx, ty, name, 64, '#fff3d2', { st: 9, ox });
@@ -242,19 +242,25 @@
         fit(txt(this, tx, ty + 150, stats, 30, '#bcc0ee', { st: 5, ox, weight: '500' }), PORTRAIT ? cw - 60 : cw - 440);
         txt(this, tx, ty + 205, 'Wins ' + (d.wins || 0) + '   ·   Toys ' + (d.toys || []).length, 30, '#bcc0ee', { st: 5, ox, weight: '500' });
         // costumes
-        const owned = COSTUMES.filter(c => c.id === 'none' || (d.costumes || {})[c.id] || (c.id === 'crown' && (d.stars.dragonboss || 0) > 0));
+        const owned = COSTUMES.filter(c => c.id === 'none' || (d.costumes || {})[c.id]);
         const yC = cy + chh / 2 + 90;
         txt(this, cx, yC, 'COSTUME', 40, '#ffd23f', { st: 7 });
+        // more hats than fit in one row (v0.8: up to 8 + none): tall portrait screens wrap into two rows, others shrink the cards
+        // (a second row must stay above the account box, which starts about H - 340 in portrait; iPad portrait has no room)
+        const wrap = PORTRAIT && owned.length * 170 > W - 80 && yC + 110 + 170 + 75 < H - 340;
+        const step = wrap ? 170 : Math.min(170, (W - 80) / owned.length), cs = step - 20;
+        const perRow = wrap ? Math.floor((W - 80) / 170) : owned.length;
         owned.forEach((c, i) => {
-          const x = cx + (i - (owned.length - 1) / 2) * 170, y = yC + 110, on = d.costume === c.id;
+          const row = Math.floor(i / perRow), inRow = Math.min(perRow, owned.length - row * perRow), col = i % perRow;
+          const x = cx + (col - (inRow - 1) / 2) * step, y = yC + 110 + row * 170, on = d.costume === c.id;
           const b = this.add.container(x, y);
-          b.add(card(this, PS, 0, 0, 150, 150, on ? C.star : C.night2, on ? 0xffffff : C.seam));
-          if (c.tex) { const im = this.add.image(0, -8, c.tex); im.setScale(100 / Math.max(im.width, im.height)); b.add(im); }
-          else b.add(txt(this, 0, -8, 'NONE', 30, on ? C.ink : '#bcc0ee', { st: 0, shadow: false }));
-          b.setSize(150, 150).setInteractive({ useHandCursor: true });
+          b.add(card(this, PS, 0, 0, cs, cs, on ? C.star : C.night2, on ? 0xffffff : C.seam));
+          if (c.tex) { const im = PS.hatImage(this, 0, -8, c); im.setScale(cs * 0.66 / Math.max(im.width, im.height)); b.add(im); }
+          else b.add(txt(this, 0, -8, 'NONE', Math.round(cs * 0.2), on ? C.ink : '#bcc0ee', { st: 0, shadow: false }));
+          b.setSize(cs, cs).setInteractive({ useHandCursor: true });
           b.on('pointerup', () => { d.costume = c.id; Save.store(); A.click(); this.scene.restart(); });
         });
-        if (owned.length === 1) txt(this, cx, yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat the Dragon Boss to win the Royal Crown!', 28, '#bcc0ee', { st: 5, weight: '500' });
+        if (owned.length === 1) txt(this, cx, yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat Professor Hoot to win the Owl Hat!', 28, '#bcc0ee', { st: 5, weight: '500' });
         // account
         const yA = PORTRAIT ? H - 260 : H - 55;
         if (Net && Net.ready) {
@@ -431,6 +437,12 @@
       if ((newDuel || ['title', 'map', 'squad', 'catch', 'gacha', 'me', 'album', 'quests', 'friends', 'boss'].includes(d.key)) && blockedReason()) { scene.time.delayedCall(50, () => PS.fade(scene, 'bedtime')); return; }
       // not on the boot scene of a rebuilt game (it stops at once and the toasts were lost, QA B37);
       // a result panel restored after a rotation shows them like a menu does
+      // v0.8: hats given to old saves by the migration in game.js, announced once like stickers (QA B43)
+      const g = S().gifts08;
+      if (g && d.key !== 'boot' && d.key !== 'battle') {
+        g.forEach(id => { const c = PS.COSTUMES.find(x => x.id === id); if (c) pending.push({ icon: c.tex, head: 'A GIFT: ' + c.name + '!', sub: 'Thank you for playing! Put it on in Me' }); });
+        delete S().gifts08; store();
+      }
       if (d.key !== 'boot' && (d.key !== 'battle' || scene.shown)) flushToasts(scene, PS);
       if (d.key === 'title') scene.time.delayedCall(900, () => whatsNew(scene, PS));
     } else if (name === 'duel') scene.time.delayedCall(2500, () => flushToasts(scene, PS));

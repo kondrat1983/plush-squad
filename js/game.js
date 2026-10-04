@@ -92,6 +92,25 @@
   Save.load(); A.muted = !!Save.data.muted; if (!Save.data.stars) Save.data.stars = {}; if (!Array.isArray(Save.data.toys)) Save.data.toys = []; if (!Save.data.hero) Save.data.hero = 'jack';
   ['diff', 'caps', 'boosts', 'seen', 'stats', 'ach', 'costumes'].forEach((k, i) => { if (Save.data[k] == null) Save.data[k] = ['normal', 0, {}, {}, {}, {}, {}][i]; });
   if (!Save.data.costume) Save.data.costume = 'none';
+  // v0.8 save migration (runs on every load, also after a cloud save is pulled in; never takes anything away)
+  (d => {
+    if (d.ach && d.ach.allstars) d.costumes.crown = true; // the crown is the Superstar sticker's reward
+    // once, for saves from before v0.8 (fresh saves get the flag on their first load):
+    if (!d.mig08) {
+      const had = Object.assign({}, d.costumes);
+      // the Royal Crown was shown to Dragon Boss winners without being stored (G35). Only for old saves:
+      // the v0.8 UFO boss keeps the id 'dragonboss' and gives the UFO Hat instead
+      if ((d.stars.dragonboss || 0) > 0) d.costumes.crown = true;
+      // boss hats for players who already beat these bosses (owner's decision, v0.8)
+      if ((d.stars.hoot || 0) > 0) d.costumes.owlhat = true;
+      if ((d.stars.fang || 0) > 0) d.costumes.bat = true;
+      // new hats are announced once as a gift on the first menu screen (js/extra.js, QA B43)
+      // (the crown is no news to Dragon Boss winners: Me already showed it to them, only unstored, code review)
+      const gifts = ['owlhat', 'bat', 'crown'].filter(k => d.costumes[k] && !had[k] && !(k === 'crown' && (d.stars.dragonboss || 0) > 0));
+      if (gifts.length) d.gifts08 = gifts;
+      d.mig08 = 1;
+    }
+  })(Save.data);
   // Halloween event: October + first week of November (or ?halloween to test)
   const NOW = new Date();
   const EVENT_ON = /[?&]halloween/.test(location.search) || NOW.getMonth() === 9 || (NOW.getMonth() === 10 && NOW.getDate() <= 7);
@@ -423,7 +442,7 @@
       moves: [{ type: 'rush', dmg: [10, 18], word: 'WHIP!', w: 40, log: '{a} whips his tail like a jump rope!' }, { type: 'tickle', dmg: [5, 20], w: 25 },
         { type: 'dizzy', color: 0xb38cff, word: 'DIZZY!', uses: 2, w: 15, sound: 'hiss', log: '{a} does the hypno-sway... {d} feels wobbly!' },
         { type: 'roar', word: 'HSSSSS!', color: 0x8ef0a8, sound: 'hiss', dmg: [13, 21], w: 20, log: '{a} hisses so loudly {d}\'s ears flop!' }] },
-    { id: 'hoot', name: 'Professor Hoot', nick: 'Professor Hoot', short: 'PROF. HOOT', tex: 'owl', scale: 1.9, color: 0xc89a6a, hp: 150, xp: 100, boss: true,
+    { id: 'hoot', name: 'Professor Hoot', nick: 'Professor Hoot', short: 'PROF. HOOT', tex: 'owl', scale: 1.9, color: 0xc89a6a, hp: 150, xp: 100, boss: true, reward: 'owlhat',
       intro: 'Professor Hoot adjusts his cap: "Lesson time, Jack!"', laugh: 'The Professor declared a holiday. No homework!',
       moves: [{ type: 'volley', tex: 'books', dmg: [12, 21], word: 'LESSON TIME!', sound: 'hoot', w: 35, log: 'POP QUIZ! {a} throws books at {d}!' },
         { type: 'throw', tex: 'pillow', dmg: [11, 18], w: 25, log: '{a} swings a pillow at {d}!' },
@@ -451,7 +470,7 @@
         { type: 'dizzy', color: 0x9dff9a, word: 'SPOOKY...', uses: 2, w: 15, sound: 'boo', log: '{a} spins spooky circles... {d} feels wobbly!' },
         { type: 'shield', w: 20, log: '{a} turns see-through. Next hit only does half!' },
         { type: 'tickle', dmg: [6, 22], w: 20 }] },
-    { id: 'dragonboss', world: SPACE, name: 'Giant Dragon Boss', nick: 'Dragon Boss', short: 'DRAGON BOSS', tex: 'dragonboss', big: 1.15, ownCrown: true, color: 0xff8a3d, hp: 200, xp: 180, boss: true,
+    { id: 'dragonboss', world: SPACE, name: 'Giant Dragon Boss', nick: 'Dragon Boss', short: 'DRAGON BOSS', tex: 'dragonboss', big: 1.15, ownCrown: true, color: 0xff8a3d, hp: 200, xp: 180, boss: true, reward: 'ufohat',
       intro: 'The Giant Dragon Boss puffs smoke: "So YOU are the little dragon everyone talks about..."', laugh: 'The Dragon Boss laughed so hard he sneezed sparkles. Jack is the new champion!',
       moves: [{ type: 'rain', charge: true, dmg: [24, 30], uses: 2, w: 35, log: '{a} rains fire from the sky!' },
         { type: 'multi', hits: 3, dmg: [6, 10], w: 25, log: 'TAIL SPIN! {a} whirls like a giant tornado!' },
@@ -477,7 +496,7 @@
         { type: 'multi', hits: 4, dmg: [4, 7], w: 30, log: 'EIGHT-LEG TICKLE! {a} tickles {d} again and again!' },
         { type: 'tickle', dmg: [6, 24], w: 25 },
         { type: 'shield', w: 15, log: '{a} hides in a web hammock. Next hit only does half!' }] },
-    { id: 'fang', world: SPOOKY, event: true, name: 'Count Fang', nick: 'Count Fang', short: 'COUNT FANG', tex: 'vampire', color: 0xff6b5b, hp: 175, xp: 120, boss: true, reward: 'crown',
+    { id: 'fang', world: SPOOKY, event: true, name: 'Count Fang', nick: 'Count Fang', short: 'COUNT FANG', tex: 'vampire', color: 0xff6b5b, hp: 175, xp: 120, boss: true, reward: 'bat',
       intro: 'Count Fang swirls his cape: "I vant to... tickle your toes!"', laugh: 'Count Fang laughed until sunrise. Jack is the King of Halloween!',
       moves: [{ type: 'volley', tex: 'bat', dmg: [13, 21], word: 'BAT ATTACK!', sound: 'laser', w: 30, log: '{a} sends a flock of bats at {d}!' },
         { type: 'dizzy', color: 0xff6b5b, word: 'HYPNO STARE', uses: 2, w: 15, sound: 'boo', log: '{a} gives {d} the hypno stare...' },
@@ -485,14 +504,19 @@
         { type: 'heal', tex: 'j:chocolate', amt: 25, uses: 1, w: 10, log: '{a} snacks on Halloween chocolate.' },
         { type: 'roar', word: 'BLAH BLAH!', color: 0xff6b5b, sound: 'boo', dmg: [14, 22], w: 20, log: '{a} says BLAH so loud the bats fly away!' }] },
   ] : []);
-  // Halloween costumes (won from the SPOOKY rivals) and the crown
+  // costumes: Halloween hats (SPOOKY rivals), one hat per world boss, the Royal Crown (Superstar sticker; old Dragon Boss winners keep it)
   const COSTUMES = [
     { id: 'none', name: 'No hat' },
+    { id: 'owlhat', name: 'Owl Hat', tex: 'owl', w: 0.38, tint: 0x8fe39a },
+    { id: 'ufohat', name: 'UFO Hat', tex: 'ufo', w: 0.5 },
+    { id: 'bat', name: 'Bat Hat', tex: 'bat', w: 0.5 },
     { id: 'pumpkin', name: 'Pumpkin Hat', tex: 'pumpkin', w: 0.42 },
     { id: 'tophat', name: 'Top Hat', tex: 'tophat', w: 0.45 },
     { id: 'witchhat', name: 'Witch Hat', tex: 'witchhat', w: 0.55 },
     { id: 'crown', name: 'Royal Crown', tex: 'crown', w: 0.45 },
   ];
+  // a costume image (with its tint) for the title, the duel and the Me screen
+  const hatImage = (scene, x, y, c) => { const h = scene.add.image(x, y, c.tex); if (c.tint) h.setTint(c.tint); return h; };
   // the weekly co-op boss (only when online, see js/net.js)
   const KRAKEN = { id: 'kraken', name: 'Pillow Kraken', nick: 'Kraken', short: 'PILLOW KRAKEN', tex: 'kraken', color: 0xff9ed8, hp: 220, xp: 60, boss: true, big: 1.1,
     intro: 'The Pillow Kraken rises from the blanket sea! Everyone hits it together this week!', laugh: 'The Kraken giggles and sinks back into the blanket sea... for now!',
@@ -630,7 +654,7 @@
       jack.setScale(Math.min(hMax / jack.height, (PORTRAIT ? 600 : 520) / jack.width));
       const hc = COSTUMES.find(c => c.id === Save.data.costume);
       let hat = null;
-      if (hc && hc.tex) { hat = this.add.image(W / 2, jy - jack.displayHeight * 0.96, hc.tex).setOrigin(0.5, 0.85); hat.setScale(jack.displayWidth * hc.w / hat.width).setAngle(-6); }
+      if (hc && hc.tex) { hat = hatImage(this, W / 2, jy - jack.displayHeight * 0.96, hc).setOrigin(0.5, 0.85); hat.setScale(jack.displayWidth * hc.w / hat.width).setAngle(-6); }
       this.tweens.add({ targets: [jack].concat(hat ? [hat] : []), y: '-=34', duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.tweens.add({ targets: sh, scaleX: 1.05, alpha: 0.6, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.add.particles(0, 0, 'spark', { x: { min: W / 2 - 300, max: W / 2 + 300 }, y: { min: jy - hMax, max: jy - 60 }, lifespan: 1200, scale: { start: 0.5, end: 0 }, alpha: { start: 1, end: 0 }, frequency: 220, tint: [C.star, 0xffffff, C.mint], rotate: { min: 0, max: 90 } }).setDepth(-0.5);
@@ -1477,7 +1501,7 @@
       const c = COSTUMES.find(x => x.id === Save.data.costume);
       if (!c || !c.tex || !this.textures.exists(c.tex)) return;
       const w = f.spr.displayWidth, h = f.spr.displayHeight, jack = f.key === 'jack_side';
-      const hat = this.add.image(jack ? w * 0.2 : 0, -h * (jack ? 0.9 : 0.96), c.tex).setOrigin(0.5, 0.85);
+      const hat = hatImage(this, jack ? w * 0.2 : 0, -h * (jack ? 0.9 : 0.96), c).setOrigin(0.5, 0.85);
       hat.setScale(w * c.w / hat.width * (jack ? 0.8 : 1)).setAngle(jack ? 14 : -6);
       f.squash.add(hat); f.hat = hat;
       this.tweens.add({ targets: hat, y: hat.y - 10, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -2101,6 +2125,7 @@
       const newCostume = won && R.reward && !Save.data.costumes[R.reward] ? COSTUMES.find(c => c.id === R.reward) : null;
       if (newCostume) Save.data.costumes[R.reward] = true;
       Save.store();
+      const hadCrown = !!Save.data.costumes.crown;
       emit('duel', { won, mode: this.mode, rival: R, rivalIdx: this.rivalIdx, stars, firstClear, diff: Save.data.diff, boss: !!R.boss,
         dmg: Math.max(0, this.rival.max - Math.max(0, this.rival.hp)), data: this.data0, hero: this.H }, this);
       const after = levelOf(Save.data.xp);
@@ -2115,6 +2140,7 @@
       if (newMoves.length && this.hero.isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
       if (caps) notes.push('+' + caps + ' capsule' + (caps > 1 ? 's' : '') + '! Open on the map');
       if (newCostume) notes.push('New costume: ' + newCostume.name + '! Put it on in Me');
+      if (!hadCrown && Save.data.costumes.crown) notes.push('Superstar! New costume: Royal Crown!'); // the Superstar sticker's reward (QA B42)
       if (this.mode === 'boss') notes.push('You hit the Kraken for ' + Math.max(0, this.rival.max - Math.max(0, this.rival.hp)) + '! Everyone\'s hits add up');
       if (this.xpMul > 1) notes.push((this.boost && this.boost.id === 'superstar' ? 'Super Star ' : '') + (Save.data.diff === 'hard' ? 'Hard mode ' : '') + 'bonus XP!');
       const primary = isCampaign && won && nextIdx < RIVALS.length && isUnlocked(nextIdx) ? 'next' : this.mode === 'boss' ? 'boss' : 'rematch';
@@ -2540,7 +2566,7 @@
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
   PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE,
     txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, backButton, muteButton, capsuleButton, drawCapsule,
-    addTexture, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
+    addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
   function snapshot(game) {
     const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');

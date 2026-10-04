@@ -81,6 +81,7 @@ test('B39: tall move icons stay inside their slot', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await boot(page, Object.assign({}, BASE_SAVE, { boosts: { milk: 1 } }));
   await go(page, 'battle', { rival: 0 });
+  await page.waitForFunction(() => typeof __game.scene.getScene('battle')._pick === 'function', null, { timeout: 60000 }); // picker built (flaky under load, QA v0.8 part 1)
   await page.evaluate(() => __game.scene.getScene('battle')._pick(__BOOSTS.find(x => x.id === 'milk')));
   await waitTurn(page);
   const r = await page.evaluate(() => { const c = __game.scene.getScene('battle').moves.find(m => m.icon === 'milk').card, ic = c.list[1]; return { top: ic.y - ic.displayHeight / 2, cardTop: -c.height / 2, h: ic.displayHeight, title: c.list[2].y - c.list[2].displayHeight / 2, bottom: ic.y + ic.displayHeight / 2 }; });
