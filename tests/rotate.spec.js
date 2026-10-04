@@ -148,3 +148,13 @@ test('B37: a sticker toast survives a screen restart', async ({ page }) => {
   await expect.poll(async () => { await wait(page, 500); return page.evaluate(() => window.__seen); }, { timeout: 60000 }).toBe(true);
   noErrors(page);
 });
+
+// B40: a toast for a screen the kid already left (slow online reply) must not hold rotations forever
+test('B40: a toast on a stopped screen does not block rotation', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await boot(page);
+  await go(page, 'map');
+  const n = await page.evaluate(() => { const t = __game.scene.getScene('title'); PSExtra.toast(t, {}, 'j:gift', 'Capsule sent!', 'x'); return window.__psToasts || 0; });
+  expect(n).toBe(0);
+  noErrors(page);
+});

@@ -92,6 +92,7 @@
 
   // ---------- small UI helpers
   function toast(scene, PS, icon, title, sub) {
+    if (!scene || !scene.sys || !scene.sys.isActive()) return null; // the kid already left this screen (QA B40)
     const { W, PORTRAIT, txt, img, iconScale, A, C } = PS;
     const y = PORTRAIT ? 260 : 170;
     const c = scene.add.container(W / 2, -150).setDepth(95);
