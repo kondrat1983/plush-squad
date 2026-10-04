@@ -1,4 +1,5 @@
 - [Home](README.md)
+- [Changelog](CHANGELOG.md)
 - Game design
   - [GDD](gdd/Plush_Squad_GDD.md)
   - [Decisions](gdd/decisions.md)

@@ -4,6 +4,9 @@ A gentle, funny pillow-fight game where a child's real plush toys become the her
 
 These pages are read from the repo, so they are always the latest version. Use the menu on the left (☰ on a phone) or the search box.
 
+## What's new
+- [Changelog](CHANGELOG.md): what changed in the game, the decisions and the docs, newest on top.
+
 ## Game design
 - [Game Design Document](gdd/Plush_Squad_GDD.md): the whole game as it is built today.
 - [Decisions](gdd/decisions.md): what the owner decided, newest on top.
