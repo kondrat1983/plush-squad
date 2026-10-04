@@ -14,9 +14,10 @@ This repo is **public**. Never commit secrets, personal names of the family, e-m
 ## Release checklist
 1. Bump `VERSION` in `js/game.js` and `CACHE` in `sw.js` (same number).
 2. `WHATS_NEW` in `js/extra.js` is keyed by major.minor (`'0.7'`); 0.7.x patches show the 0.7 notes. **Hotfixes never go into What's new** (owner's rule). New features go into the next major.minor list.
-3. Tests green. Merge to `main` = live in about a minute (GitHub Pages). Check `https://kondrat1983.github.io/plush-squad/sw.js` shows the new CACHE.
-4. Update `README.md` "Versions" for feature releases.
-5. Tell Yuriy what changed in one short list (he relays it to the GDD and the QA tester).
+3. Before opening every PR (owner's rule since 4 Oct 2026): run `/code-review` (`/code-review ultra` for big features), fix all Important findings, and say in the PR description in a few lines what was found and what was fixed.
+4. Tests green. Merge to `main` = live in about a minute (GitHub Pages). Check `https://kondrat1983.github.io/plush-squad/sw.js` shows the new CACHE.
+5. Update `README.md` "Versions" for feature releases.
+6. Tell Yuriy what changed in one short list (he relays it to the GDD and the QA tester).
 
 ## Files
 - `index.html`: page shell, PWA meta, service worker registration (reloads once when a new version takes over).

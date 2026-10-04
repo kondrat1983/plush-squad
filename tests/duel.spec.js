@@ -15,6 +15,18 @@ test('B30: BACK before any move gives the booster back', async ({ page }) => {
   noErrors(page);
 });
 
+test('B30: the refund works again in the next duel of the same session', async ({ page }) => {
+  await boot(page, Object.assign({}, BASE_SAVE, { boosts: { fort: 1 } }));
+  for (let i = 0; i < 2; i++) {
+    await go(page, 'battle', { rival: 0 });
+    await page.evaluate(() => __game.scene.getScene('battle')._pick(__BOOSTS.find(x => x.id === 'fort')));
+    await wait(page, 1500);
+    await page.evaluate(BACK); await wait(page, 1500);
+    expect(await page.evaluate(() => __save.data.boosts.fort || 0), 'duel ' + (i + 1)).toBe(1);
+  }
+  noErrors(page);
+});
+
 test('B30: after a move the booster is spent', async ({ page }) => {
   await boot(page, Object.assign({}, BASE_SAVE, { boosts: { fort: 1 } }));
   await go(page, 'battle', { rival: 0 });
