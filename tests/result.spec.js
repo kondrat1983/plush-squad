@@ -26,3 +26,17 @@ for (const [name, data] of Object.entries(MODES)) {
     });
   }
 }
+
+// B33: the Kraken counts daily tries on the Weekly Boss screen, so its result must not offer a direct REMATCH
+test('B33: Kraken result sends the player to the Weekly Boss screen', async ({ page }) => {
+  await boot(page);
+  await go(page, 'battle', { boss: true });
+  await page.evaluate(() => { const b = __game.scene.getScene('battle'); if (b._pick) b._pick(null); b.rival.hp = 0; b.finish(true); });
+  const labels = () => page.evaluate(() => {
+    const out = [], walk = l => l.forEach(o => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+    walk(__game.scene.getScene('battle').children.list); return out;
+  });
+  await expect.poll(async () => { await wait(page, 500); return (await labels()).includes('BOSS'); }, { timeout: 90000 }).toBe(true);
+  expect(await labels()).not.toContain('REMATCH');
+  noErrors(page);
+});

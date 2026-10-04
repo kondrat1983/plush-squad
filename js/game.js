@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.7.6';
+  const VERSION = '0.7.7';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -1230,6 +1230,7 @@
     init(data) {
       this.data0 = Object.assign({}, data || {});
       this.res = this.data0.resume || null; delete this.data0.resume;
+      this.boostRefunded = false; // the scene object is reused for every duel (QA B30)
       const d = this.data0, toy = d.toy && toyById(d.toy);
       this.mode = 'campaign';
       if (toy) { this.mode = 'toy'; this.rivalIdx = -1; this.R = Object.assign(toyDef(toy), { xp: 30, scale: null }); }
@@ -2128,6 +2129,8 @@
       while (note.height > by - 70 - (T0 + 700) && nfs > 18) { nfs -= 2; note.setFontSize(nfs); }
       const primary = isCampaign && won && nextIdx < RIVALS.length && isUnlocked(nextIdx)
         ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: nextIdx })]
+        // Kraken fights only through the Weekly Boss screen: it counts the daily tries (QA B33)
+        : this.mode === 'boss' ? ['BOSS', () => fade(this, 'boss')]
         : ['REMATCH', () => fade(this, 'battle', this.data0)];
       p.add(button(this, PORTRAIT ? 0 : -215, by, 390, 120, primary[0], C.star, primary[1], { size: 46 }));
       p.add(button(this, PORTRAIT ? 0 : 215, PORTRAIT ? by + 150 : by, 390, 120, { squad: 'SQUAD', friends: 'FRIENDS', map: 'MAP' }[this.backKey], C.cream, () => fade(this, this.backKey, { world: this.world }), { size: 46 }));
@@ -2529,7 +2532,7 @@
   // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
   game.events.once('ready', () => game.scene.scenes.forEach(sc => {
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
-    sc.events.on('create', () => { safeCam(sc); A.music(sc.scene.key !== 'battle' ? 'calm' : sc.R && sc.R.boss ? 'boss' : 'battle'); emit('scene', { key: sc.scene.key }, sc); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
+    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' ? 'calm' : sc.R && sc.R.boss ? 'boss' : 'battle'); emit('scene', { key: sc.scene.key }, sc); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
   window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;

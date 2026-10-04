@@ -1,6 +1,6 @@
 // Music: lullaby in menus, 'battle' in normal duels, 'boss' with crowned rivals and the Kraken, silence for the result jingle.
 const { test, expect } = require('@playwright/test');
-const { boot, go, wait, noErrors } = require('./helpers');
+const { boot, go, wait, waitTurn, noErrors } = require('./helpers');
 
 test('music track follows the scene', async ({ page }) => {
   await boot(page, Object.assign({}, require('./helpers').BASE_SAVE, { muted: false }));
@@ -37,5 +37,24 @@ test('every track schedules notes without errors', async ({ page }) => {
     return out;
   });
   for (const [k, peak] of Object.entries(n)) expect(peak, k).toBeGreaterThan(0);
+  noErrors(page);
+});
+
+// B34: turning the device rebuilds the game; the duel track must keep playing, not restart from bar 1
+test('B34: rotating between turns does not restart the duel music', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await boot(page, Object.assign({}, require('./helpers').BASE_SAVE, { muted: false }));
+  await page.evaluate(() => { PSAudio.init(); PSAudio.startMusic(); });
+  await go(page, 'battle', { rival: 0 });
+  await page.evaluate(() => { const b = __game.scene.getScene('battle'); if (b._pick) b._pick(null); });
+  await waitTurn(page);
+  expect(await page.evaluate(() => PSAudio._track)).toBe('battle');
+  await page.evaluate(() => { window.__switches = []; const f = PSAudio._switch; PSAudio._switch = function (n) { __switches.push(n); return f.apply(this, arguments); }; });
+  await page.evaluate(() => { window.__oldGame = __game; });
+  await page.setViewportSize({ width: 800, height: 1280 });
+  await page.waitForFunction(() => window.__game !== window.__oldGame && __game.scene.isActive('battle'), null, { timeout: 60000 });
+  await wait(page, 2000);
+  expect(await page.evaluate(() => __switches)).toEqual([]);
+  expect(await page.evaluate(() => PSAudio._track)).toBe('battle');
   noErrors(page);
 });
