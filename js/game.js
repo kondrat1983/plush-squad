@@ -1520,7 +1520,8 @@
       this.rival.bar = this.hpBar(W * 0.73, hy, R.short, R.color, this.rHp);
       const vs = txt(this, W / 2, hy + 10, 'VS', PORTRAIT ? 56 : 72, '#ffd23f', { stroke: '#0f1240', st: 12 });
       this.tweens.add({ targets: vs, scale: 1.12, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      if (D !== DIFFS.normal) chip(this, W / 2, hy + (PORTRAIT ? 70 : 90), D.name, D.color, 24).setDepth(30);
+      this.diffChip = D !== DIFFS.normal ? chip(this, W / 2, hy + (PORTRAIT ? 70 : 90), D.name, D.color, 24).setDepth(30) : null;
+      this.beamSpot = null; this.beamSweep = null; this.extHold = null; // the scene object is reused: no leftovers from a duel left during a charge
       this.smart = D.smart; this.xpMul = D.xp * (boostId === 'superstar' ? 2 : 1);
       const intro = (R.intro || '').replace(/Jack/g, this.H.name);
       this.logT = txt(this, W / 2, groundY + (PORTRAIT ? 72 : (compact ? 42 : 55)), intro, PORTRAIT ? 30 : 34, '#fff3d2', { st: 6, wrap: W * 0.9 });
@@ -1703,6 +1704,9 @@
         this.blockBtn.setVisible(one); this.blockBtn.icon.setTexture(beam ? 'umbrella' : 'extinguisher').setScale(iconScale(beam ? 'umbrella' : 'extinguisher', 118));
         this.extBtn.setVisible(two);
         this.umbBtn.setVisible(two || !!(ch && ch.mini));
+        // the buttons sit where the HARD / booster chips are on iPad and phone landscape: hide the chips meanwhile (QA B48)
+        const btns = one || two || !!(ch && ch.mini);
+        [this.diffChip, this.boostChip].forEach(o => o && o.setVisible(!btns));
         // HARD: the two buttons swap sides at random each charge (this.toolSwap is set in startCharge)
         const dx = 230, sw = this.toolSwap ? -1 : 1;
         this.extBtn.x = W / 2 - dx * sw; this.umbBtn.x = two ? W / 2 + dx * sw : W / 2;
@@ -1845,7 +1849,8 @@
 
     // ---- the move engine: every move is data with a type
     async doMove(m, att, def) {
-      const L = s => this.log(s.replace(/\{a\}/g, att.name).replace(/\{d\}/g, def.name));
+      const pl = def === this.rival && this.R.plural; // "Blips get dizzy" (QA B46)
+      const L = s => this.log((pl ? s.replace(/\{d\} gets/g, '{d} get').replace(/\{d\} is /g, '{d} are ') : s).replace(/\{a\}/g, att.name).replace(/\{d\}/g, def.name));
       const DEF_LOG = { throw: '{a} uses ' + m.title + '!', tickle: '{a} sneaks in for a tickle!', heal: '{a} takes a snack break!', shield: '{a} hides behind a shield. Next hit only does half!', nap: '{a} takes a quick upside-down nap!' };
       L(m.log || DEF_LOG[m.type] || ('{a}: ' + (m.title || 'Here I come') + '!'));
       const d = m.dmg ? rnd(m.dmg[0], m.dmg[1]) : 0;
@@ -2114,7 +2119,7 @@
       const beam = m.type === 'beam';
       const tap = m.mini ? ' Grab the UMBRELLA!' : this.easy ? ' Tap BLOCK IT!' : ' Pick your tool!';
       if (beam) {
-        this.log((m.mini ? 'Tiny beam! ' + T.name + ' point a teeny tractor beam...' : T.name + ' warms up the TRACTOR BEAM! The beam takes a card if it hits.') + tap);
+        this.log((m.mini ? 'Tiny beam! ' + T.name + ' point a teeny tractor beam...' : T.name + ' warms up the TRACTOR BEAM!' + (this.easy ? '' : ' The beam takes a card if it hits.')) + tap); // (QA B49)
         A.beam();
       } else {
         this.log(T.name + ' takes a deep breath... the sky turns red! INFERNO RAIN is coming!' + tap);
@@ -2850,6 +2855,7 @@
   function rebuild(target) {
     const snap = target || (window.__psSnapshot && window.__psSnapshot());
     const old = window.__game;
+    try { Save.store(); } catch (e) {} // stats bumped in memory (blocks, naps...) survive the rebuild (QA B47)
     if (old) { try { old.destroy(true); } catch (e) {} }
     window.__game = null; window.__psToasts = 0;
     main(snap);
