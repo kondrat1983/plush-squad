@@ -2069,8 +2069,9 @@
     }
     async rain(m, att, def, d) {
       A.fire(); buzz(80);
-      this.fireFx.fillColor = 0xff3b1f;
-      this.tweens.add({ targets: this.fireFx, fillAlpha: 0.28, duration: 300 });
+      // Jack's own Inferno Rain while the Mothership charges: keep her charge sky (a red sky would mean "grab FOAM!")
+      const keepSky = !!(this.rival.charging && att !== this.rival);
+      if (!keepSky) { this.fireFx.fillColor = 0xff3b1f; this.tweens.add({ targets: this.fireFx, fillAlpha: 0.28, duration: 300 }); }
       this.popWord(W / 2, PORTRAIT ? H * 0.22 : H * 0.2, 'INFERNO RAIN!', '#ff8a3d', 100, -4);
       // who blocks? the hero holding the extinguisher, or a rival who still has milk
       let block = null;
@@ -2120,7 +2121,7 @@
           if (def.hp <= 0) break;
         }
       }
-      if (att.charging) this.endCharge(att); else this.tweens.add({ targets: this.fireFx, fillAlpha: 0, duration: 600 });
+      if (att.charging) this.endCharge(att); else if (!keepSky) this.tweens.add({ targets: this.fireFx, fillAlpha: 0, duration: 600 });
       if (block) {
         foam.stop(); this.time.delayedCall(700, () => foam.destroy());
         this.tweens.add({ targets: tool, scale: 0, alpha: 0, duration: 300, delay: 300, onComplete: () => tool.destroy() });
@@ -2187,7 +2188,7 @@
       def.squash.setAngle(0);
       this.popWord(c.x, c.y - 330, 'HEE HEE!', '#ff9ed8', 64, -8);
       if (take) {
-        const card = take.card, ic = this.add.image(card.x, card.y, take.icon || 'pillow').setDepth(36).setScale(iconScale(take.icon || 'pillow', 90));
+        const card = take.card, ik = take.icon || 'pillow', ic = img(this, card.x, card.y, ik).setDepth(36); ic.setScale(iconScale(ik, 90));
         A.whoosh();
         await tw(this, { targets: ic, x: sx, y: sy, scale: 0.1, angle: 540, duration: 650, ease: 'Quad.in' });
         ic.destroy();
