@@ -12,7 +12,8 @@ async function boot(page, save = BASE_SAVE, query = '') {
   page._errors = [];
   page.on('pageerror', e => page._errors.push(String(e && e.stack || e)));
   await page.route(/supabase\.co/, r => r.abort());
-  await page.goto(URL + query);
+  // seed the save on a page of the same origin that does not start the game: a booting game could save over it (QA T29)
+  await page.goto('/manifest.json');
   await page.evaluate(s => localStorage.setItem('plushsquad_v1', s), JSON.stringify(save));
   await page.goto(URL + query);
   await page.waitForFunction(() => window.__game && __game.scene.getScenes(true).length > 0, null, { timeout: 60000 });

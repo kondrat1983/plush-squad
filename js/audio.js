@@ -90,6 +90,10 @@
     fire() { this.noise(1.1, { type: 'lowpass', f: 900, vol: 0.45, attack: 0.25, slide: 0.4 }); this.tone(80, 1.0, { type: 'sawtooth', vol: 0.1, slide: 0.6, attack: 0.2 }); },
     steam() { this.noise(0.9, { type: 'highpass', f: 2500, vol: 0.4, attack: 0.02, slide: 1.5 }); },
     bounce() { this.tone(300, 0.18, { vol: 0.3, slide: 2.4 }); },
+    // v0.8 Space: three rising chirps (the Blips), a wobbly rising hum (tractor beam), umbrella pop + flap
+    blip() { [880, 1175, 1568].forEach((f, i) => this.tone(f, 0.09, { type: 'square', vol: 0.06, slide: 1.3, delay: i * 0.08 })); },
+    beam() { for (let i = 0; i < 6; i++) this.tone(330 + i * 70, 0.24, { type: 'sine', vol: 0.12, slide: 1.12, delay: i * 0.18 }); this.tone(165, 1.2, { type: 'triangle', vol: 0.08, slide: 1.6, attack: 0.3 }); },
+    umbrella() { this.tone(520, 0.08, { type: 'square', vol: 0.12, slide: 1.8 }); this.noise(0.25, { type: 'bandpass', f: 1200, q: 1, vol: 0.3, attack: 0.01, delay: 0.06 }); },
     catchStar() { this.tone(1319 + Math.random() * 300, 0.18, { type: 'triangle', vol: 0.16 }); this.tone(1760, 0.2, { type: 'sine', vol: 0.08, delay: 0.05 }); },
     levelUp() { [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.2, delay: i * 0.09 })); },
 

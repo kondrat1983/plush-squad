@@ -462,10 +462,12 @@
     // v0.8: The Blips replace Polandball (the id stays 'polandball' so old saves keep their stars and stickers)
     { id: 'polandball', world: SPACE, name: 'The Blips', nick: 'Blips', short: 'THE BLIPS', tex: 'aliens', color: 0x8cff7a, hp: 145, xp: 120, scale: 1.1, plural: true,
       intro: 'The Blips wobble on each other\'s shoulders: "We come in peace! And with PILLOWS!"', laugh: 'The Blips giggled so hard they fell off each other. "Take us to your bedtime!"',
-      moves: [{ type: 'throw', tex: 'planet', dmg: [12, 19], w: 35, log: 'MINI PLANET! {a} bowl a tiny planet at {d}!' },
-        { type: 'hop', word: 'WOBBLE WOBBLE!', dmg: [11, 20], w: 30, log: '{a} hop over, wobble wobble!' },
-        { type: 'quake', jump: 1, word: 'BEAM ME UP... OOPS!', color: 0x8cff7a, sound: 'bounce', dmg: [15, 24], w: 20, uses: 2, log: '{a} try to beam up to their saucer... the beam blinks off! They land right on {d}!' },
-        { type: 'shield', w: 20, log: '{a} put on bubble helmets. Next hit only does half!' }] },
+      moves: [{ type: 'throw', tex: 'planet', dmg: [13, 20], w: 35, log: 'MINI PLANET! {a} bowl a tiny planet at {d}!' },
+        { type: 'hop', word: 'WOBBLE WOBBLE!', dmg: [12, 21], w: 30, log: '{a} hop over, wobble wobble!' },
+        { type: 'quake', jump: 1, word: 'BEAM ME UP... OOPS!', color: 0x8cff7a, sound: 'blip', dmg: [15, 24], w: 20, uses: 2, log: '{a} try to beam up to their saucer... the beam blinks off! They land right on {d}!' },
+        { type: 'shield', w: 15, log: '{a} put on bubble helmets. Next hit only does half!' },
+        // the tutorial for the Mothership: one small beam, the umbrella blocks it (no dizzy, no card taken)
+        { type: 'beam', charge: true, mini: true, dmg: [14, 20], uses: 1, w: 15, log: '{a} point a teeny tractor beam at {d}!' }] },
     { id: 'ghost', world: SPACE, name: 'Boo the Space Ghost', nick: 'Boo', short: 'BOO', tex: 'ghost', color: 0xd8e6ff, hp: 155, xp: 130, ghostly: true,
       intro: 'Boo floats out of a crater: "Boooo! Are you scared yet, Jack?"', laugh: 'Boo giggled so hard he turned see-through. Bye-booo!',
       moves: [{ type: 'roar', word: 'BOOOO!', color: 0xd8e6ff, sound: 'boo', dmg: [13, 22], w: 25, log: '{a} jumps out and yells BOO at {d}!' },
@@ -477,10 +479,12 @@
     { id: 'dragonboss', world: SPACE, name: 'The Mothership', nick: 'Mothership', short: 'MOTHERSHIP', tex: 'mothership', big: 1.15, color: 0xc6a8ff, hp: 200, xp: 180, boss: true, reward: 'ufohat',
       intro: 'The Mothership hums down from the stars: "Attention, little dragon! Your friend the Giant Dragon is on holiday on my ship. He taught me INFERNO RAIN!"',
       laugh: 'The Mothership giggled into disco lights. The Dragon waves: "Great job!"',
-      moves: [{ type: 'rain', charge: true, dmg: [24, 30], uses: 2, w: 35, log: '{a} opens the hatch... INFERNO RAIN!' },
-        { type: 'multi', hits: 3, dmg: [6, 10], w: 25, log: 'SAUCER SPIN! {a} whirls like a giant frisbee!' },
-        { type: 'roar', word: 'WE COME IN PEACE!', color: 0xc6a8ff, sound: 'laser', dmg: [15, 23], w: 20, log: '{a} shouts "WE COME IN PEACE!" so loud the stars wobble!' },
-        { type: 'spray', tex: 'spark', hitTint: 0xffd6ff, word: 'GLITTER RAY!', sound: 'laser', dmg: [14, 21], w: 20, log: '{a} zaps {d} with a sparkly glitter ray!' }] },
+      // "Fire or Beam?": two charged moves, the extinguisher stops the fire, the umbrella stops the beam
+      moves: [{ type: 'rain', charge: true, dmg: [24, 30], uses: 1, w: 20, log: '{a} opens the hatch... INFERNO RAIN!' },
+        { type: 'beam', charge: true, dmg: [24, 30], uses: 2, usesHard: 3, w: 30, log: '{a} switches on the TRACTOR BEAM!' },
+        { type: 'multi', hits: 3, dmg: [7, 11], w: 25, log: 'SAUCER SPIN! {a} whirls like a giant frisbee!' },
+        { type: 'roar', word: 'WE COME IN PEACE!', color: 0xc6a8ff, sound: 'beam', dmg: [16, 24], w: 20, log: '{a} shouts "WE COME IN PEACE!" so loud the stars wobble!' },
+        { type: 'spray', tex: 'spark', tint: [0xff9ed8, 0xffd23f, 0x7fd6c2, 0x9aa2ff], hitTint: 0xffd6ff, word: 'GLITTER RAY!', sound: 'laser', dmg: [15, 22], w: 15, log: '{a} zaps {d} with a sparkly glitter ray!' }] },
   ].concat(EVENT_ON ? [
     // ---- Halloween event world: SPOOKY (open from the start while the event runs)
     { id: 'pumpkin', world: SPOOKY, event: true, name: 'Pumpkin Pete', nick: 'Pete', short: 'PUMPKIN PETE', tex: 'pumpkin', color: C.orange, hp: 110, xp: 50, reward: 'pumpkin',
@@ -529,7 +533,7 @@
       { type: 'spray', tex: 'dot', tint: [0x3b2a6e, 0x6a4fb0], word: 'INK!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} squirts pillow ink at {d}!' },
       { type: 'tickle', dmg: [8, 26], w: 25 },
       { type: 'roar', word: 'BLUB BLUB!', color: 0xff9ed8, sound: 'boo', dmg: [13, 21], w: 20, log: '{a} bubbles a giant BLUB!' }] };
-  const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
+  const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, beam: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
   const isUnlocked = i => i === 0 || (RIVALS[i].event && !RIVALS[i - 1].event) || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
   const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
   const worldOpen = w => RIVALS.some((r, i) => (r.world || 0) === w && isUnlocked(i));
@@ -1417,6 +1421,7 @@
       this.rival.name = R.nick || R.name;
       this.rmoves = R.moves.map((m, i) => {
         const o = Object.assign({ k: 'r' + i, w: DEF_W[m.type] || 20 }, m);
+        if (o.usesHard && D === DIFFS.hard) o.uses = o.usesHard;
         if (o.dmg) o.dmg = o.dmg.map(v => Math.round(v * dmgMul));
         if (o.amt) o.amt = Math.round(o.amt * hpMul);
         return o;
@@ -1427,17 +1432,27 @@
       this.rival.bar = this.hpBar(W * 0.73, hy, R.short, R.color, this.rHp);
       const vs = txt(this, W / 2, hy + 10, 'VS', PORTRAIT ? 56 : 72, '#ffd23f', { stroke: '#0f1240', st: 12 });
       this.tweens.add({ targets: vs, scale: 1.12, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      if (D !== DIFFS.normal) chip(this, W / 2, hy + (PORTRAIT ? 70 : 90), D.name, D.color, 24).setDepth(30);
+      this.diffChip = D !== DIFFS.normal ? chip(this, W / 2, hy + (PORTRAIT ? 70 : 90), D.name, D.color, 24).setDepth(30) : null;
+      this.beamSpot = null; this.beamSweep = null; this.extHold = null; // the scene object is reused: no leftovers from a duel left during a charge
       this.smart = D.smart; this.xpMul = D.xp * (boostId === 'superstar' ? 2 : 1);
       const intro = (R.intro || '').replace(/Jack/g, this.H.name);
       this.logT = txt(this, W / 2, groundY + (PORTRAIT ? 72 : (compact ? 42 : 55)), intro, PORTRAIT ? 30 : 34, '#fff3d2', { st: 6, wrap: W * 0.9 });
 
       this.moves.forEach((m, i) => { m.card = this.actionCard(rects[i].x, rects[i].y, rects[i].w, rects[i].h, m); });
-      // the fire extinguisher button: appears while a rival is gathering fire
-      const bby = PORTRAIT ? Math.max(330, groundY - hT - 90) : Math.max(280, groundY - hT - 75);
-      const bb = this.blockBtn = button(this, W / 2, bby, PORTRAIT ? 420 : 400, 120, 'BLOCK IT!', C.coral, () => this.playerBlock(), { size: 50, color: '#fff3d2' }).setDepth(35).setVisible(false);
-      const ex = this.add.image(-(PORTRAIT ? 210 : 200) + 10, -10, 'extinguisher').setScale(0.55).setAngle(-12); bb.add(ex); bb.list[1].x = 40;
-      this.tweens.add({ targets: bb, scale: 1.08, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      // block buttons: appear while a rival is charging. EASY: one BLOCK IT! that picks the right tool by itself.
+      // NORMAL / HARD (v0.8 "Fire or Beam?"): FOAM! (extinguisher, stops fire) and UMBRELLA! (stops a beam)
+      const bby = this.bby = PORTRAIT ? Math.max(330, groundY - hT - 90) : Math.max(280, groundY - hT - 75);
+      this.easy = D === DIFFS.easy; this.hard = D === DIFFS.hard;
+      const toolBtn = (label, color, tex, cb) => {
+        const b = button(this, W / 2, bby, 400, 130, label, color, cb, { size: 50, color: '#fff3d2' }).setDepth(35).setVisible(false);
+        fit(b.list[1], 240); b.list[1].x = 50;
+        b.icon = this.add.image(-130, -10, tex).setScale(iconScale(tex, 118)).setAngle(-12); b.add(b.icon);
+        this.tweens.add({ targets: b, scale: 1.05, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        return b;
+      };
+      this.blockBtn = toolBtn('BLOCK IT!', C.coral, 'extinguisher', () => this.playerBlock(this.rival.charging && this.rival.charging.type === 'beam' ? 'umb' : 'ext'));
+      this.extBtn = toolBtn('FOAM!', C.coral, 'extinguisher', () => this.playerBlock('ext'));
+      this.umbBtn = toolBtn('UMBRELLA!', 0x6c7bff, 'umbrella', () => this.playerBlock('umb'));
       backButton(this, () => {
         if (this.busy && !this.over) return;
         // no move made yet: the booster goes back to the collection (QA B30)
@@ -1460,7 +1475,7 @@
       }
       // coming back after the screen was rotated: restore the duel exactly
       if (res) {
-        const put = (f, o) => { ['hp', 'max', 'used', 'dizzy', 'shield', 'spare', 'bonus', 'firstBonus', 'lastType'].forEach(k => { if (o[k] !== undefined) f[k] = o[k]; }); f.bar.setMax(f.max); f.bar.set(f.hp, this); };
+        const put = (f, o) => { ['hp', 'max', 'used', 'dizzy', 'shield', 'spare', 'bonus', 'firstBonus', 'lastType', 'afterCharge', 'beamed'].forEach(k => { if (o[k] !== undefined) f[k] = o[k]; }); f.bar.setMax(f.max); f.bar.set(f.hp, this); };
         put(P, res.h); put(T, res.r);
         if (res.charging >= 0 && this.rmoves[res.charging]) { T.charging = this.rmoves[res.charging]; this.chargeFx(T); }
         if (res.log) this.logT.setText(res.log);
@@ -1482,7 +1497,7 @@
       this.setCards(true);
     }
     snapshot() {
-      const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType });
+      const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType, afterCharge: !!f.afterCharge, beamed: (f.beamed || []).slice() });
       return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '', acted: !!this.acted };
     }
 
@@ -1572,7 +1587,9 @@
       const t1 = fit(txt(this, L.tx, L.t1y, a.title, L.f1, C.ink, { ox: L.ox, st: 0, shadow: false }), L.tw);
       const t2 = txt(this, L.tx, L.t2y, a.sub || '', L.f2, '#4a4f8c', { ox: L.ox, st: 0, shadow: false, weight: '500' });
       const used = txt(this, 0, 0, 'USED', compact ? 46 : 60, '#ff6b5b', { stroke: '#fff3d2', st: 8 }).setAngle(-12).setVisible(false);
-      c.add([g, ic, t1, t2, used]);
+      // a card the Mothership's tractor beam took: small UFO + BEAMED UP stamp until the end of the duel
+      const ufo = this.add.image(w / 2 - 34, -h / 2 + 30, 'ufo').setScale(iconScale('ufo', 52)).setAngle(12).setVisible(false);
+      c.add([g, ic, t1, t2, used, ufo]);
       c.setSize(w, h).setInteractive({ useHandCursor: true });
       this.tweens.add({ targets: ic, angle: { from: -6, to: 6 }, duration: 900 + Math.random() * 300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       c.on('pointerdown', () => { if (!c.enabled) return; A.init(); draw(true); ic.y = L.iy + 6; t1.y = L.t1y + 6; t2.y = L.t2y + 6; });
@@ -1581,17 +1598,31 @@
       c.on('pointerup', () => { up(); if (c.enabled) this.playerMove(a.k); });
       c.refresh = (on) => {
         const left = a.uses ? a.uses - (this.hero.used[a.k] || 0) : Infinity;
-        const isUsed = left <= 0;
-        t2.setText(a.uses ? (a.sub || '') + ' · ' + (isUsed ? 'used' : (a.uses === 1 ? 'once' : left + ' left')) : (a.sub || ''));
+        const beamed = (this.hero.beamed || []).includes(a.k);
+        const isUsed = left <= 0 || beamed;
+        t2.setText(a.uses ? (a.sub || '') + ' · ' + (beamed ? 'beamed up' : isUsed ? 'used' : (a.uses === 1 ? 'once' : left + ' left')) : (a.sub || ''));
         fit(t2.setScale(1), L.tw);
         c.enabled = on && !isUsed; look = c.enabled ? 'on' : isUsed ? 'used' : 'off'; draw(false);
-        [ic, t1, t2].forEach(o => o.setAlpha(look === 'on' ? 1 : look === 'off' ? 0.7 : 0.45)); used.setVisible(isUsed);
+        [ic, t1, t2].forEach(o => o.setAlpha(look === 'on' ? 1 : look === 'off' ? 0.7 : 0.45));
+        used.setText(beamed ? 'BEAMED UP' : 'USED').setScale(1).setVisible(isUsed); fit(used, w - 70); ufo.setVisible(beamed);
       };
       return c;
     }
     setCards(on) {
       this.moves.forEach(m => m.card.refresh(on && !this.over));
-      if (this.blockBtn) this.blockBtn.setVisible(!!(on && !this.over && this.rival.charging));
+      if (this.blockBtn) {
+        const ch = on && !this.over ? this.rival.charging : null, beam = !!(ch && ch.type === 'beam');
+        const one = !!(ch && this.easy && !ch.mini), two = !!(ch && !this.easy && !ch.mini);
+        this.blockBtn.setVisible(one); this.blockBtn.icon.setTexture(beam ? 'umbrella' : 'extinguisher').setScale(iconScale(beam ? 'umbrella' : 'extinguisher', 118));
+        this.extBtn.setVisible(two);
+        this.umbBtn.setVisible(two || !!(ch && ch.mini));
+        // the buttons sit where the HARD / booster chips are on iPad and phone landscape: hide the chips meanwhile (QA B48)
+        const btns = one || two || !!(ch && ch.mini);
+        [this.diffChip, this.boostChip].forEach(o => o && o.setVisible(!btns));
+        // HARD: the two buttons swap sides at random each charge (this.toolSwap is set in startCharge)
+        const dx = 230, sw = this.toolSwap ? -1 : 1;
+        this.extBtn.x = W / 2 - dx * sw; this.umbBtn.x = two ? W / 2 + dx * sw : W / 2;
+      }
     }
     log(s) {
       this.logT.setText(s);
@@ -1730,7 +1761,8 @@
 
     // ---- the move engine: every move is data with a type
     async doMove(m, att, def) {
-      const L = s => this.log(s.replace(/\{a\}/g, att.name).replace(/\{d\}/g, def.name));
+      const pl = def === this.rival && this.R.plural; // "Blips get dizzy" (QA B46)
+      const L = s => this.log((pl ? s.replace(/\{d\} gets/g, '{d} get').replace(/\{d\} is /g, '{d} are ') : s).replace(/\{a\}/g, att.name).replace(/\{d\}/g, def.name));
       const DEF_LOG = { throw: '{a} uses ' + m.title + '!', tickle: '{a} sneaks in for a tickle!', heal: '{a} takes a snack break!', shield: '{a} hides behind a shield. Next hit only does half!', nap: '{a} takes a quick upside-down nap!' };
       L(m.log || DEF_LOG[m.type] || ('{a}: ' + (m.title || 'Here I come') + '!'));
       const d = m.dmg ? rnd(m.dmg[0], m.dmg[1]) : 0;
@@ -1857,6 +1889,7 @@
           att.squash.setScale(1); await this.back(att); break;
         }
         case 'rain': await this.rain(m, att, def, d); break;
+        case 'beam': await this.beam(m, att, def, d); break;
         case 'hop': {
           const sx = att.root.x, tx = def.root.x - att.dir * (PORTRAIT ? 330 : 400);
           for (let i = 1; i <= 3; i++) {
@@ -1885,7 +1918,7 @@
 
     async playerMove(k) {
       if (this.busy || this.over) return;
-      const m = this.moves.find(x => x.k === k); if (!m) return;
+      const m = this.moves.find(x => x.k === k); if (!m || (this.hero.beamed || []).includes(k)) return;
       this.busy = true; this.acted = true; this.setCards(false);
       const P = this.hero, T = this.rival;
       P.used[k] = (P.used[k] || 0) + 1;
@@ -1927,15 +1960,19 @@
       if (T.dizzy) {
         T.dizzy = false; this.setStatus(T);
         const is = this.R.plural ? ' are' : ' is'; // the Blips are three (QA B46)
-        if (T.charging) { this.endCharge(T); this.log(T.name + is + ' too dizzy... the fire fizzles out!'); A.steam(); }
+        if (T.charging) {
+          const beam = T.charging.type === 'beam';
+          this.endCharge(T); T.afterCharge = true; A.steam();
+          this.log(T.name + is + (beam ? ' too dizzy... the beam goes disco and fizzles!' : ' too dizzy... the fire fizzles out!'));
+        }
         else this.log(T.name + is + ' too dizzy to move!');
         A.dizzy();
         await tw(this, { targets: T.root, angle: { from: -12, to: 12 }, duration: 180, yoyo: true, repeat: 2, onComplete: () => T.root.setAngle(0) });
         await wait(this, 500); return;
       }
-      if (T.charging) { await this.doMove(T.charging, T, this.hero); return; }
+      if (T.charging) { T.afterCharge = true; await this.doMove(T.charging, T, this.hero); return; }
       const m = this.pickMove();
-      T.used[m.k] = (T.used[m.k] || 0) + 1; T.lastType = m.type;
+      T.used[m.k] = (T.used[m.k] || 0) + 1; T.lastType = m.type; T.afterCharge = false;
       if (m.charge) { await this.startCharge(m, T); return; }
       await this.doMove(m, T, this.hero);
     }
@@ -1946,7 +1983,7 @@
         if (m.type === 'heal' || m.type === 'nap') return T.hp < T.max * 0.65;
         if (m.type === 'shield') return !T.shield;
         if (m.type === 'dizzy' || m.type === 'dance') return !P.dizzy && T.lastType !== m.type;
-        if (m.charge) return T.lastType !== m.type;
+        if (m.charge) return T.lastType !== m.type && !T.afterCharge; // never two charged moves in a row
         return true;
       });
       const pool = ok.length ? ok : this.rmoves.filter(m => m.dmg && !m.charge);
@@ -1967,18 +2004,41 @@
     // ---- Inferno Rain: a rival gathers fire for a turn, then fireballs fall from the sky.
     // Block it with the fire extinguisher (or, for rivals, with milk!)
     chargeFx(T) {
-      this.tweens.add({ targets: this.fireFx, fillAlpha: 0.3, duration: 600 });
-      this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: 0.14, duration: 700, yoyo: true, repeat: -1, delay: 600 });
+      const beam = T.charging && T.charging.type === 'beam';
+      this.fireFx.fillColor = beam ? 0xc8ff3d : 0xff3b1f;
+      this.tweens.add({ targets: this.fireFx, fillAlpha: beam ? 0.2 : 0.3, duration: 600 });
+      this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: beam ? 0.08 : 0.14, duration: 700, yoyo: true, repeat: -1, delay: 600 });
+      if (beam) {
+        // Tractor Beam: a yellow-green spotlight from the saucer sweeps over the ground in front of the hero
+        T.spr.setTint(0xe6ffb0);
+        const sx = T.root.x, sy = T.root.y - T.height() * 0.4, gy = this.groundY + 10, P = this.hero;
+        const g = this.beamSpot = this.add.graphics().setDepth(9).setAlpha(0.5);
+        const draw = (cx) => { g.clear(); g.fillStyle(0xd8ff6a, 0.55); g.fillTriangle(sx, sy, cx - 120, gy, cx + 120, gy); g.fillStyle(0xffffff, 0.35); g.fillEllipse(cx, gy, 250, 50); };
+        const o = { x: P.root.x + 160 };
+        draw(o.x);
+        this.beamSweep = this.tweens.add({ targets: o, x: P.root.x - 120, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', onUpdate: () => draw(o.x) });
+        this.tweens.add({ targets: g, alpha: 0.85, duration: 500, yoyo: true, repeat: -1 });
+        this.embers = this.add.particles(0, 0, 'dot', { x: { min: sx - 100, max: sx + 100 }, y: sy, speedY: { min: -200, max: 200 }, speedX: { min: -200, max: 200 }, lifespan: 700, scale: { start: 0.3, end: 0 }, tint: [0xd8ff6a, 0xffffff, 0x8cff7a], blendMode: 'ADD', frequency: 60 }).setDepth(12);
+        return;
+      }
       T.spr.setTint(0xffb08a);
       this.embers = this.add.particles(0, 0, 'dot', { x: { min: T.root.x - 150, max: T.root.x + 150 }, y: T.root.y - 20, speedY: { min: -520, max: -260 }, speedX: { min: -60, max: 60 }, lifespan: 1100, scale: { start: 0.35, end: 0 }, tint: [0xff6b2b, 0xffd23f, 0xff3b1f], blendMode: 'ADD', frequency: 40 }).setDepth(12);
     }
     async startCharge(m, T) {
       T.charging = m;
-      this.log(T.name + ' takes a deep breath... the sky turns red! INFERNO RAIN is coming! Tap BLOCK IT!');
-      A.inhale(); this.time.delayedCall(350, () => A.fire());
+      this.toolSwap = this.hard && Math.random() < 0.5;
+      const beam = m.type === 'beam';
+      const tap = m.mini ? ' Grab the UMBRELLA!' : this.easy ? ' Tap BLOCK IT!' : ' Pick your tool!';
+      if (beam) {
+        this.log((m.mini ? 'Tiny beam! ' + T.name + ' point a teeny tractor beam...' : T.name + ' warms up the TRACTOR BEAM!' + (this.easy ? '' : ' The beam takes a card if it hits.')) + tap); // (QA B49)
+        A.beam();
+      } else {
+        this.log(T.name + ' takes a deep breath... the sky turns red! INFERNO RAIN is coming!' + tap);
+        A.inhale(); this.time.delayedCall(350, () => A.fire());
+      }
       this.chargeFx(T);
       await tw(this, { targets: T.squash, scaleX: 1.12, scaleY: 1.12, duration: 600, ease: 'Sine.in' });
-      this.popWord(T.center().x, T.center().y - 240, 'GATHERING FIRE...', '#ff8a3d', 64, 6);
+      this.popWord(T.center().x, T.center().y - 240, beam ? 'WARMING UP THE BEAM...' : 'GATHERING FIRE...', beam ? '#d8ff6a' : '#ff8a3d', beam ? 56 : 64, 6);
       await tw(this, { targets: T.squash, scaleX: 1, scaleY: 1, duration: 300 });
       await wait(this, 600);
     }
@@ -1986,18 +2046,23 @@
       T.charging = null; T.spr.clearTint();
       if (this.chargeTw) { this.chargeTw.stop(); this.chargeTw = null; }
       if (this.embers) { const e = this.embers; e.stop(); this.time.delayedCall(1200, () => e.destroy()); this.embers = null; }
+      if (this.beamSweep) { this.beamSweep.stop(); this.beamSweep = null; }
+      if (this.beamSpot) { const g = this.beamSpot; this.beamSpot = null; this.tweens.killTweensOf(g); this.tweens.add({ targets: g, alpha: 0, duration: 400, onComplete: () => g.destroy() }); }
       this.tweens.add({ targets: this.fireFx, fillAlpha: 0, duration: 500 });
     }
-    async playerBlock() {
+    // tool: 'ext' (fire extinguisher, stops Inferno Rain) or 'umb' (umbrella, stops a Tractor Beam)
+    async playerBlock(tool) {
       if (this.busy || this.over || !this.rival.charging) return;
+      tool = tool === 'umb' ? 'umb' : 'ext';
       this.busy = true; this.acted = true; this.setCards(false);
       const P = this.hero;
-      P.blocker = true;
-      this.log(P.name + ' grabs the fire extinguisher. Bring it on!');
-      A.block(); buzz(30);
-      const c = P.center();
-      const ex = this.extHold = this.add.image(c.x + 110, c.y + 30, 'extinguisher').setDepth(27).setScale(0).setAngle(-15);
-      await tw(this, { targets: ex, scale: 0.55, duration: 320, ease: 'Back.out' });
+      P.blocker = tool;
+      this.log(P.name + (tool === 'umb' ? ' grabs the umbrella. Bring it on!' : ' grabs the fire extinguisher. Bring it on!'));
+      if (tool === 'umb') A.umbrella(); else A.block();
+      buzz(30);
+      const c = P.center(), tex = tool === 'umb' ? 'umbrella' : 'extinguisher';
+      const ex = this.extHold = this.add.image(c.x + 110, c.y + 30, tex).setDepth(27).setScale(0).setAngle(-15);
+      await tw(this, { targets: ex, scale: iconScale(tex, 123), duration: 320, ease: 'Back.out' });
       this.extTw = this.tweens.add({ targets: ex, angle: 5, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.popWord(c.x, c.y - 260, 'READY!', '#9fdcff', 84, -6);
       await wait(this, 800);
@@ -2010,11 +2075,18 @@
     }
     async rain(m, att, def, d) {
       A.fire(); buzz(80);
-      this.tweens.add({ targets: this.fireFx, fillAlpha: 0.28, duration: 300 });
+      // Jack's own Inferno Rain while the Mothership charges: keep her charge sky (a red sky would mean "grab FOAM!")
+      const keepSky = !!(this.rival.charging && att !== this.rival);
+      if (!keepSky) { this.fireFx.fillColor = 0xff3b1f; this.tweens.add({ targets: this.fireFx, fillAlpha: 0.28, duration: 300 }); }
       this.popWord(W / 2, PORTRAIT ? H * 0.22 : H * 0.2, 'INFERNO RAIN!', '#ff8a3d', 100, -4);
       // who blocks? the hero holding the extinguisher, or a rival who still has milk
       let block = null;
-      if (def.blocker) block = 'ext';
+      if (def.blocker === 'umb') {
+        // wrong tool: the umbrella takes half the fire, no dizzy
+        d = Math.max(1, Math.round(d / 2));
+        this.log('The umbrella gets toasty! Only half the fire gets through.');
+        if (this.extHold) { this.tweens.add({ targets: this.extHold, angle: 0, y: def.center().y - 200, duration: 250 }); this.extHold.setTint(0xffb36b); }
+      } else if (def.blocker) block = 'ext';
       else if (def === this.rival) {
         const mk = this.rmoves.find(x => x.type === 'heal' && x.tex === 'milk' && !(x.uses && (def.used[x.k] || 0) >= x.uses));
         if (mk) { block = 'milk'; def.used[mk.k] = (def.used[mk.k] || 0) + 1; }
@@ -2055,7 +2127,7 @@
           if (def.hp <= 0) break;
         }
       }
-      if (att.charging) this.endCharge(att); else this.tweens.add({ targets: this.fireFx, fillAlpha: 0, duration: 600 });
+      if (att.charging) this.endCharge(att); else if (!keepSky) this.tweens.add({ targets: this.fireFx, fillAlpha: 0, duration: 600 });
       if (block) {
         foam.stop(); this.time.delayedCall(700, () => foam.destroy());
         this.tweens.add({ targets: tool, scale: 0, alpha: 0, duration: 300, delay: 300, onComplete: () => tool.destroy() });
@@ -2064,7 +2136,7 @@
         if (block === 'ext') {
           def.blocker = false;
           this.log(def.name + ' blocked the Inferno Rain! ' + att.name + (this.R.plural && att === this.rival ? ' are' : ' is') + ' all steamed up!');
-          if (def === this.hero) emit('block', {}, this);
+          if (def === this.hero) emit('block', { tool: 'ext' }, this);
           await wait(this, 500);
           await this.makeDizzy(def, att, 0x9fdcff, 'STEAMED!');
         } else {
@@ -2072,6 +2144,79 @@
           await wait(this, 900);
         }
       }
+    }
+    // ---- Tractor Beam (v0.8 Mothership, Blips' Mini Beam). Umbrella: bounces off (0 damage, BEAM JAM! dizzy; mini: no dizzy).
+    // Extinguisher: wrong tool, half damage. No block: full damage and (NORMAL / HARD, not mini) the beam takes one card.
+    async beam(m, att, def, d) {
+      A.beam(); buzz(60);
+      const blk = def.blocker, P = this.hero;
+      const sx = att.root.x, sy = att.root.y - att.height() * 0.4, c = def.center(), gy = def.root.y + 10;
+      if (this.beamSpot) { this.beamSpot.setVisible(false); }
+      if (this.beamSweep) { this.beamSweep.stop(); this.beamSweep = null; }
+      const g = this.add.graphics().setDepth(9);
+      g.fillStyle(0xd8ff6a, 0.6); g.fillTriangle(sx, sy, def.root.x - 170, gy, def.root.x + 170, gy);
+      g.fillStyle(0xffffff, 0.4); g.fillEllipse(def.root.x, gy, 340, 60);
+      g.setAlpha(0); await tw(this, { targets: g, alpha: 1, duration: 250 });
+      this.popWord(W / 2, PORTRAIT ? H * 0.22 : H * 0.2, m.mini ? 'MINI BEAM!' : 'TRACTOR BEAM!', '#d8ff6a', m.mini ? 84 : 100, -4);
+      const done = async () => { this.tweens.add({ targets: g, alpha: 0, duration: 350, onComplete: () => g.destroy() }); if (att.charging) this.endCharge(att); };
+      if (blk === 'umb') {
+        // the umbrella pops open over the hero and the beam bounces off
+        const u = this.extHold; this.extHold = null;
+        if (this.extTw) { this.extTw.stop(); this.extTw = null; }
+        const umb = u || this.add.image(c.x + def.dir * 60, c.y, 'umbrella').setDepth(27).setScale(0);
+        A.umbrella();
+        await tw(this, { targets: umb, x: def.root.x, y: def.root.y - def.height() - 40, angle: 0, scale: iconScale('umbrella', 260), duration: 300, ease: 'Back.out' });
+        for (let i = 0; i < 3; i++) { this.sparks.explode(10, def.root.x + rnd(-90, 90), umb.y - 80); A.bounce(); await wait(this, 160); }
+        this.popWord(def.root.x, umb.y - 160, 'BOING!', '#d8ff6a', 100, -6);
+        this.tweens.add({ targets: umb, scale: 0, alpha: 0, duration: 300, delay: 600, onComplete: () => umb.destroy() });
+        await done(); def.blocker = false;
+        if (def === P) emit('block', { tool: 'umbrella' }, this);
+        if (m.mini) { this.log(def.name + ' blocked the tiny beam with the umbrella! Nice!'); await wait(this, 900); return; }
+        this.log(def.name + ' bounced the Tractor Beam back! ' + att.name + (this.R.plural ? ' are' : ' is') + ' all jammed up!');
+        await wait(this, 400);
+        await this.makeDizzy(def, att, 0xd8ff6a, 'BEAM JAM!');
+        return;
+      }
+      if (blk === 'ext') {
+        // wrong tool: foam floats up the beam, half damage, nothing taken
+        d = Math.max(1, Math.round(d / 2));
+        const foam = this.add.particles(0, 0, 'dot', { x: { min: def.root.x - 120, max: def.root.x + 120 }, y: c.y, speedY: { min: -900, max: -500 }, speedX: { min: -60, max: 60 }, lifespan: 900, scale: { start: 0.5, end: 1.1 }, alpha: { start: 0.9, end: 0 }, tint: [0xffffff, 0xe6f4ff], frequency: 15 }).setDepth(26);
+        A.steam();
+        this.popWord(c.x, c.y - 220, 'FOAM FLOATS UP!', '#e6f4ff', 64, 6);
+        await wait(this, 700); foam.stop(); this.time.delayedCall(900, () => foam.destroy());
+        this.log('Foam floats up the beam! Only half of it gets through.');
+        await this.impact(def, d, 'roar');
+        await done(); return;
+      }
+      // no block: the hero floats up, giggling... a card flies into the saucer... PLOP!
+      const take = !m.mini && !this.easy && def === P ? this.stealCard() : null;
+      await Promise.all([tw(this, { targets: def.root, y: def.root.y - 180, duration: 700, ease: 'Sine.out' }), tw(this, { targets: def.squash, angle: 360 * def.dir, duration: 700 })]);
+      def.squash.setAngle(0);
+      this.popWord(c.x, c.y - 330, 'HEE HEE!', '#ff9ed8', 64, -8);
+      if (take) {
+        const card = take.card, ik = take.icon || 'pillow', ic = img(this, card.x, card.y, ik).setDepth(36); ic.setScale(iconScale(ik, 90));
+        A.whoosh();
+        await tw(this, { targets: ic, x: sx, y: sy, scale: 0.1, angle: 540, duration: 650, ease: 'Quad.in' });
+        ic.destroy();
+        this.setCards(false);
+        this.popWord(sx, sy - 120, 'BEAMED UP!', '#d8ff6a', 70, 6);
+      } else if (!m.mini && !this.easy && def === P) this.log('The beam finds nothing to grab!');
+      await tw(this, { targets: def.root, y: this.groundY, duration: 260, ease: 'Quad.in' });
+      this.popWord(c.x, c.y - 200, 'PLOP!', '#fff3d2', 84, 8);
+      if (take) this.log(att.name + ' beamed up ' + def.name + '\'s ' + take.title + '! It comes back after the duel.');
+      await this.impact(def, d, 'roar');
+      await done();
+    }
+    // the card the beam takes: the first limited card that still has uses. Never an unlimited one, so the kid can always act.
+    // Jack: Nap, Inferno Rain, Frosty Sneeze, Dumpling, booster move, Six-Seven Dance. Toys: heal / nap first, then the strongest.
+    stealCard() {
+      const P = this.hero, JORD = ['nap', 'inferno', 'frost', 'dumpling'];
+      const rank = m => { const i = JORD.indexOf(m.k); if (i >= 0) return i; if (m.type === 'heal' || m.type === 'nap') return 4; if (m.type === 'dance') return 1000; return 500 - (m.dmg ? m.dmg[1] : 0); };
+      const left = this.moves.filter(m => m.uses && (P.used[m.k] || 0) < m.uses && !(P.beamed || []).includes(m.k));
+      if (!left.length) return null;
+      left.sort((a, b) => rank(a) - rank(b));
+      P.beamed = (P.beamed || []).concat(left[0].k);
+      return left[0];
     }
     checkEnd() {
       if (this.rival.hp <= 0) { this.finish(true); return true; }
@@ -2093,6 +2238,13 @@
       if (T.charging) this.endCharge(T);
       this.dropExtinguisher();
       A.music(null); // duel music stops for the win / lose jingle
+      if ((P.beamed || []).length) {
+        // the beamed-up cards come back (they were never really gone)
+        const names = this.moves.filter(m => P.beamed.includes(m.k)).map(m => m.title);
+        P.beamed = []; this.setCards(false);
+        this.log(T.name + ' gives back your ' + names.join(' and ') + '. Too cozy to keep!');
+        await wait(this, 1600);
+      }
       if (won) {
         this.log((this.R.laugh || (T.name + ' giggled so hard they gave up.')) + ' ' + P.name + ' wins!');
         await tw(this, { targets: T.root, angle: 28 * -T.dir, duration: 380, ease: 'Back.out' });
@@ -2614,6 +2766,7 @@
   function rebuild(target) {
     const snap = target || (window.__psSnapshot && window.__psSnapshot());
     const old = window.__game;
+    try { Save.store(); } catch (e) {} // stats bumped in memory (blocks, naps...) survive the rebuild (QA B47)
     if (old) { try { old.destroy(true); } catch (e) {} }
     window.__game = null; window.__psToasts = 0;
     main(snap);
