@@ -4,7 +4,11 @@ Owner decisions (Kondrat). They stand until Kondrat changes them; agents and doc
 
 | Date | Decision | Why / notes |
 |---|---|---|
-| 4 Oct 2026 | **Giant Dragon Boss gives a costume** when beaten (G32). Which costume: `game-designer` proposes, Kondrat picks. | Like the Spooky rivals; the old GDD promised it. |
+| 4 Oct 2026 | **v0.8 world is Canada.** The boss is **Sasquatch**, not Big Foot. | Kondrat picked from `0.8-world-pitch.md`. |
+| 4 Oct 2026 | **Boss costumes for every world:** Professor Hoot gives an owl hat; the Space UFO boss gives a UFO hat; Count Fang gives a bat costume (instead of the crown); Sasquatch gives the Canada flag. Costumes already owned stay. | Replaces the earlier "Dragon Crown" pick (dropped the same day with the Space rework). |
+| 4 Oct 2026 | **Space rework in v0.8:** Robo-Bop and Boo stay; Polandball is replaced by Aliens 👽, the Giant Dragon Boss by a UFO boss 🛸 (new moves, lines, stickers). Design: `docs/gdd/0.8-space-rework.md`. | Polandball and the Dragon Boss do not fit the Space theme. |
+| 4 Oct 2026 | **v0.8 = Canada + Space rework + boss costumes + comic arrival popup.** v0.7.8 is already live. | |
+| 4 Oct 2026 | **The new world is harder than Space:** +10 pep per slot vs Space (boss 210), NORMAL scaling from L6 with the Space slope and caps; EASY unchanged. | Answer to "too easy". |
 | 4 Oct 2026 | **Kraken damage keeps scaling** with difficulty and level; only its pep is fixed at 220 (G26). | Confirmed as is. |
 | 4 Oct 2026 | Process: `game-designer` agent → development → `/code-review` → `qa-tester` agent → Kondrat's OK → merge. | QA and the GDD live in the repo (`docs/qa/`, `docs/gdd/`). |
 | 4 Oct 2026 | Merge to `main` only after Kondrat's OK. One-off exception for the v0.7.8 hotfix only: merge without asking if QA finds nothing new, then tell him. | Merge = live in about a minute. |
