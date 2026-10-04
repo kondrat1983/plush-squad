@@ -432,6 +432,8 @@
       const sk4 = this.textures.createCanvas('sky4', W, H), cx4 = sk4.getContext();
       const gr4 = cx4.createLinearGradient(0, 0, 0, H); gr4.addColorStop(0, '#0b1a3a'); gr4.addColorStop(0.6, '#1f3f6e'); gr4.addColorStop(1, '#3d6597');
       cx4.fillStyle = gr4; cx4.fillRect(0, 0, W, H); sk4.refresh();
+      const ht = this.textures.createCanvas('halftone', 24, 24), hx = ht.getContext();
+      hx.fillStyle = 'rgba(29,33,99,0.08)'; [[6, 6], [18, 18]].forEach(([x, y]) => { hx.beginPath(); hx.arc(x, y, 3, 0, Math.PI * 2); hx.fill(); }); ht.refresh();
       const au = this.textures.createCanvas('aurora', 512, 256), ax = au.getContext();
       [['rgba(111,247,194,0.55)', 90, 0], ['rgba(80,220,230,0.4)', 130, 2], ['rgba(255,140,220,0.28)', 60, 4]].forEach(([col, y0, ph]) => {
         ax.strokeStyle = col; ax.lineCap = 'round';
@@ -657,6 +659,8 @@
   }
   function fade(scene, key, data) {
     if (scene._leaving) return; scene._leaving = true;
+    // the first trip to Canada starts with the comic (#31); the comic then goes on to where the player was heading
+    if (key === 'battle' && data && RIVALS[data.rival] && RIVALS[data.rival].world === CANADA && comicDue()) { data = { world: 'canada', then: { key, data } }; key = 'comic'; }
     scene.cameras.main.fadeOut(320, 15, 18, 64);
     scene.cameras.main.once('camerafadeoutcomplete', () => {
       // the screen was rotated while we couldn't rebuild (e.g. in the toy studio): rebuild now, straight into the next scene
@@ -811,6 +815,7 @@
     }
     create() {
       this._leaving = false;
+      if (this.world === CANADA && comicDue()) { this.scene.start('comic', { world: 'canada', then: { key: 'map', data: { world: CANADA } } }); return; }
       if (Save.data.lastWorld !== this.world) { Save.data.lastWorld = this.world; Save.store(); }
       const wd = this.world;
       this.cameras.main.fadeIn(350, 15, 18, 64);
@@ -862,8 +867,11 @@
       const sq = button(this, PORTRAIT ? W * 0.73 : W - 200, by, 330, 110, 'MY SQUAD', C.cream, () => fade(this, 'squad'), { size: 44 });
       const face = this.add.image(-125, 0, hero.isJack ? 'jack_front' : hero.tex); face.setScale(Math.min(84 / face.height, 84 / face.width));
       sq.add(face); sq.list[1].x = 25;
-      const mg = button(this, PORTRAIT ? W * 0.27 : 220, by, 360, 110, 'STAR CATCH', C.mint, () => fade(this, 'catch', { world: wd }), { size: 42 });
-      const st = this.add.image(-140, 0, 'star').setScale(0.36); mg.add(st); mg.list[1].x = 28;
+      // Canada after the first win over Beaver Bob: Pond Hockey instead of Star Catch
+      const hk = wd === CANADA && hockeyOpen();
+      const mg = button(this, PORTRAIT ? W * 0.27 : 220, by, 360, 110, hk ? 'POND HOCKEY' : 'STAR CATCH', C.mint, () => fade(this, hk ? 'hockey' : 'catch', { world: wd }), { size: 42 });
+      if (hk) fit(mg.list[1], 230);
+      const st = this.add.image(-140, 0, hk ? 'puck' : 'star').setScale(hk ? 0.8 : 0.36); mg.add(st); mg.list[1].x = 28;
       this.tweens.add({ targets: st, angle: 360, duration: 4000, repeat: -1 });
       this.diffSwitch(W / 2, PORTRAIT ? 370 : H - 90);
       let cbtn = capsuleButton(this, W - 200, 80, wd);
@@ -911,7 +919,7 @@
       c.on('pointerup', () => {
         A.init();
         if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); const fi = RIVALS.findIndex(r => (r.world || 0) === i); this.hint(fi > 0 ? 'Beat ' + RIVALS[fi - 1].name + ' to open ' + w.name + '!' : 'Locked!'); return; }
-        if (on) return;
+        if (on) { if (i === CANADA) fade(this, 'comic', { world: 'canada', then: { key: 'map', data: { world: CANADA } } }); return; } // replay the comic
         A.click(); A.whoosh(); fade(this, 'map', { world: i });
       });
     }
@@ -2556,6 +2564,7 @@
 
       const notes = [];
       if (firstClear) notes.push('First win bonus +20 XP');
+      if (firstClear && id === 'beaver') notes.push('Bob challenges you to POND HOCKEY! Find it on the Canada map');
       if (unlockedNext && worldOf(nextIdx) !== this.world) notes.push('NEW WORLD: ' + WORLDS[worldOf(nextIdx)].name + '! Rival: ' + RIVALS[nextIdx].name);
       else if (unlockedNext) notes.push('New rival unlocked: ' + RIVALS[nextIdx].name + '!');
       if (newMoves.length && this.hero.isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
@@ -2793,6 +2802,357 @@
     }
   }
 
+  // ---------- Comic: a short animated comic page the first time the player arrives in a new world (#31, docs/gdd/0.8-canada.md 7b)
+  const comicDue = () => !(Save.data.comics && Save.data.comics.canada) && worldOpen(CANADA);
+  class ComicScene extends Phaser.Scene {
+    constructor() { super('comic'); }
+    init(data) { this.d = data || {}; this.then = this.d.then || { key: 'map', data: { world: CANADA } }; this.start0 = this.d.panel || 0; }
+    create() {
+      this._leaving = false;
+      this.cameras.main.fadeIn(300, 15, 18, 64);
+      // paper with halftone dots
+      this.add.rectangle(W / 2, H / 2, W, H, 0xfff3d2);
+      this.add.tileSprite(BLEED.cx, BLEED.cy, GW, GH, 'halftone').setAlpha(0.6);
+      const top = PORTRAIT ? 150 : 130, bot = 200, gut = 30;
+      const rects = [];
+      for (let i = 0; i < 3; i++) {
+        if (PORTRAIT) { const ph = (H - top - bot - gut * 2) / 3; rects.push({ x: W / 2, y: top + ph / 2 + i * (ph + gut), w: W - 80, h: ph }); }
+        else { const pw = (W - 80 - gut * 2) / 3, ph = H - top - bot; rects.push({ x: 40 + pw / 2 + i * (pw + gut), y: top + ph / 2, w: pw, h: ph }); }
+      }
+      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = [];
+      const skip = button(this, W - 150, PORTRAIT ? 80 : 70, 220, 90, 'SKIP', C.cream, () => this.toTitle(), { size: 40 }).setDepth(90);
+      this.skipBtn = skip;
+      this.hint = txt(this, W / 2, H - 100, 'Tap to go on', 34, '#4a4f8c', { st: 0, shadow: false, weight: '500' }).setDepth(90);
+      this.input.on('pointerdown', p => { if (p.worldY < 140 && p.worldX > W - 300) return; this.tap(); });
+      A.whoosh();
+      for (let i = 0; i < this.start0 && i < 3; i++) this.play(i, true);
+      if (this.start0 >= 3) this.toTitle(); else this.play(this.start0, false);
+    }
+    // a panel frame: ink border, hard shadow, tilted a little; returns a container in panel coordinates (0..w, 0..h, centred)
+    frame(i) {
+      const r = this.rects[i], c = this.add.container(r.x, r.y).setDepth(10 + i).setAngle((i - 1) * 1.2);
+      const g = this.add.graphics();
+      g.fillStyle(0x1d2163, 0.25); g.fillRoundedRect(-r.w / 2 + 12, -r.h / 2 + 12, r.w, r.h, 18);
+      c.add(g); c.r = r; return c;
+    }
+    border(c) { const r = c.r, g = this.add.graphics(); g.lineStyle(10, 0x1d2163); g.strokeRoundedRect(-r.w / 2, -r.h / 2, r.w, r.h, 18); c.add(g); }
+    // inner picture fitted to the panel (no masks: the pictures are sized to the panel)
+    bg(c, key, tint) { const r = c.r, b = this.add.image(0, 0, key).setDisplaySize(r.w - 10, r.h - 10); if (tint) b.setTint(tint); c.add(b); return b; }
+    actor(c, key, fx, fy, hFrac) { const r = c.r, a = this.add.image((fx - 0.5) * r.w, (fy - 0.5) * r.h, key).setOrigin(0.5, 1); a.setScale(Math.min(hFrac * r.h / a.height, 0.45 * r.w / a.width)); c.add(a); return a; }
+    bubble(c, fx, fy, text, tailX, instant) {
+      const r = c.r, x = (fx - 0.5) * r.w, y = (fy - 0.5) * r.h;
+      const t = txt(this, 0, 0, text, PORTRAIT ? 32 : 30, '#1d2163', { st: 0, shadow: false, wrap: Math.min(r.w * 0.8, 560) });
+      const bw = t.width + 60, bh = t.height + 44, g = this.add.graphics();
+      g.fillStyle(0xffffff); g.lineStyle(6, 0x1d2163);
+      g.fillTriangle(tailX * bw * 0.3 - 20, bh / 2 - 8, tailX * bw * 0.3 + 20, bh / 2 - 8, tailX * bw * 0.45, bh / 2 + 44);
+      g.strokeTriangle(tailX * bw * 0.3 - 20, bh / 2 - 8, tailX * bw * 0.3 + 20, bh / 2 - 8, tailX * bw * 0.45, bh / 2 + 44);
+      g.fillEllipse(0, 0, bw, bh); g.strokeEllipse(0, 0, bw, bh);
+      g.fillStyle(0xffffff); g.fillRect(tailX * bw * 0.3 - 16, bh / 2 - 14, 32, 10);
+      // keep the bubble inside its panel (a little overlap on the border is comic style)
+      const b = this.add.container(clamp(x, -r.w / 2 + bw / 2 - 10, r.w / 2 - bw / 2 + 10), y, [g, t]); c.add(b);
+      if (!instant) { b.setScale(0); this.anim({ targets: b, scale: 1, duration: 260, ease: 'Back.out' }); A.babble && A.babble(text.length); }
+      return b;
+    }
+    burst(c, fx, fy, word, size, instant) {
+      const r = c ? c.r : null, x = c ? (fx - 0.5) * r.w : fx, y = c ? (fy - 0.5) * r.h : fy, R = size * 1.6, g = this.add.graphics();
+      const star = (rad, col) => { const pts = []; for (let k = 0; k < 28; k++) { const a = k * Math.PI / 14, rr = k % 2 ? rad * 0.62 : rad; pts.push(new Phaser.Geom.Point(Math.cos(a) * rr * 1.25, Math.sin(a) * rr)); } g.fillStyle(col); g.fillPoints(pts, true); g.lineStyle(6, 0x1d2163); g.strokePoints(pts, true); };
+      star(R, 0xffd23f); star(R * 0.72, 0xff6b5b);
+      const t = txt(this, 0, 0, word, size, '#fff3d2', { stroke: '#1d2163', st: Math.round(size / 6) });
+      const b = this.add.container(x, y, [g, t]).setAngle(-6);
+      if (c) c.add(b);
+      if (!instant) { b.setScale(0); this.anim({ targets: b, scale: 1, duration: 300, ease: 'Back.out' }); }
+      return b;
+    }
+    // finite tweens are kept so a tap can jump them to their end; endless wobbles keep running
+    anim(cfg) { const t = this.tweens.add(cfg); if (cfg.repeat !== -1) this.live.push([t, cfg]); return t; }
+    // a timed step of the panel script; fn(instant)
+    at(ms, fn, auto) { const rec = { fn, auto, ran: false }; this.later.push(rec); this.steps.push(this.time.delayedCall(ms, () => { rec.ran = true; fn(false); })); }
+    // panel i: instant = draw it already finished (fast taps, coming back after a rotation)
+    play(i, instant) {
+      this.cur = i; this.d.panel = i; this.sys.settings.data = Object.assign({}, this.d, { panel: i });
+      this.steps = []; this.later = []; this.live = []; this.done = false;
+      const c = this.frame(i); this.panels.push(c);
+      if (i === 0) {
+        this.bg(c, 'sky4'); const au = this.bg(c, 'aurora'); au.setAlpha(0.8);
+        for (let k = 0; k < 4; k++) { const p = this.actor(c, 'pine', 0.12 + k * 0.26, 1, 0.4); p.setAlpha(0.8).setTint(0x9fb6d8); }
+        const jack = this.actor(c, 'jack_side', instant ? 0.3 : -0.3, 0.95, 0.5);
+        this.anim({ targets: jack, angle: { from: -3, to: 3 }, duration: 70, yoyo: true, repeat: -1 });
+        if (!instant) this.anim({ targets: jack, x: (0.3 - 0.5) * c.r.w, duration: 700, ease: 'Quad.out' });
+        // caption types in
+        const cap = txt(this, -c.r.w / 2 + 30, -c.r.h / 2 + 30, '', PORTRAIT ? 34 : 30, '#1d2163', { ox: 0, oy: 0, st: 0, shadow: false });
+        const capBg = this.add.graphics(); c.add([capBg, cap]);
+        const full = 'MEANWHILE, IN CANADA...';
+        const drawCap = () => { capBg.clear(); capBg.fillStyle(0xffd23f); capBg.lineStyle(5, 0x1d2163); capBg.fillRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); capBg.strokeRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); };
+        if (instant) { cap.setText(full); drawCap(); }
+        else { let n = 0; const ev = this.time.addEvent({ delay: 30, repeat: full.length - 1, callback: () => { cap.setText(full.slice(0, ++n)); drawCap(); } }); this.steps.push(ev); this.later.push({ fn: () => { cap.setText(full); drawCap(); }, ran: false }); }
+        const say = inst => this.bubble(c, 0.68, 0.36, 'Brrr! Why is the sky made of ice cream?', -1, inst);
+        instant ? say(true) : this.at(900, say);
+        if (!instant) { const sn = this.add.particles(0, 0, 'dot', { x: { min: -c.r.w / 2, max: c.r.w / 2 }, y: -c.r.h / 2, speedY: { min: 80, max: 160 }, lifespan: c.r.h / 120 * 1000, scale: { min: 0.1, max: 0.22 }, frequency: 120 }); c.add(sn); }
+      } else if (i === 1) {
+        this.bg(c, 'sky4');
+        const g = this.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.2, c.r.w - 10, c.r.h * 0.3 - 5); c.add(g);
+        // head first in the snowbank: the upside-down Jack, the head half hidden by a snow mound, tail wagging
+        const j = this.actor(c, 'jack_upside', 0.55, 0.95, 0.75);
+        const snow = this.add.graphics(); snow.fillStyle(0xffffff); snow.fillEllipse(c.r.w * 0.05, c.r.h * 0.3, c.r.w * 0.62, c.r.h * 0.36); c.add(snow);
+        this.anim({ targets: j, angle: { from: -6, to: 6 }, duration: 260, yoyo: true, repeat: -1 });
+        const fw = inst => { this.burst(c, 0.22, 0.28, 'FWUMP!', PORTRAIT ? 72 : 60, inst); if (!inst) { A.stomp(); A.whoosh(); } };
+        instant ? fw(true) : this.at(200, fw);
+      } else {
+        this.bg(c, 'sky4');
+        const g = this.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.15, c.r.w - 10, c.r.h * 0.35 - 5); c.add(g);
+        this.actor(c, 'pine', 0.88, 0.72, 0.5).setAlpha(0.9);
+        this.sasq = this.actor(c, 'sasquatch', 0.88, 0.7, 0.3).setVisible(false);
+        this.actor(c, 'moose', 0.7, 0.98, 0.42);
+        this.actor(c, 'pancakes', 0.5, 0.8, 0.18);
+        this.actor(c, 'jack_front', 0.24, 0.98, 0.5);
+        const s1 = inst => this.bubble(c, 0.66, 0.2, 'Sorry, eh! Welcome to Canada!', 1, inst);
+        const s2 = inst => this.bubble(c, 0.34, 0.42, 'Why are YOU sorry? I fell on YOUR snow!', -1, inst);
+        if (instant) { s1(true); s2(true); } else { this.at(200, s1); this.at(1400, s2); }
+      }
+      this.border(c);
+      if (!instant) {
+        c.y += 60; c.setAlpha(0); this.anim({ targets: c, y: c.r.y, alpha: 1, duration: 300, ease: 'Back.out' });
+        const len = [2700, 2500, 3500][i];
+        this.at(len, () => this.finishPanel(true), true);
+      } else this.done = true;
+    }
+    // jump to the end state of the current panel
+    finishPanel(auto) {
+      if (this.done) return; this.done = true;
+      this.steps.forEach(e => e.remove(false)); this.steps = [];
+      const later = this.later; this.later = [];
+      if (!auto) later.forEach(r => { if (!r.ran && !r.auto) { r.ran = true; r.fn(true); } });
+      // stop the finite tweens and put their targets at the end values (Tween.complete() does not jump to the end)
+      const META = ['targets', 'duration', 'ease', 'delay', 'yoyo', 'repeat', 'onComplete'];
+      this.live.forEach(([t, cfg]) => {
+        t.stop();
+        [].concat(cfg.targets).forEach(o => Object.keys(cfg).forEach(k => { if (META.includes(k)) return; const v = cfg[k]; if (typeof v === 'number') o[k] = v; else if (v && typeof v.to === 'number') o[k] = v.to; }));
+      });
+      this.live = [];
+      const c = this.panels[this.cur]; if (c) { c.y = c.r.y; c.setAlpha(1); }
+      if (auto) this.time.delayedCall(300, () => this.next());
+    }
+    next() { if (this._leaving || this.titled) return; if (this.cur >= 2) this.toTitle(); else this.play(this.cur + 1, false); }
+    tap() {
+      if (this.titled) return;
+      if (!this.done) this.finishPanel(false); else this.next();
+    }
+    toTitle() {
+      if (this.titled) return; this.titled = true;
+      while (this.cur < 2) { this.finishPanel(false); this.play(this.cur + 1, true); }
+      if (!this.done) this.finishPanel(false);
+      this.d.panel = 3; this.sys.settings.data = Object.assign({}, this.d, { panel: 3 });
+      this.skipBtn.setVisible(false); this.hint.setVisible(false);
+      if (this.sasq) { this.sasq.setVisible(true); this.tweens.add({ targets: this.sasq, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 }); }
+      const r0 = this.rects[0], r1 = this.rects[1];
+      const b = this.burst(null, PORTRAIT ? W / 2 : (r0.x + r1.x) / 2, PORTRAIT ? (r0.y + r0.h / 2 + r1.y - r1.h / 2) / 2 : H * 0.42, 'CANADA!', PORTRAIT ? 120 : 110, false); b.setDepth(50);
+      A.comicSting && A.comicSting(); this.time.delayedCall(400, () => A.levelUp());
+      const leaves = this.add.particles(0, 0, 'mapleleaf', { x: { min: 0, max: W }, y: -60, speedY: { min: 250, max: 500 }, speedX: { min: -120, max: 120 }, rotate: { min: 0, max: 360 }, lifespan: 4000, scale: { min: 0.15, max: 0.3 }, quantity: 2, frequency: 120 }).setDepth(49);
+      this.time.delayedCall(2500, () => leaves.stop());
+      const go = button(this, W / 2, H - 110, 460, 130, 'LET\'S GO!', C.star, () => {
+        Save.data.comics = Object.assign({}, Save.data.comics, { canada: true }); Save.store();
+        fade(this, this.then.key, this.then.data);
+      }, { size: 56 }).setDepth(60);
+      this.tweens.add({ targets: go, scale: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+  }
+
+  // ---------- Pond Hockey (v0.8 Canada, docs/gdd/0.8-canada.md 4b): shoot pucks past Beaver Bob. 45 s, nobody loses.
+  const hockeyOpen = () => (Save.data.stars.beaver || 0) > 0;
+  class HockeyScene extends Phaser.Scene {
+    constructor() { super('hockey'); }
+    init() { this.world = CANADA; }
+    create() {
+      this._leaving = false;
+      this.cameras.main.fadeIn(350, 15, 18, 64);
+      sky(this, CANADA);
+      // the rink: light-blue ice with scratch lines and snowy boards
+      // the net sits in the middle of the screen (portrait) so the shot is not too long
+      this.netY = PORTRAIT ? Math.max(720, H * 0.4) : Math.max(290, H * 0.32); this.netW = PORTRAIT ? 420 : 460; this.netX = W / 2;
+      const top = this.netY - (PORTRAIT ? 260 : 200);
+      const g = this.add.graphics().setDepth(1);
+      g.fillGradientStyle(0xe8f4ff, 0xe8f4ff, 0x9fc3ea, 0x9fc3ea, 1); g.fillRect(-SL, top, W + SL + SR, H - top + SB);
+      g.lineStyle(4, 0xffffff, 0.6); for (let i = 0; i < 26; i++) { const x = rnd(0, W), y = rnd(top + 40, H); g.lineBetween(x, y, x + rnd(-120, 120), y + rnd(-20, 20)); }
+      g.fillStyle(0xffffff, 0.95); g.fillRect(-SL, top - 30, W + SL + SR, 40);
+      g.lineStyle(6, 0xd94a3d, 0.7); g.lineBetween(-SL, this.netY + 120, W + SR, this.netY + 120);
+      // the net and Bob
+      const ng = this.add.graphics().setDepth(4);
+      ng.fillStyle(0xffffff, 0.35); ng.fillRect(this.netX - this.netW / 2, this.netY - 150, this.netW, 150);
+      ng.lineStyle(2, 0xffffff, 0.7); for (let x = -this.netW / 2; x <= this.netW / 2; x += 30) ng.lineBetween(this.netX + x, this.netY - 150, this.netX + x, this.netY);
+      for (let y = -150; y <= 0; y += 30) ng.lineBetween(this.netX - this.netW / 2, this.netY + y, this.netX + this.netW / 2, this.netY + y);
+      ng.lineStyle(14, 0xd94a3d); ng.strokeRect(this.netX - this.netW / 2, this.netY - 150, this.netW, 150);
+      this.bob = this.add.image(this.netX, this.netY + 10, 'beaver').setOrigin(0.5, 1).setDepth(6);
+      this.bob.setScale(150 / this.bob.width); this.bobV = 1; this.bobHalf = 75;
+      this.dam = this.add.image(0, this.netY - 40, 'pillow').setDepth(7).setScale(1.05, 1.2).setVisible(false); this.damSide = 0; this.damT = 0; this.nextDam = 30;
+      // the hero with the puck
+      const hero = heroDef(this);
+      this.heroY = H - (PORTRAIT ? 140 : 70);
+      this.p = this.add.image(W / 2, this.heroY, hero.isJack ? 'jack_side' : hero.tex).setOrigin(0.5, 1).setDepth(10);
+      const ps = PORTRAIT ? 300 : 240; this.p.setScale(Math.min(ps / this.p.height, ps / this.p.width));
+      this.stick = this.add.image(W / 2 + 120, this.heroY - 40, 'hockey').setDepth(11).setScale(iconScale('hockey', 150));
+      this.puckY = this.heroY - (PORTRAIT ? 380 : 300); this.puckX = W / 2;
+      this.puck = null; this.aim = 0; this.shots = 0; this.score = 0; this.streak = 0; this.bestStreak = 0;
+      this.left = 45; this.elapsed = 0; this.running = false; this.waitT = 0;
+      this.sparks = this.add.particles(0, 0, 'spark', { emitting: false, speed: { min: 200, max: 600 }, lifespan: 450, scale: { start: 0.7, end: 0 }, tint: [C.star, 0xffffff], blendMode: 'ADD' }).setDepth(21);
+      this.confetti = this.add.particles(0, 0, 'conf', { emitting: false, speed: { min: 500, max: 1300 }, angle: { min: 230, max: 310 }, gravityY: 1100, lifespan: 2600, rotate: { min: 0, max: 360 }, tint: [0xff6b5b, 0xffd23f, 0x7fd6c2, 0x9aa2ff, 0xff9ed8] }).setDepth(70);
+      // HUD
+      const hy = PORTRAIT ? 200 : 80;
+      this.add.image(W / 2 - 80, hy, 'puck').setScale(0.7).setDepth(30);
+      this.scoreT = txt(this, W / 2 - 10, hy, '0', 80, '#ffd23f', { ox: 0, st: 12 }).setDepth(30);
+      this.timeT = txt(this, PORTRAIT ? W / 2 : W - 220, PORTRAIT ? hy + 100 : hy, '45', 64, '#fff3d2', { st: 10 }).setDepth(30);
+      backButton(this, () => fade(this, 'map', { world: CANADA }));
+      muteButton(this);
+      // controls: swipe up from the lower half (angle + speed), tap the net area, or arrows + SPACE
+      this.input.on('pointerdown', p => { this.sw = { x: p.worldX, y: p.worldY, t: performance.now() }; });
+      this.input.on('pointerup', p => {
+        const s = this.sw; this.sw = null; if (!s || !this.running) return;
+        const dx = p.worldX - s.x, dy = p.worldY - s.y, dt = Math.max(30, performance.now() - s.t);
+        if (dy < -60 && s.y > H * 0.45) {
+          const ang = clamp(Math.atan2(dx, -dy), -0.61, 0.61), v = -dy / dt; // px per ms
+          this.shoot(ang, clamp(0.7 - (v - 0.5) * 0.12, 0.45, 0.7));
+        } else if (Math.abs(dx) < 40 && Math.abs(dy) < 40 && p.worldY < this.netY + 200 && p.worldY > this.netY - 300) {
+          this.shoot(Math.atan2(p.worldX - this.puckX, this.puckY - this.netY + 75), 0.6);
+        }
+      });
+      this.keys = this.input.keyboard && this.input.keyboard.createCursorKeys();
+      if (this.input.keyboard) this.input.keyboard.on('keydown-SPACE', () => this.running && this.shoot(this.aim, 0.55));
+      this.aimLine = this.add.graphics().setDepth(9);
+      this.intro();
+    }
+    async intro() {
+      const c = this.add.container(W / 2, H * 0.45).setDepth(60);
+      const pw = PORTRAIT ? 900 : 1000, ph = PORTRAIT ? 760 : 620;
+      c.add(panel(this, 0, 0, pw, ph, C.night2, 0));
+      c.add(txt(this, 0, -ph / 2 + 100, 'POND HOCKEY!', 90, '#ffd23f', { stroke: '#0f1240', st: 14 }));
+      [['puck', 'GOAL +1', '#ffd23f'], ['mapleleaf', 'GOLD +2', '#7fe39a'], ['beaver', 'NOPE!', '#ff9ed8']].forEach(([k, l, col], i) => {
+        const x = (i - 1) * (PORTRAIT ? 280 : 300), y = -10;
+        c.add(img(this, x, y, k).setScale(iconScale(k, 130)));
+        c.add(txt(this, x, y + 110, l, 48, col, { st: 8 }));
+      });
+      c.add(txt(this, 0, ph / 2 - (PORTRAIT ? 150 : 110), PORTRAIT ? 'Shoot past Bob!\nSwipe up or tap the net.' : 'Shoot past Bob! Swipe up, tap the net, or arrows + SPACE.', 36, '#fff3d2', { st: 0, weight: '500' }));
+      c.setScale(0);
+      await tw(this, { targets: c, scale: 1, duration: 380, ease: 'Back.out' });
+      await wait(this, 2300);
+      await tw(this, { targets: c, scale: 0, alpha: 0, duration: 250, ease: 'Quad.in' });
+      c.destroy();
+      for (const n of ['3', '2', '1', 'GO!']) {
+        const t = txt(this, W / 2, H * 0.45, n, n === 'GO!' ? 200 : 180, n === 'GO!' ? '#7fe39a' : '#fff3d2', { stroke: '#0f1240', st: 18 }).setDepth(60).setScale(0);
+        n === 'GO!' ? A.levelUp() : A.tick();
+        await tw(this, { targets: t, scale: 1, duration: 260, ease: 'Back.out' });
+        await wait(this, 380);
+        this.tweens.add({ targets: t, scale: 1.5, alpha: 0, duration: 250, onComplete: () => t.destroy() });
+      }
+      this.running = true; this.newPuck();
+    }
+    newPuck() {
+      if (!this.running) return;
+      const gold = (this.shots + 1) % 5 === 0;
+      this.puck = { o: this.add.image(this.puckX, this.puckY, 'puck').setDepth(12).setScale(0), gold, flying: false };
+      if (gold) { this.puck.leaf = this.add.image(this.puckX, this.puckY - 10, 'mapleleaf').setDepth(13).setScale(0); this.tweens.add({ targets: this.puck.leaf, scale: iconScale('mapleleaf', 60), duration: 200 }); this.puck.o.setTint(0xffd23f); }
+      this.tweens.add({ targets: this.puck.o, scale: 0.9, duration: 200, ease: 'Back.out' });
+    }
+    // ang: radians from straight up; dur: travel time in s
+    shoot(ang, dur) {
+      const pk = this.puck; if (!pk || pk.flying) return;
+      pk.flying = true; this.shots++;
+      A.slap(); buzz(20);
+      this.tweens.add({ targets: this.stick, angle: { from: 0, to: -50 }, duration: 120, yoyo: true });
+      const tx = this.puckX + Math.tan(ang) * (this.puckY - (this.netY - 70)), ty = this.netY - 70;
+      const objs = [pk.o].concat(pk.leaf ? [pk.leaf] : []);
+      this.tweens.add({ targets: objs, x: tx, y: ty, scale: '*=0.7', duration: dur * 1000, ease: 'Quad.out', onComplete: () => this.judge(pk, tx) });
+      A.slide();
+    }
+    judge(pk, x) {
+      const hw = this.netW / 2, off = Math.abs(x - this.netX);
+      let res;
+      if (off > hw + 22) res = 'wide';
+      else if (off > hw - 18) res = 'post';
+      else if (Math.abs(x - this.bob.x) < this.bobHalf + 10) res = 'save';
+      else if (this.damT > 0 && (this.damSide < 0 ? x < this.netX : x > this.netX)) res = 'save';
+      else res = 'goal';
+      const fx = x, fy = this.netY - 120;
+      if (res === 'goal') {
+        const n = pk.gold ? 2 : 1; this.score += n; this.streak++; this.bestStreak = Math.max(this.bestStreak, this.streak);
+        A.goalHorn(); if (pk.gold) A.levelUp(); buzz(40);
+        this.sparks.explode(pk.gold ? 24 : 14, fx, fy);
+        this.float(fx, fy, pk.gold ? 'GOLDEN GOAL! +2' : 'GOAL! +1', pk.gold ? '#7fe39a' : '#ffd23f');
+        if (this.streak === 3) this.float(W / 2, this.netY + 120, 'HAT TRICK!', '#ff9ed8');
+        this.scoreT.setText(String(this.score));
+        this.tweens.add({ targets: this.scoreT, scale: { from: 1.25, to: 1 }, duration: 200, ease: 'Back.out' });
+      } else {
+        this.streak = 0;
+        if (res === 'post') { A.block(); this.float(fx, fy, 'DING!', '#d8ecff'); }
+        else if (res === 'save') { A.chomp(); this.float(fx, fy, 'NOPE!', '#ff9ed8'); this.tweens.add({ targets: this.bob, angle: { from: -10, to: 10 }, duration: 90, yoyo: true, repeat: 1, onComplete: () => this.bob.setAngle(0) }); }
+        else this.float(fx, fy, 'WIDE!', '#bcc0ee');
+      }
+      const objs = [pk.o].concat(pk.leaf ? [pk.leaf] : []);
+      this.tweens.add({ targets: objs, alpha: 0, duration: 250, delay: 150, onComplete: () => objs.forEach(o => o.destroy()) });
+      this.puck = null; this.waitT = 0.4;
+    }
+    float(x, y, s, col) {
+      const t = txt(this, x, y, s, 64, col, { stroke: '#0f1240', st: 10 }).setDepth(40);
+      this.tweens.add({ targets: t, y: y - 140, alpha: 0, duration: 800, ease: 'Quad.out', onComplete: () => t.destroy() });
+    }
+    update(time, dtMs) {
+      const dt = Math.min(dtMs, 50) / 1000;
+      // Bob slides in the net: slow, medium, then fast with random turns
+      const ph = this.elapsed < 15 ? 0 : this.elapsed < 30 ? 1 : 2, sp = [140, 230, 330][ph];
+      if (ph === 2 && Math.random() < dt * 0.8) this.bobV *= -1;
+      this.bob.x += this.bobV * sp * dt;
+      const lim = this.netW / 2 - this.bobHalf;
+      if (this.bob.x > this.netX + lim) { this.bob.x = this.netX + lim; this.bobV = -1; }
+      if (this.bob.x < this.netX - lim) { this.bob.x = this.netX - lim; this.bobV = 1; }
+      // aim with the arrows
+      if (this.keys) { if (this.keys.left.isDown) this.aim = clamp(this.aim - 1.2 * dt, -0.61, 0.61); if (this.keys.right.isDown) this.aim = clamp(this.aim + 1.2 * dt, -0.61, 0.61); }
+      this.aimLine.clear();
+      if (this.puck && !this.puck.flying && this.aim) { this.aimLine.lineStyle(6, 0xffffff, 0.5); this.aimLine.lineBetween(this.puckX, this.puckY, this.puckX + Math.sin(this.aim) * 260, this.puckY - Math.cos(this.aim) * 260); }
+      if (!this.running) return;
+      this.elapsed += dt; this.left -= dt;
+      // from 30 s Bob builds a pillow dam over half of the net for 3 s, every ~8 s
+      if (this.damT > 0) { this.damT -= dt; if (this.damT <= 0) this.dam.setVisible(false); }
+      else if (this.elapsed >= this.nextDam) {
+        this.damSide = Math.random() < 0.5 ? -1 : 1; this.damT = 3; this.nextDam = this.elapsed + 8;
+        this.dam.setPosition(this.netX + this.damSide * this.netW / 4, this.netY - 40).setVisible(true); A.chomp();
+      }
+      const sec = Math.max(0, Math.ceil(this.left));
+      if (this.timeT.text !== String(sec)) {
+        this.timeT.setText(String(sec));
+        if (sec <= 5) { this.timeT.setColor('#ff6b5b'); A.tick(); this.tweens.add({ targets: this.timeT, scale: { from: 1.3, to: 1 }, duration: 250 }); }
+      }
+      if (this.left <= 0) { this.end(); return; }
+      if (!this.puck && this.waitT > 0) { this.waitT -= dt; if (this.waitT <= 0) this.newPuck(); }
+    }
+    end() {
+      this.running = false; this.timeT.setText('0');
+      const best = Save.data.bestHockey || 0, isBest = this.score > best;
+      const gain = Math.min(60, this.score * 2);
+      const before = levelOf(Save.data.xp);
+      Save.data.xp += gain; if (isBest) Save.data.bestHockey = this.score; Save.store();
+      emit('hockey', { score: this.score, streak: this.bestStreak }, this);
+      const after = levelOf(Save.data.xp);
+      A.win(); this.confetti.explode(100, W / 2, H);
+      const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(60).setInteractive();
+      this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 });
+      const pw = PORTRAIT ? 900 : 940, ph = PORTRAIT ? 1050 : 860, T0 = -ph / 2;
+      const p = this.add.container(W / 2, H / 2).setDepth(61).setScale(0);
+      p.add(panel(this, 0, 0, pw, ph, C.night2, 0));
+      p.add(txt(this, 0, T0 + 110, 'TIME\'S UP!', 90, '#ffd23f', { stroke: '#0f1240', st: 14 }));
+      p.add(this.add.image(-100, T0 + 260, 'puck').setScale(1.2));
+      p.add(txt(this, 10, T0 + 260, String(this.score), 130, '#fff3d2', { ox: 0, stroke: '#0f1240', st: 16 }));
+      p.add(txt(this, 0, T0 + 380, isBest && best > 0 ? 'NEW RECORD!' : 'Best: ' + Math.max(best, this.score), 44, isBest && best > 0 ? '#ff9ed8' : '#bcc0ee', { st: 7 }));
+      p.add(txt(this, 0, T0 + 470, '+' + gain + ' XP', 64, '#7fe39a', { stroke: '#0f1240', st: 10 }));
+      const notes = [];
+      if (after.l > before.l) notes.push('LEVEL UP! Level ' + after.l);
+      if (this.bestStreak >= 3) notes.push('Hat trick! ' + this.bestStreak + ' goals in a row');
+      p.add(txt(this, 0, T0 + 560, notes.join('\n'), 36, '#ffd23f', { st: 6, wrap: pw - 100 }));
+      const by = T0 + (PORTRAIT ? 760 : 730);
+      p.add(button(this, PORTRAIT ? 0 : -210, by, 380, 120, 'AGAIN!', C.star, () => fade(this, 'hockey'), { size: 48 }));
+      p.add(button(this, PORTRAIT ? 0 : 210, PORTRAIT ? by + 150 : by, 380, 120, 'MAP', C.cream, () => fade(this, 'map', { world: CANADA }), { size: 48 }));
+      this.tweens.add({ targets: p, scale: 1, duration: 420, ease: 'Back.out' });
+      if (after.l > before.l) this.time.delayedCall(700, () => { A.levelUp(); this.confetti.explode(120, W / 2, H * 0.6); });
+    }
+  }
+
   // ---------- Capsule machine (gacha): turn the crank, get a surprise booster. Nothing to buy, ever.
   const CAP_COLORS = [0xff6b5b, 0xffd23f, 0x7fd6c2, 0x9aa2ff, 0xff9ed8, 0x7fe39a, 0xff8a3d];
   class GachaScene extends Phaser.Scene {
@@ -3008,7 +3368,7 @@
     dom: { createContainer: true },
     fps: { smoothStep: !DEBUG },
     input: { activePointers: 2 }, render: { antialias: true, powerPreference: 'high-performance' },
-    scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, GachaScene].concat(EXTRA_SCENES),
+    scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, HockeyScene, ComicScene, GachaScene].concat(EXTRA_SCENES),
   });
   // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
   // ...and a rotation held back (duel turn, result celebration) is applied on the next screen if it is still waiting

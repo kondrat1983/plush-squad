@@ -450,7 +450,7 @@
       // bedtime / daily limit: checked whenever a menu screen opens (never in the middle of a duel)
       // a new duel counts too (REMATCH / NEXT RIVAL), a duel restored after rotating does not (QA B03)
       const newDuel = d.key === 'battle' && !scene.res;
-      if ((newDuel || ['title', 'map', 'squad', 'catch', 'gacha', 'me', 'album', 'quests', 'friends', 'boss'].includes(d.key)) && blockedReason()) { scene.time.delayedCall(50, () => PS.fade(scene, 'bedtime')); return; }
+      if ((newDuel || ['title', 'map', 'squad', 'catch', 'hockey', 'comic', 'gacha', 'me', 'album', 'quests', 'friends', 'boss'].includes(d.key)) && blockedReason()) { scene.time.delayedCall(50, () => PS.fade(scene, 'bedtime')); return; }
       // not on the boot scene of a rebuilt game (it stops at once and the toasts were lost, QA B37);
       // a result panel restored after a rotation shows them like a menu does
       // v0.8: hats given to old saves by the migration in game.js, announced once like stickers (QA B43)

@@ -93,6 +93,9 @@
     // v0.8 Canada: Max's honk (a moo a fifth lower, shorter), Bob's chewing
     honk() { this.tone(120, 0.6, { type: 'sawtooth', vol: 0.14, slide: 0.7, attack: 0.08 }); this.tone(121, 0.6, { type: 'triangle', vol: 0.2, slide: 0.68, attack: 0.08 }); },
     chomp() { for (let i = 0; i < 4; i++) { this.noise(0.05, { f: 2400, q: 2, vol: 0.25, delay: i * 0.09 }); this.tone(300, 0.05, { type: 'square', vol: 0.05, delay: i * 0.09 }); } },
+    // v0.8 comic: speech babble (one blip per syllable) and a short brass-like sting for the title
+    babble(n = 12) { for (let i = 0; i < Math.min(8, Math.ceil(n / 5)); i++) this.tone(500 + Math.random() * 500, 0.06, { type: 'triangle', vol: 0.08, delay: i * 0.08 }); },
+    comicSting() { [392, 523, 659, 784].forEach((f, i) => this.tone(f, i === 3 ? 0.5 : 0.14, { type: 'square', vol: 0.07, delay: i * 0.12 })); },
     // v0.8 SAVE IT!: stick on puck, puck on ice, glove THWACK, a friendly hockey horn
     slap() { this.noise(0.08, { type: 'highpass', f: 3000, vol: 0.5, attack: 0.002 }); this.tone(110, 0.2, { vol: 0.4, slide: 0.5 }); },
     slide() { this.noise(0.5, { f: 900, q: 3, vol: 0.18, attack: 0.05, slide: 2.2 }); },
