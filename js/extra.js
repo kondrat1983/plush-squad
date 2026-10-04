@@ -32,6 +32,12 @@
     { id: 'friend1', name: 'Best Buddies', desc: 'Add a friend', icon: 'j:friends', title: 'Best Buddy', ok: d => (d.stats.friends || 0) >= 1 },
     { id: 'gift1', name: 'Kind Heart', desc: 'Send a gift to a friend', icon: 'j:gift', title: 'Kind Heart', ok: d => (d.stats.gifts || 0) >= 1 },
     { id: 'friendwin', name: 'Friendly Rival', desc: 'Beat a friend\'s toy', icon: 'j:thumbs', title: 'Friendly Rival', ok: d => (d.stats.friendWins || 0) >= 1 },
+    // v0.8: Canada and the Mothership's beam
+    { id: 'sasquatch', name: 'Big Friend', desc: 'Beat Sasquatch', icon: 'sasquatch', title: "Sasquatch's Buddy", ok: d => (d.stars.sasquatch || 0) > 0 },
+    { id: 'goalie', name: 'Goalie', desc: 'Make 10 perfect saves', icon: 'glove', title: 'Goalie', ok: d => (d.stats.perfectSaves || 0) >= 10 },
+    { id: 'hattrick', name: 'Hat Trick', desc: '3 goals in a row in Pond Hockey', icon: 'puck', title: 'Hat Trick Hero', ok: d => (d.stats.hockeyStreak || 0) >= 3 },
+    { id: 'slapshot', name: 'Slapshot Star', desc: 'Score 20 in Pond Hockey', icon: 'hockey', title: 'Slapshot Star', ok: d => (d.bestHockey || 0) >= 20 },
+    { id: 'umbrella5', name: 'Umbrella Hero', desc: 'Block the Tractor Beam 5 times', icon: 'umbrella', title: 'Umbrella Hero', ok: d => (d.stats.beamBlocks || 0) >= 5 },
     { id: 'kraken', name: 'Kraken Fighter', desc: 'Fight the weekly Pillow Kraken', icon: 'kraken', title: 'Kraken Fighter', ok: d => (d.stats.krakenHits || 0) >= 1 },
   ];
   const ACH_BY_ID = {}; ACH.forEach(a => ACH_BY_ID[a.id] = a);
@@ -55,6 +61,10 @@
     { id: 'pet', text: 'Help with a pet (or a plush pet!)', icon: 'j:dog' }, { id: 'song', text: 'Sing or play a song', icon: 'j:music' },
     { id: 'jacks', text: 'Do 20 jumping jacks', icon: 'j:run' }, { id: 'homework', text: 'Finish your homework', icon: 'j:album' },
     { id: 'wash', text: 'Wash your hands before dinner', icon: 'j:soap' }, { id: 'sweep', text: 'Help sweep or vacuum a room', icon: 'j:broom' },
+    // v0.8 (Canada)
+    { id: 'fort', text: 'Build a pillow fort', icon: 'shield' }, { id: 'pancakes', text: 'Make pancakes (or breakfast) with a grown-up', icon: 'j:plate' },
+    { id: 'leaf', text: 'Go outside and find a cool leaf or pinecone', icon: 'i:leaf' }, { id: 'polite', text: 'Say "please", "thank you" and "sorry" today', icon: 'j:hug' },
+    { id: 'animal', text: 'Learn 3 facts about a moose, beaver or bear', icon: 'books' }, { id: 'birds', text: 'Feed the birds with a grown-up', icon: 'i:bird' },
   ];
   const QBY = {}; QUESTS.forEach(q => QBY[q.id] = q);
   function todaysQuests() {
@@ -178,6 +188,16 @@
 
   // ---------- "What's new" popup: shows once per version (CLOSE = see it again next time, DON'T SHOW AGAIN = hide until the next update)
   const WHATS_NEW = {
+    '0.8': [
+      { icon: 'mapleleaf', title: 'CANADA', text: 'A new snowy world! Meet Max the Moose, Beaver Bob, Mountie Bear and Sasquatch.' },
+      { icon: 'glove', title: 'SAVE IT!', text: 'Sasquatch shoots hockey pucks. Tap at the right moment for a super save!' },
+      { icon: 'puck', title: 'Pond Hockey', text: 'New mini-game: shoot pucks past Beaver Bob!' },
+      { icon: 'aliens', title: 'New Space rivals', text: 'Three silly aliens wobble into Space. They come in peace... with pillows!' },
+      { icon: 'ufo', title: 'The Mothership', text: 'The new Space boss beams up pillows. Fire or beam? Grab the right tool!' },
+      { icon: 'toque', title: 'Boss hats', text: 'Every boss gives a hat: Owl Hat, UFO Hat, Bat Hat and a Canada Toque!' },
+      { icon: 'j:album', title: 'Comic', text: 'See how Jack crash-lands in Canada. FWUMP!' },
+      { icon: 'j:quests', title: 'New quests', text: 'Pillow forts, pancakes, leaf hunts and more.' },
+    ],
     '0.7': [
       { icon: 'pumpkin', title: 'SPOOKY world', text: 'Halloween rivals: Pumpkin Pete, Batty, Webster and Count Fang. Win hats!' },
       { icon: 'j:friends', title: 'Friends', text: 'Log in, add friends with a code, duel their toys, send gifts and stickers.' },
@@ -442,10 +462,11 @@
     if (name === 'block') bump(d && d.tool === 'umbrella' ? 'beamBlocks' : 'blocks');
     if (name === 'move' && d.type === 'nap') bump('naps');
     if (name === 'save' && d.result === 'perfect') bump('perfectSaves');
+    if (name === 'hockey') { const st = S().stats; st.hockeyStreak = Math.max(st.hockeyStreak || 0, d.streak || 0); }
     if (name === 'capsule') { bump('capsOpened'); if (d.boost && d.boost.r === 3) bump('superRares'); }
     if (name === 'friendAdded') bump('friends');
     if (name === 'giftSent') bump('gifts');
-    if (['duel', 'block', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene'].includes(name)) checkAch();
+    if (['duel', 'block', 'save', 'hockey', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene'].includes(name)) checkAch();
     if (name === 'scene') {
       // bedtime / daily limit: checked whenever a menu screen opens (never in the middle of a duel)
       // a new duel counts too (REMATCH / NEXT RIVAL), a duel restored after rotating does not (QA B03)

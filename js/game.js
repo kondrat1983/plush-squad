@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.7.8';
+  const VERSION = '0.8.0';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -758,7 +758,9 @@
       }
       // hero
       const jy = PORTRAIT ? H - 330 : H * 0.95;
-      const hMax = PORTRAIT ? Math.min(590, jy - 760) : 425;
+      // portrait: logo, level panel and Jack share the height evenly; Jack grows on tall phones (QA B44 / #45)
+      const logoBot = ly + fs * 1.07 + fs * 0.55, avail = jy - logoBot;
+      const hMax = PORTRAIT ? clamp(avail - 190 - 120, 380, 800) : 425;
       const sh = this.add.image(W / 2, jy + 6, 'shadow').setScale(1.3, 1);
       const hero = heroDef(this);
       const heroKey = hero.isJack ? 'jack_front' : hero.tex;
@@ -772,7 +774,8 @@
       this.add.particles(0, 0, 'spark', { x: { min: W / 2 - 300, max: W / 2 + 300 }, y: { min: jy - hMax, max: jy - 60 }, lifespan: 1200, scale: { start: 0.5, end: 0 }, alpha: { start: 1, end: 0 }, frequency: 220, tint: [C.star, 0xffffff, C.mint], rotate: { min: 0, max: 90 } }).setDepth(-0.5);
       // level panel
       const lv = levelOf(Save.data.xp);
-      const px = PORTRAIT ? W / 2 : 420, py = PORTRAIT ? 640 : H * 0.7;
+      const gap = Math.max(24, (avail - 190 - jack.displayHeight) / 2);
+      const px = PORTRAIT ? W / 2 : 420, py = PORTRAIT ? logoBot + gap + 95 : H * 0.7;
       const pg = this.add.graphics(); pg.fillStyle(C.night2, 0.9); pg.fillRoundedRect(px - 210, py - 95, 420, 190, 40); pg.lineStyle(4, C.seam); pg.strokeRoundedRect(px - 210, py - 95, 420, 190, 40);
       txt(this, px, py - 46, 'LEVEL ' + lv.l, 50, '#ffd23f', { st: 0 });
       this.add.rectangle(px, py + 10, 320, 26, C.night3).setStrokeStyle(3, C.seam);
@@ -1053,8 +1056,9 @@
           fade(this, 'battle', { toy: it.toy.id });
         }, { size: 42, color: '#fff3d2' });
         p.add(b2);
-        const del = txt(this, pw / 2 - 90, -ph / 2 + 70, 'remove', 26, '#8a8fd6', { st: 0, weight: '500' }).setInteractive({ useHandCursor: true });
-        del.on('pointerup', () => this.confirmRemove(it.toy, close));
+        // a real button, big enough for small fingers (QA B50 / #48)
+        const del = button(this, pw / 2 - 150, -ph / 2 + 75, 230, 90, 'REMOVE', C.cream, () => this.confirmRemove(it.toy, close), { size: 30 });
+        del.add(img(this, -78, 0, 'i:trash').setScale(iconScale('i:trash', 50))); del.list[1].x = 22;
         p.add(del);
       }
       const x = txt(this, -pw / 2 + 70, -ph / 2 + 70, '✕', 50, '#bcc0ee', { st: 0 }).setInteractive({ useHandCursor: true });
@@ -1176,18 +1180,28 @@
   class StudioScene extends Phaser.Scene {
     constructor() { super('studio'); }
     create() {
-      this._leaving = false; this.busyState = false;
+      this._leaving = false; this.busyState = false; this.job = null;
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this);
       bottomGround(this, 'ground', PORTRAIT ? 0.45 : 0.5, 0.8);
       this.title = txt(this, W / 2, PORTRAIT ? 190 : 95, 'NEW TOY', PORTRAIT ? 80 : 72, '#fff3d2', { stroke: '#0f1240', st: 12 });
       this.layer = this.add.container(0, 0);
-      backButton(this, () => { if (!this.busyState) fade(this, Save.data.toys.length ? 'squad' : 'title'); });
+      // BACK while the photo is processed cancels it (QA B41 / #43)
+      backButton(this, () => { if (this.busyState) this.cancelJob(); else fade(this, Save.data.toys.length ? 'squad' : 'title'); });
       muteButton(this);
       this.intro();
       try { getWorker(); } catch (e) {}
     }
     clear() { this.layer.removeAll(true); }
+    // stop the photo magic: the worker is replaced, so a late reply can never land (the model files stay in the browser cache)
+    cancelJob() {
+      const job = this.job; if (!job) return;
+      this.job = null; this.busyState = false;
+      try { if (toyWorker) toyWorker.terminate(); } catch (e) {}
+      toyWorker = null;
+      job.finish({ type: 'cancel' });
+      A.click(); this.intro();
+    }
     intro() {
       this.clear(); this.title.setVisible(true);
       const cy = PORTRAIT ? H * 0.42 : H * 0.45;
@@ -1217,10 +1231,17 @@
       const sparks = this.add.particles(0, 0, 'spark', { x: { min: W / 2 - ph.displayWidth / 2, max: W / 2 + ph.displayWidth / 2 }, y: { min: cy - ph.displayHeight / 2, max: cy + ph.displayHeight / 2 }, lifespan: 700, scale: { start: 0.5, end: 0 }, frequency: 90, tint: [C.star, 0xffffff], blendMode: 'ADD' });
       const status = txt(this, W / 2, cy + ph.displayHeight / 2 + 80, 'Looking for your toy...', 42, '#fff3d2', { st: 7 });
       this.layer.add([scan, sparks, status]);
+      const cancel = button(this, W / 2, Math.min(H - 120, cy + ph.displayHeight / 2 + 200), 360, 110, 'CANCEL', C.cream, () => this.cancelJob(), { size: 44 });
+      this.layer.add(cancel);
       const files = {};
       const w = getWorker();
+      const job = this.job = {};
       const result = await new Promise((res) => {
+        job.finish = res;
+        // the magic can be very slow on an old phone: after 90 s use the photo as it is
+        job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (toyWorker === w) toyWorker = null; res({ type: 'error', message: 'timeout' }); });
         w.onmessage = (ev) => {
+          if (this.job !== job) return;
           const m = ev.data;
           if (m.type === 'progress') {
             files[m.file] = [m.loaded, m.total];
@@ -1230,10 +1251,14 @@
             status.setText({ download: 'Getting the magic ready...', cutout: 'Cutting out your toy...', classify: 'Who could this be?...' }[m.stage] || status.text);
           } else if (m.type === 'done' || m.type === 'error') res(m);
         };
-        w.onerror = (e) => res({ type: 'error', message: e.message || 'worker failed' });
+        w.onerror = (e) => { if (this.job === job) res({ type: 'error', message: e.message || 'worker failed' }); };
         const buf = pic.data.data.buffer.slice(0);
         w.postMessage({ type: 'process', rgba: buf, w: pic.w, h: pic.h }, [buf]);
       });
+      if (job.timer) job.timer.remove(false);
+      if (result.type === 'cancel' || this.job !== job || !this.sys.isActive()) return; // cancelled (BACK / CANCEL) or left the scene
+      this.job = null;
+      cancel.destroy();
       scan.destroy(); sparks.stop();
       let cut = null, scores = [];
       if (result.type === 'done') { cut = finishCutout(new Uint8ClampedArray(result.rgba), result.w, result.h); scores = result.scores || []; }
