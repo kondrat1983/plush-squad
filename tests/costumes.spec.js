@@ -20,6 +20,13 @@ test('migration: an old save keeps the crown and gets the owl hat, nothing is re
   expect(d.costume).toBe('crown');
   expect(d.ach).toMatchObject({ polandball: 1, dragon: 1 });
   expect(d.stars.dragonboss).toBe(3);
+  // gift toasts: the owl hat yes, the crown no (Me already showed it to Dragon Boss winners, code review)
+  const texts = () => page.evaluate(() => { const out = [], walk = l => l.forEach(o => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+    __game.scene.getScenes(true).forEach(s => walk(s.children.list)); return out.join('|'); });
+  let all = '';
+  for (let i = 0; i < 16; i++) { await wait(page, 500); all += await texts(); }
+  expect(all).toContain('A GIFT: Owl Hat');
+  expect(all).not.toContain('A GIFT: Royal Crown');
   noErrors(page);
 });
 

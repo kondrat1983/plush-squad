@@ -105,7 +105,8 @@
       if ((d.stars.hoot || 0) > 0) d.costumes.owlhat = true;
       if ((d.stars.fang || 0) > 0) d.costumes.bat = true;
       // new hats are announced once as a gift on the first menu screen (js/extra.js, QA B43)
-      const gifts = ['owlhat', 'bat', 'crown'].filter(k => d.costumes[k] && !had[k]);
+      // (the crown is no news to Dragon Boss winners: Me already showed it to them, only unstored, code review)
+      const gifts = ['owlhat', 'bat', 'crown'].filter(k => d.costumes[k] && !had[k] && !(k === 'crown' && (d.stars.dragonboss || 0) > 0));
       if (gifts.length) d.gifts08 = gifts;
       d.mig08 = 1;
     }
