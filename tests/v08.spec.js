@@ -97,3 +97,13 @@ test('My Squad: REMOVE is a real button, at least 90 px tall, and still asks fir
   expect(await page.evaluate(() => __save.data.toys.length)).toBe(1);
   noErrors(page);
 });
+
+test('B47: stats counted in memory survive a rotation rebuild', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { PSExtra.bump('perfectSaves'); PSExtra.bump('beamBlocks'); window.__psRebuild({ key: 'title', data: {} }); });
+  await page.waitForFunction(() => window.__game && __game.scene.isActive('title'), null, { timeout: 60000 });
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('plushsquad_v1')).stats);
+  expect(st.perfectSaves).toBe(1);
+  expect(st.beamBlocks).toBe(1);
+  noErrors(page);
+});

@@ -274,7 +274,7 @@
   function canadaDecor(scene) {
     const au = scene.add.image(BLEED.cx, PORTRAIT ? H * 0.2 : H * 0.22, 'aurora').setDisplaySize(GW, PORTRAIT ? H * 0.32 : H * 0.42).setAlpha(0.55);
     scene.tweens.add({ targets: au, alpha: 0.28, duration: 3200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    const gy = scene.scene.key === 'battle' ? null : H * (PORTRAIT ? 0.62 : 0.58);
+    const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null; // pines only on the map (QA B53)
     if (gy) for (let i = 0; i < 6; i++) scene.add.image(W * (0.05 + i * 0.18) + rnd(-30, 30), gy + rnd(-20, 20), 'pine').setOrigin(0.5, 1).setScale(0.5 + Math.random() * 0.4).setAlpha(0.55).setTint(0x9fb6d8);
     const snow = scene.add.particles(0, 0, 'dot', { x: { min: -40, max: W + 40 }, y: -30, speedY: { min: 60, max: 140 }, speedX: { min: -40, max: 40 }, lifespan: 16000, scale: { min: 0.1, max: 0.28 }, alpha: { min: 0.5, max: 0.95 }, frequency: 260 });
     snow.setDepth(3);
@@ -826,11 +826,11 @@
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this, wd);
       bottomGround(this, groundKey(wd), PORTRAIT ? 0.45 : 0.5, 0.8);
-      // world tabs
-      const ty = PORTRAIT ? 190 : 95, room = PORTRAIT ? W - 60 : W - 480, n = WORLDS.length, tw0 = Math.min(PORTRAIT ? 420 : 440, room / n - 30);
+      // world tabs (landscape keeps room for back, mute and the capsule button: QA B51; names that would be squeezed become icon-only tabs: QA B52)
+      const ty = PORTRAIT ? 190 : 95, room = PORTRAIT ? W - 60 : W - 600, n = WORLDS.length, tw0 = Math.min(PORTRAIT ? 420 : 440, room / n - 30);
       // 4 worlds (Canada + the October event): names do not fit any more, so only the open tab is wide with its name,
       // the others show just their icon
-      const wide = tw0 - 140 < 170, tws = WORLDS.map((w, i) => !wide ? tw0 : i === this.world ? Math.min(400, (room - 30 * (n - 1)) * 2 / (n + 1)) : Math.min(200, (room - 30 * (n - 1)) / (n + 1)));
+      const wide = tw0 - 140 < 230, tws = WORLDS.map((w, i) => !wide ? tw0 : i === this.world ? Math.min(400, (room - 30 * (n - 1)) * 2 / (n + 1)) : Math.min(200, (room - 30 * (n - 1)) / (n + 1)));
       let tx0 = W / 2 - (tws.reduce((a, b) => a + b, 0) + 30 * (n - 1)) / 2;
       WORLDS.forEach((w, i) => { this.tab(w, i, tx0 + tws[i] / 2, ty, tws[i], wide && i !== this.world); tx0 += tws[i] + 30; });
       const lv = levelOf(Save.data.xp);
@@ -1600,7 +1600,8 @@
       this.extBtn = toolBtn('FOAM!', C.coral, 'extinguisher', () => this.playerBlock('ext'));
       this.umbBtn = toolBtn('UMBRELLA!', 0x6c7bff, 'umbrella', () => this.playerBlock('umb'));
       // SLAPSHOT wind-up: a reminder by the hero instead of a button
-      this.saveChip = chip(this, this.hero.root.x, bby, '        NEXT: SAVE IT!', 0xd8ecff, 34).setDepth(35).setVisible(false);
+      // under the hero's pep bar, where the booster chip is (hidden meanwhile): clear of a hat on the hero (QA B54)
+      this.saveChip = chip(this, W * 0.27, hy + (PORTRAIT ? 70 : 76), '        NEXT: SAVE IT!', 0xd8ecff, 30).setDepth(35).setVisible(false);
       this.saveChip.add(img(this, -this.saveChip.w / 2 + 44, 0, 'glove').setScale(iconScale('glove', 56)));
       this.tweens.add({ targets: this.saveChip, scale: 1.06, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       backButton(this, () => {
@@ -1772,6 +1773,7 @@
         // the buttons sit where the HARD / booster chips are on iPad and phone landscape: hide the chips meanwhile (QA B48)
         const btns = one || two || !!(ch && ch.mini);
         [this.diffChip, this.boostChip].forEach(o => o && o.setVisible(!btns));
+        if (this.boostChip && slap) this.boostChip.setVisible(false);
         // HARD: the two buttons swap sides at random each charge (this.toolSwap is set in startCharge)
         const dx = 230, sw = this.toolSwap ? -1 : 1;
         this.extBtn.x = W / 2 - dx * sw; this.umbBtn.x = two ? W / 2 + dx * sw : W / 2;
@@ -2481,7 +2483,7 @@
             if (!launched) { if (++stalls > 8) { finish('good'); return; } t0 = Math.max(t0, now + 300); return; } // a device that keeps stalling: good save
             if (++restarts > 2) { finish('good'); return; }
             this.log(att.name + ' slips! Again!');
-            t0 = now + 400; launched = false; puck.setVisible(false); ring.setAlpha(0);
+            t0 = now + 400; launched = false; puck.setVisible(false); ring.setAlpha(0); ready.setText('GET READY...');
             return;
           }
           const t = frozen != null ? frozen : now - t0;
@@ -3426,7 +3428,7 @@
   function rebuild(target) {
     const snap = target || (window.__psSnapshot && window.__psSnapshot());
     const old = window.__game;
-    try { Save.store(); } catch (e) {} // stats bumped in memory (blocks, naps...) survive the rebuild (QA B47)
+    try { window.__save && window.__save.store(); } catch (e) {} // stats bumped in memory (blocks, naps, saves...) survive the rebuild (QA B47; Save lives inside main())
     if (old) { try { old.destroy(true); } catch (e) {} }
     window.__game = null; window.__psToasts = 0;
     main(snap);
