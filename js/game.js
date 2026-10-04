@@ -214,17 +214,18 @@
   function iconScale(key, size) { // scale so the icon is ~size px
     if (!key) return 1;
     if (key.startsWith('i:') || key.startsWith('j:')) return size / 144;
-    const base = { polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
+    const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, snowball: 120, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
     return size / base;
   }
 
   // ---------- shared scenery
   const SPACE = 1;
-  const SPOOKY = 2;
-  const groundKey = w => w === SPACE ? 'ground2' : w === SPOOKY ? 'ground3' : 'ground';
+  const CANADA = 2; // v0.8
+  const SPOOKY = 3;
+  const groundKey = w => w === SPACE ? 'ground2' : w === SPOOKY ? 'ground3' : w === CANADA ? 'ground4' : 'ground';
   function sky(scene, world = 0) {
-    const sp = world === SPACE, spook = world === SPOOKY;
-    scene.add.image(BLEED.cx, BLEED.cy, sp ? 'sky2' : spook ? 'sky3' : 'sky').setDisplaySize(GW, GH);
+    const sp = world === SPACE, spook = world === SPOOKY, can = world === CANADA;
+    scene.add.image(BLEED.cx, BLEED.cy, sp ? 'sky2' : spook ? 'sky3' : can ? 'sky4' : 'sky').setDisplaySize(GW, GH);
     const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(0.55);
     scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : 1); i++) {
@@ -234,6 +235,7 @@
     }
     if (sp) spaceDecor(scene, scene.scene.key === 'battle' ? 15000 : 7000);
     else if (spook) spookyDecor(scene);
+    else if (can) canadaDecor(scene);
     else for (let i = 0; i < 5; i++) {
       const cl = scene.add.image(Math.random() * W, H * (0.08 + Math.random() * 0.42), 'cloud')
         .setAlpha(0.13 + Math.random() * 0.12).setScale(0.8 + Math.random() * 1.3);
@@ -252,6 +254,20 @@
       const b = scene.add.image(dir > 0 ? -100 : W + 100, y, 'bat').setScale(0.3).setFlipX(dir < 0).setAlpha(0.85);
       scene.tweens.add({ targets: b, scaleY: 0.18, duration: 140, yoyo: true, repeat: -1 });
       scene.tweens.add({ targets: b, x: dir > 0 ? W + 100 : -100, y: y + rnd(-120, 120), duration: 5200, ease: 'Sine.inOut', onComplete: () => b.destroy() });
+    } });
+  }
+  // Canada: northern lights, pines on the horizon, falling snow and now and then a maple leaf
+  function canadaDecor(scene) {
+    const au = scene.add.image(BLEED.cx, PORTRAIT ? H * 0.2 : H * 0.22, 'aurora').setDisplaySize(GW, PORTRAIT ? H * 0.32 : H * 0.42).setAlpha(0.55);
+    scene.tweens.add({ targets: au, alpha: 0.28, duration: 3200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    const gy = scene.scene.key === 'battle' ? null : H * (PORTRAIT ? 0.62 : 0.58);
+    if (gy) for (let i = 0; i < 6; i++) scene.add.image(W * (0.05 + i * 0.18) + rnd(-30, 30), gy + rnd(-20, 20), 'pine').setOrigin(0.5, 1).setScale(0.5 + Math.random() * 0.4).setAlpha(0.55).setTint(0x9fb6d8);
+    const snow = scene.add.particles(0, 0, 'dot', { x: { min: -40, max: W + 40 }, y: -30, speedY: { min: 60, max: 140 }, speedX: { min: -40, max: 40 }, lifespan: 16000, scale: { min: 0.1, max: 0.28 }, alpha: { min: 0.5, max: 0.95 }, frequency: 260 });
+    snow.setDepth(3);
+    scene.time.addEvent({ delay: 6500, loop: true, callback: () => {
+      if (Math.random() < 0.4) return;
+      const y = H * (0.1 + Math.random() * 0.35), l = scene.add.image(-80, y, 'mapleleaf').setScale(0.22).setAlpha(0.9).setDepth(3);
+      scene.tweens.add({ targets: l, angle: 720, x: W + 80, y: y + rnd(80, 260), duration: 9000, ease: 'Sine.inOut', onComplete: () => l.destroy() });
     } });
   }
   // Space world: a far planet, a drifting UFO and a rocket that zooms by now and then
@@ -319,7 +335,8 @@
       ['jack_side', 'jack_upside', 'jack_front', 'tiger', 'cow', 'snake', 'owl', 'moon', 'cloud', 'zzz', 'snow', 'star', 'trophy', 'heart', 'sparkles',
         'dumpling', 'milk', 'books', 'lock', 'dizzy', 'dance', 'crown', 'note', 'shield',
         'robot', 'ghost', 'dragonboss', 'aliens', 'mothership', 'umbrella', 'planet', 'rocket', 'extinguisher', 'comet', 'ufo',
-        'pumpkin', 'bat', 'spider', 'vampire', 'kraken', 'candy', 'lollipop', 'web', 'tophat', 'witchhat', 'gift']
+        'pumpkin', 'bat', 'spider', 'vampire', 'kraken', 'candy', 'lollipop', 'web', 'tophat', 'witchhat', 'gift',
+        'moose', 'beaver', 'bear', 'sasquatch', 'mapleleaf', 'pine', 'pancakes', 'hockey', 'glove']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
       this.load.atlas('icons2', 'assets/icons2.webp', 'assets/icons2.json');
@@ -348,6 +365,8 @@
       g.lineStyle(5, 0xb7a6ef); g.strokeRoundedRect(6, 10, 200, 120, 46);
       g.fillStyle(0xb7a6ef); [[22, 26], [190, 26], [22, 114], [190, 114]].forEach(([x, y]) => g.fillCircle(x, y, 10));
       g.generateTexture('pillow', 216, 150); g.clear();
+      g.fillStyle(0x9fc3ea); g.fillCircle(60, 62, 56); g.fillStyle(0xffffff); g.fillCircle(56, 56, 52); g.fillStyle(0xe6f1ff); g.fillCircle(72, 72, 22);
+      g.generateTexture('snowball', 120, 120); g.clear();
       g.destroy();
       // sky gradient + glow + quilt ground (canvas textures)
       const sk = this.textures.createCanvas('sky', W, H), cx = sk.getContext();
@@ -393,6 +412,40 @@
         q2.fillStyle = 'rgba(220,210,255,0.25)'; q2.beginPath(); q2.ellipse(x, y - r * 0.12, r * 0.8, r * 0.22, 0, Math.PI, 0); q2.fill();
       }
       q2.restore(); gt2.refresh();
+      // Canada: twilight sky with northern lights (separate texture so it can shimmer), snow ground
+      const sk4 = this.textures.createCanvas('sky4', W, H), cx4 = sk4.getContext();
+      const gr4 = cx4.createLinearGradient(0, 0, 0, H); gr4.addColorStop(0, '#0b1a3a'); gr4.addColorStop(0.6, '#1f3f6e'); gr4.addColorStop(1, '#3d6597');
+      cx4.fillStyle = gr4; cx4.fillRect(0, 0, W, H); sk4.refresh();
+      const au = this.textures.createCanvas('aurora', 512, 256), ax = au.getContext();
+      [['rgba(111,247,194,0.55)', 90, 0], ['rgba(80,220,230,0.4)', 130, 2], ['rgba(255,140,220,0.28)', 60, 4]].forEach(([col, y0, ph]) => {
+        ax.strokeStyle = col; ax.lineCap = 'round';
+        for (let k = 0; k < 6; k++) {
+          ax.lineWidth = 34 - k * 5; ax.globalAlpha = 0.35 + k * 0.1; ax.beginPath();
+          for (let x = 0; x <= 512; x += 8) { const y = y0 + Math.sin(x / 70 + ph) * 28 + Math.sin(x / 31 + ph) * 8; if (x) ax.lineTo(x, y); else ax.moveTo(x, y); }
+          ax.stroke();
+        }
+      });
+      ax.globalAlpha = 1; au.refresh();
+      const gt4 = this.textures.createCanvas('ground4', GW, GH), q4 = gt4.getContext();
+      q4.save(); q4.beginPath(); q4.ellipse(GW / 2, RY, GW / 2, RY, 0, Math.PI, 0); q4.lineTo(GW, GH); q4.lineTo(0, GH); q4.closePath(); q4.clip();
+      const qg4 = q4.createLinearGradient(0, 0, 0, GH); qg4.addColorStop(0, '#f2f8ff'); qg4.addColorStop(0.4, '#b9d3f0'); qg4.addColorStop(1, '#6d8fc4');
+      q4.fillStyle = qg4; q4.fillRect(0, 0, GW, GH);
+      for (let i = 0; i < 22; i++) {
+        const x = Math.random() * GW, y = RY * 0.6 + Math.random() * (GH - RY * 0.6), r = 40 + Math.random() * 90 * (0.4 + y / GH);
+        q4.fillStyle = 'rgba(255,255,255,0.35)'; q4.beginPath(); q4.ellipse(x, y, r, r * 0.25, 0, 0, Math.PI * 2); q4.fill();
+      }
+      for (let i = 0; i < 90; i++) { q4.fillStyle = 'rgba(255,255,255,' + (0.4 + Math.random() * 0.6) + ')'; q4.fillRect(Math.random() * GW, RY * 0.4 + Math.random() * GH, 3, 3); }
+      q4.restore(); gt4.refresh();
+      // the Sasquatch reward: a red knit toque with a white band, a pom-pom and a maple leaf (owner's choice, 4 Oct 2026)
+      const tq = this.textures.createCanvas('toque', 240, 230), tx = tq.getContext();
+      tx.fillStyle = '#ffffff'; tx.beginPath(); tx.arc(120, 40, 36, 0, Math.PI * 2); tx.fill();
+      tx.fillStyle = '#e8eef8'; for (let i = 0; i < 14; i++) { tx.beginPath(); tx.arc(120 + Math.cos(i) * 26, 40 + Math.sin(i * 1.7) * 26, 9, 0, Math.PI * 2); tx.fill(); }
+      tx.fillStyle = '#d7263d'; tx.beginPath(); tx.moveTo(22, 175); tx.bezierCurveTo(18, 60, 222, 60, 218, 175); tx.closePath(); tx.fill();
+      tx.strokeStyle = 'rgba(120,10,30,0.35)'; tx.lineWidth = 6; for (let x = 50; x <= 190; x += 28) { tx.beginPath(); tx.moveTo(x, 168); tx.quadraticCurveTo(120 + (x - 120) * 0.5, 90, 120 + (x - 120) * 0.3, 78); tx.stroke(); }
+      tx.fillStyle = '#ffffff'; tx.beginPath(); tx.roundRect ? tx.roundRect(8, 160, 224, 58, 26) : tx.rect(8, 160, 224, 58); tx.fill();
+      tx.strokeStyle = 'rgba(160,170,200,0.6)'; tx.lineWidth = 4; for (let x = 24; x < 228; x += 18) { tx.beginPath(); tx.moveTo(x, 166); tx.lineTo(x, 212); tx.stroke(); }
+      const leaf = this.textures.get('mapleleaf').getSourceImage(); tx.drawImage(leaf, 82, 92, 76, 79);
+      tq.refresh();
       // spooky grass for the Halloween world
       const gt3 = this.textures.createCanvas('ground3', GW, GH), q3 = gt3.getContext();
       q3.save(); q3.beginPath(); q3.ellipse(GW / 2, RY, GW / 2, RY, 0, Math.PI, 0); q3.lineTo(GW, GH); q3.lineTo(0, GH); q3.closePath(); q3.clip();
@@ -429,6 +482,7 @@
   const WORLDS = [
     { name: 'PILLOW HILLS', icon: 'moon' },
     { name: 'SPACE', icon: 'rocket' },
+    { name: 'CANADA', icon: 'mapleleaf' },
   ].concat(EVENT_ON ? [{ name: 'SPOOKY', icon: 'pumpkin', event: true }] : []);
   const RIVALS = [
     { id: 'timmy', name: 'Timmy the Tiger', nick: 'Timmy', short: 'TIMMY', tex: 'tiger', scale: 2.0, color: C.orange, hp: 100, xp: 40,
@@ -485,6 +539,32 @@
         { type: 'multi', hits: 3, dmg: [7, 11], w: 25, log: 'SAUCER SPIN! {a} whirls like a giant frisbee!' },
         { type: 'roar', word: 'WE COME IN PEACE!', color: 0xc6a8ff, sound: 'beam', dmg: [16, 24], w: 20, log: '{a} shouts "WE COME IN PEACE!" so loud the stars wobble!' },
         { type: 'spray', tex: 'spark', tint: [0xff9ed8, 0xffd23f, 0x7fd6c2, 0x9aa2ff], hitTint: 0xffd6ff, word: 'GLITTER RAY!', sound: 'laser', dmg: [15, 22], w: 15, log: '{a} zaps {d} with a sparkly glitter ray!' }] },
+    // ---- World 3: CANADA (v0.8, docs/gdd/0.8-canada.md). Harder than Space: +10 pep per slot, scaling from level 6.
+    // (Max's Mini Slapshot and Sasquatch's SLAPSHOT + SAVE IT! come with the next part)
+    { id: 'moose', world: CANADA, name: 'Max the Moose', nick: 'Max', short: 'MAX', tex: 'moose', color: 0xa0714f, hp: 145, xp: 130,
+      intro: 'Max the Moose bows: "Sorry, eh! I have to pillow-fight you now. So sorry!"', laugh: 'Max laughed so hard his antlers wobbled. "Sorry for losing, eh!"',
+      moves: [{ type: 'rush', word: 'ANTLERS!', dmg: [12, 21], w: 40, log: '{a} charges in antlers first... gently!' },
+        { type: 'roar', word: 'SORRY, EH!', color: 0xffd9a0, sound: 'honk', dmg: [13, 21], w: 30, log: '{a} says SORRY so loud that {d} falls over!' },
+        { type: 'heal', tex: 'pancakes', amt: 22, uses: 1, w: 15, log: '{a} eats a stack of pancakes with maple syrup. Yum!' }] },
+    { id: 'beaver', world: CANADA, name: 'Beaver Bob', nick: 'Bob', short: 'BEAVER BOB', tex: 'beaver', color: 0xc08a5a, hp: 155, xp: 140,
+      intro: 'Beaver Bob slaps his tail: "Nice pillows! I will build a dam with them."', laugh: 'Bob giggled and hid in his pillow dam. "Best game ever, eh!"',
+      moves: [{ type: 'rush', word: 'TAIL SLAP!', dmg: [12, 20], w: 35, log: '{a} slaps the ice with his tail. SPLAT!' },
+        { type: 'throw', tex: 'pillow', dmg: [12, 19], w: 25, log: 'PILLOW LOG! {a} rolls a fluffy log at {d}!' },
+        { type: 'spray', tex: 'feather', word: 'CHOMP CHOMP!', sound: 'chomp', dmg: [11, 19], w: 25, log: '{a} chews a pillow and sprays fluff at {d}!' },
+        { type: 'shield', w: 20, log: '{a} builds a pillow dam. Next hit only does half!' }] },
+    { id: 'mountie', world: CANADA, name: 'Mountie Bear', nick: 'Mountie Bear', short: 'MOUNTIE BEAR', tex: 'bear', color: 0xd94a3d, hp: 165, xp: 150,
+      intro: 'Mountie Bear tips his hat: "Pillow fight rules: no biting, no crying, always say sorry!"', laugh: 'Mountie Bear laughed and gave himself a ticket for being too ticklish.',
+      moves: [{ type: 'rush', word: 'BEAR HUG!', dmg: [13, 21], w: 30, log: '{a} gives {d} a big squishy BEAR HUG!' },
+        { type: 'volley', tex: 'snowball', word: 'SNOWBALL FIGHT!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} starts a SNOWBALL FIGHT!' },
+        { type: 'dizzy', color: 0xffb347, word: 'STICKY!', sound: 'gulp', uses: 1, w: 15, log: '{a} pours maple syrup! {d} is all sticky!' },
+        { type: 'roar', word: 'PARDON ME!', color: 0xff6b5b, sound: 'roar', dmg: [13, 21], w: 20, log: '{a} roars very politely. Still loud!' },
+        { type: 'heal', tex: 'i:honey', amt: 25, uses: 1, w: 10, log: '{a} has a honey snack. Bears love honey!' }] },
+    { id: 'sasquatch', world: CANADA, name: 'Sasquatch', nick: 'Sasquatch', short: 'SASQUATCH', tex: 'sasquatch', big: 1.15, color: 0x9c6b4a, hp: 210, xp: 200, boss: true, reward: 'toque',
+      intro: 'Sasquatch peeks out from behind a pine tree: "H-hello... do you want to play hockey? I shoot REALLY hard."',
+      laugh: 'Sasquatch giggled so hard the snow fell off the trees. "You are my best friend now!"',
+      moves: [{ type: 'quake', word: 'AVALANCHE!', sound: 'stomp', dmg: [16, 24], w: 30, log: '{a} stomps his giant feet. AVALANCHE!' },
+        { type: 'volley', tex: 'snowball', word: 'SNOWBALLS!', sound: 'whoosh', dmg: [16, 24], w: 25, log: '{a} throws a mountain of snowballs at {d}!' },
+        { type: 'roar', word: 'HELLO FRIEND!', color: 0xc9a27a, sound: 'roar', dmg: [15, 23], w: 20, log: '{a} waves and yells HELLO so loud the snow falls off the trees!' }] },
   ].concat(EVENT_ON ? [
     // ---- Halloween event world: SPOOKY (open from the start while the event runs)
     { id: 'pumpkin', world: SPOOKY, event: true, name: 'Pumpkin Pete', nick: 'Pete', short: 'PUMPKIN PETE', tex: 'pumpkin', color: C.orange, hp: 110, xp: 50, reward: 'pumpkin',
@@ -519,6 +599,7 @@
     { id: 'owlhat', name: 'Owl Hat', tex: 'owl', w: 0.38, tint: 0x8fe39a },
     { id: 'ufohat', name: 'UFO Hat', tex: 'ufo', w: 0.5 },
     { id: 'bat', name: 'Bat Hat', tex: 'bat', w: 0.5 },
+    { id: 'toque', name: 'Canada Toque', tex: 'toque', w: 0.46 },
     { id: 'pumpkin', name: 'Pumpkin Hat', tex: 'pumpkin', w: 0.42 },
     { id: 'tophat', name: 'Top Hat', tex: 'tophat', w: 0.45 },
     { id: 'witchhat', name: 'Witch Hat', tex: 'witchhat', w: 0.55 },
@@ -718,8 +799,12 @@
       sky(this, wd);
       bottomGround(this, groundKey(wd), PORTRAIT ? 0.45 : 0.5, 0.8);
       // world tabs
-      const ty = PORTRAIT ? 190 : 95, tw0 = Math.min(PORTRAIT ? 420 : 440, (PORTRAIT ? W - 60 : W - 480) / WORLDS.length - 30);
-      WORLDS.forEach((w, i) => this.tab(w, i, W / 2 + (i - (WORLDS.length - 1) / 2) * (tw0 + 30), ty, tw0));
+      const ty = PORTRAIT ? 190 : 95, room = PORTRAIT ? W - 60 : W - 480, n = WORLDS.length, tw0 = Math.min(PORTRAIT ? 420 : 440, room / n - 30);
+      // 4 worlds (Canada + the October event): names do not fit any more, so only the open tab is wide with its name,
+      // the others show just their icon
+      const wide = tw0 - 140 < 170, tws = WORLDS.map((w, i) => !wide ? tw0 : i === this.world ? Math.min(400, (room - 30 * (n - 1)) * 2 / (n + 1)) : Math.min(200, (room - 30 * (n - 1)) / (n + 1)));
+      let tx0 = W / 2 - (tws.reduce((a, b) => a + b, 0) + 30 * (n - 1)) / 2;
+      WORLDS.forEach((w, i) => { this.tab(w, i, tx0 + tws[i] / 2, ty, tws[i], wide && i !== this.world); tx0 += tws[i] + 30; });
       const lv = levelOf(Save.data.xp);
       txt(this, W / 2, PORTRAIT ? 285 : 180, 'Level ' + lv.l + '  ·  ★ ' + totalStars() + ' / ' + RIVALS.length * 3, 34, '#ffd23f', { st: 6 });
       // portrait: fit the 4 nodes between the difficulty switch and the bottom buttons (short phones shrink the nodes)
@@ -794,15 +879,15 @@
       draw();
       return c;
     }
-    tab(w, i, x, y, tw0) {
+    tab(w, i, x, y, tw0, iconOnly) {
       const open = worldOpen(i), on = i === this.world, h = 96;
       const c = this.add.container(x, y).setDepth(6);
       const g = this.add.graphics();
       g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-tw0 / 2, -h / 2 + 8, tw0, h, h / 2);
       g.fillStyle(on ? C.star : (open ? C.night2 : 0x161946)); g.fillRoundedRect(-tw0 / 2, -h / 2, tw0, h, h / 2);
       g.lineStyle(5, on ? 0xffffff : C.seam); g.strokeRoundedRect(-tw0 / 2, -h / 2, tw0, h, h / 2);
-      const ic = this.add.image(-tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
-      const t = fit(txt(this, 26, 0, open ? w.name : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140);
+      const ic = this.add.image(iconOnly ? 0 : -tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
+      const t = fit(txt(this, 26, 0, open ? w.name : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140).setVisible(!iconOnly);
       c.add([g, ic, t]);
       c.setSize(tw0, h).setInteractive({ useHandCursor: true });
       c.on('pointerup', () => {
@@ -1356,10 +1441,12 @@
       const boost = boostId && BOOST_BY_ID[boostId];
       this.boost = boost || null;
       const space = this.world === SPACE;
+      // level scaling per world: Hills and Spooky from L1, Space from L4, Canada from L6 (docs/gdd/0.8-canada.md section 5)
+      const from = space ? 4 : this.world === CANADA ? 6 : 0;
       // difficulty: chosen mode + it grows with the player's level ("too easy!" said the chief tester)
       const lvl = levelOf(Save.data.xp).l, D = diff();
-      const hpMul = this.mode === 'boss' ? 1 : D.hp * (!D.scale ? 1 : space ? clamp(1 + 0.05 * (lvl - 4), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4));
-      const dmgMul = D.dmg * (!D.scale ? 1 : space ? clamp(1 + 0.04 * (lvl - 4), 1, 1.2) : clamp(1 + 0.05 * (lvl - 1), 1, 1.3));
+      const hpMul = this.mode === 'boss' ? 1 : D.hp * (!D.scale ? 1 : from ? clamp(1 + 0.05 * (lvl - from), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4));
+      const dmgMul = D.dmg * (!D.scale ? 1 : from ? clamp(1 + 0.04 * (lvl - from), 1, 1.2) : clamp(1 + 0.05 * (lvl - 1), 1, 1.3));
       this.rHp = Math.round(R.hp * hpMul / 5) * 5;
       this.H = heroDef(this);
       this.moves = this.H.moves.slice();
@@ -1391,6 +1478,7 @@
       const zoom = compact ? 0.82 : (PORTRAIT ? clamp((groundY - 330) / 520, 0.55, 1) : 1);
       const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, space ? 'planet' : 'moon').setScale((PORTRAIT ? 0.6 : 0.62 * zoom) * (space ? 1.15 : 1)).setAlpha(0.95);
       if (this.world === SPOOKY) moon.setTint(0xffa64d).setScale(moon.scale * 1.3);
+      if (this.world === CANADA) moon.setTint(0xd8ecff);
       this.tweens.add({ targets: moon, angle: -6, y: moon.y + 12, duration: 2800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       const bg = this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), groundKey(this.world)).setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
       if (bg.y + bg.displayHeight < H + SB + 4) bg.setScale(1, (H + SB + 4 - bg.y) / bg.height); // reach the bottom edge
@@ -2717,7 +2805,7 @@
 
   // ---------- start
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
-  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE,
+  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA,
     txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, backButton, muteButton, capsuleButton, drawCapsule,
     addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
@@ -2746,7 +2834,7 @@
   // ...and a rotation held back (duel turn, result celebration) is applied on the next screen if it is still waiting
   game.events.once('ready', () => game.scene.scenes.forEach(sc => {
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
-    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.R && sc.R.boss ? 'boss' : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
+    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.R && sc.R.boss ? 'boss' : sc.R && sc.R.world === CANADA ? 'north' : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
   window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
