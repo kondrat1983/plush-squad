@@ -1253,7 +1253,7 @@
       this.backKey = this.mode === 'toy' ? 'squad' : this.mode === 'friend' ? 'friends' : 'map';
     }
     create() {
-      this._leaving = false; this.hero = null; this.over = false; this.busy = false; this.shown = null;
+      this._leaving = false; this.hero = null; this.over = false; this.busy = false; this.shown = null; this.celebrating = false;
       // a friend's toy picture may be missing (e.g. after rotating the screen): load it first
       const ft = this.data0.ftoy;
       if (ft && !this.textures.exists('ftoy_' + ft.id)) {
@@ -1539,6 +1539,7 @@
       else L = { ix: -w / 2 + (PORTRAIT ? 72 : 85), iy: 0, tx: -w / 2 + (PORTRAIT ? 140 : 165), t1y: -24, t2y: 26, ox: 0, f1: PORTRAIT ? 35 : 36, f2: PORTRAIT ? 28 : 27, isz: PORTRAIT ? 96 : 100, tw: w - (PORTRAIT ? 155 : 180) };
       const ik = a.icon || 'pillow';
       const ic = img(this, L.ix, L.iy, ik); ic.setScale(iconScale(ik, L.isz));
+      if (ic.displayHeight > L.isz) ic.setScale(ic.scaleX * L.isz / ic.displayHeight); // tall icons (Warm Milk) stay in their slot (QA B39)
       const t1 = fit(txt(this, L.tx, L.t1y, a.title, L.f1, C.ink, { ox: L.ox, st: 0, shadow: false }), L.tw);
       const t2 = txt(this, L.tx, L.t2y, a.sub || '', L.f2, '#4a4f8c', { ox: L.ox, st: 0, shadow: false, weight: '500' });
       const used = txt(this, 0, 0, 'USED', compact ? 46 : 60, '#ff6b5b', { stroke: '#fff3d2', st: 8 }).setAngle(-12).setVisible(false);
@@ -2120,7 +2121,12 @@
       // kept so a rotation on the result panel can rebuild the panel without giving the rewards again (QA B31)
       this.shown = { won, stars, gain, before, after, notes, primary, nextIdx };
       this.resultPanel(this.shown, true);
-      if (window.__psRotatePending) this.time.delayedCall(60, () => window.__psTryRebuild && window.__psTryRebuild());
+      // a rotation waits until the stars, the XP count and LEVEL UP! have played (QA B36, owner's choice)
+      this.celebrating = true;
+      this.time.delayedCall(3300 + stars * 280, () => {
+        this.celebrating = false;
+        if (window.__psRotatePending && window.__psTryRebuild) window.__psTryRebuild();
+      });
     }
     // the result panel; fresh = false when it is rebuilt after a rotation (no sounds, no counting up)
     resultPanel(info, fresh) {
@@ -2558,9 +2564,10 @@
     scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, GachaScene].concat(EXTRA_SCENES),
   });
   // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
+  // ...and a rotation held back (duel turn, result celebration) is applied on the next screen if it is still waiting
   game.events.once('ready', () => game.scene.scenes.forEach(sc => {
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
-    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.R && sc.R.boss ? 'boss' : 'battle'); emit('scene', { key: sc.scene.key }, sc); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
+    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.R && sc.R.boss ? 'boss' : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
   window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
@@ -2568,7 +2575,7 @@
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)
   // ...and not while a duel turn is playing out: the snapshot would restore it as YOUR TURN (QA B02)
   window.__psBlockRotate = () => game.scene.isActive('studio') || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) ||
-    (game.scene.isActive('battle') && (b => !!(b.hero && b.busy && !b.shown))(game.scene.getScene('battle'))); // ...and not before the rewards are given (QA B31)
+    (game.scene.isActive('battle') && (b => !!(b.hero && ((b.busy && !b.shown) || b.celebrating)))(game.scene.getScene('battle'))) || window.__psToasts > 0; // ...and not before the rewards are given (QA B31)
   } // end main
 
   let rotT = 0, built = false;
@@ -2576,7 +2583,7 @@
     const snap = target || (window.__psSnapshot && window.__psSnapshot());
     const old = window.__game;
     if (old) { try { old.destroy(true); } catch (e) {} }
-    window.__game = null;
+    window.__game = null; window.__psToasts = 0;
     main(snap);
   }
   window.__psRebuild = rebuild;

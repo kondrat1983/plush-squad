@@ -104,12 +104,32 @@
       PS.fit(txt(scene, -w / 2 + 160, 30, sub, 28, '#4a4f8c', { st: 0, shadow: false, ox: 0, weight: '500' }), w - 190)]);
     A.levelUp && A.levelUp();
     scene.tweens.chain({ targets: c, tweens: [{ y, duration: 420, ease: 'Back.out' }, { y, duration: 2400 }, { y: -160, duration: 300, ease: 'Quad.in' }], onComplete: () => c.destroy() });
+    // a rotation waits until the toast is gone, so the kid always sees it (game.js __psBlockRotate, QA B37)
+    window.__psToasts = (window.__psToasts || 0) + 1;
+    c.once('destroy', () => {
+      window.__psToasts = Math.max(0, window.__psToasts - 1);
+      if (!window.__psToasts && window.__psRotatePending && window.__psTryRebuild) setTimeout(() => window.__psTryRebuild(), 60);
+    });
     return c;
   }
+  // a sticker leaves the queue once its toast has slid in; a screen that stops (or restarts) before that
+  // hands it on to the next screen, e.g. after a rotation rebuild (QA B37)
+  const queued = new Map();
   function flushToasts(scene, PS) {
     if (!pending.length || !scene || !scene.sys || !scene.sys.isActive()) return;
-    const list = pending; pending = [];
-    list.forEach((a, i) => scene.time.delayedCall(400 + i * 3300, () => toast(scene, PS, a.icon, 'NEW STICKER: ' + a.name, a.desc + '  ·  +1 capsule')));
+    if (!scene._psToasts || !scene._psToasts.alive) {
+      const tk = scene._psToasts = { alive: true }, end = () => { tk.alive = false; scene.events.off('shutdown', end); scene.events.off('destroy', end); };
+      scene.events.on('shutdown', end); scene.events.on('destroy', end);
+    }
+    const tk = scene._psToasts;
+    const list = pending.filter(a => { const q = queued.get(a); return !(q && q.alive); });
+    list.forEach((a, i) => {
+      queued.set(a, tk);
+      scene.time.delayedCall(400 + i * 3300, () => {
+        toast(scene, PS, a.icon, 'NEW STICKER: ' + a.name, a.desc + '  ·  +1 capsule');
+        scene.time.delayedCall(450, () => { pending = pending.filter(x => x !== a); queued.delete(a); }); // seen
+      });
+    });
   }
   function header(scene, PS, title, back = 'title') {
     const { W, PORTRAIT, txt, sky, backButton, muteButton, fade } = PS;
@@ -408,7 +428,9 @@
       // a new duel counts too (REMATCH / NEXT RIVAL), a duel restored after rotating does not (QA B03)
       const newDuel = d.key === 'battle' && !scene.res;
       if ((newDuel || ['title', 'map', 'squad', 'catch', 'gacha', 'me', 'album', 'quests', 'friends', 'boss'].includes(d.key)) && blockedReason()) { scene.time.delayedCall(50, () => PS.fade(scene, 'bedtime')); return; }
-      if (d.key !== 'battle') flushToasts(scene, PS);
+      // not on the boot scene of a rebuilt game (it stops at once and the toasts were lost, QA B37);
+      // a result panel restored after a rotation shows them like a menu does
+      if (d.key !== 'boot' && (d.key !== 'battle' || scene.shown)) flushToasts(scene, PS);
       if (d.key === 'title') scene.time.delayedCall(900, () => whatsNew(scene, PS));
     } else if (name === 'duel') scene.time.delayedCall(2500, () => flushToasts(scene, PS));
     else flushToasts(scene, PS);
