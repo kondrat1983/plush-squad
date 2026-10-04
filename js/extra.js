@@ -428,7 +428,8 @@
       if (d.won && d.rival && d.rival.id === 'fjack') bump('fjackWins');
       if (d.won && d.rival && d.rival.id === 'dragonboss') bump('motherWins');
     }
-    if (name === 'block') bump('blocks');
+    // Firefighter counts extinguisher blocks only; umbrella blocks of the Tractor Beam count apart (v0.8)
+    if (name === 'block') bump(d && d.tool === 'umbrella' ? 'beamBlocks' : 'blocks');
     if (name === 'move' && d.type === 'nap') bump('naps');
     if (name === 'capsule') { bump('capsOpened'); if (d.boost && d.boost.r === 3) bump('superRares'); }
     if (name === 'friendAdded') bump('friends');
