@@ -2819,7 +2819,7 @@
         if (PORTRAIT) { const ph = (H - top - bot - gut * 2) / 3; rects.push({ x: W / 2, y: top + ph / 2 + i * (ph + gut), w: W - 80, h: ph }); }
         else { const pw = (W - 80 - gut * 2) / 3, ph = H - top - bot; rects.push({ x: 40 + pw / 2 + i * (pw + gut), y: top + ph / 2, w: pw, h: ph }); }
       }
-      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = [];
+      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = []; this.titled = false; this.nextEv = null; // the scene object is reused (replay)
       const skip = button(this, W - 150, PORTRAIT ? 80 : 70, 220, 90, 'SKIP', C.cream, () => this.toTitle(), { size: 40 }).setDepth(90);
       this.skipBtn = skip;
       this.hint = txt(this, W / 2, H - 100, 'Tap to go on', 34, '#4a4f8c', { st: 0, shadow: false, weight: '500' }).setDepth(90);
@@ -2930,15 +2930,17 @@
       });
       this.live = [];
       const c = this.panels[this.cur]; if (c) { c.y = c.r.y; c.setAlpha(1); }
-      if (auto) this.time.delayedCall(300, () => this.next());
+      if (auto) this.nextEv = this.time.delayedCall(300, () => { this.nextEv = null; this.next(); });
     }
     next() { if (this._leaving || this.titled) return; if (this.cur >= 2) this.toTitle(); else this.play(this.cur + 1, false); }
     tap() {
       if (this.titled) return;
+      if (this.nextEv) { this.nextEv.remove(false); this.nextEv = null; } // a tap in the short pause after an auto-finish: one step only (code review)
       if (!this.done) this.finishPanel(false); else this.next();
     }
     toTitle() {
       if (this.titled) return; this.titled = true;
+      if (this.nextEv) { this.nextEv.remove(false); this.nextEv = null; }
       while (this.cur < 2) { this.finishPanel(false); this.play(this.cur + 1, true); }
       if (!this.done) this.finishPanel(false);
       this.d.panel = 3; this.sys.settings.data = Object.assign({}, this.d, { panel: 3 });
@@ -3010,7 +3012,7 @@
         if (dy < -60 && s.y > H * 0.45) {
           const ang = clamp(Math.atan2(dx, -dy), -0.61, 0.61), v = -dy / dt; // px per ms
           this.shoot(ang, clamp(0.7 - (v - 0.5) * 0.12, 0.45, 0.7));
-        } else if (Math.abs(dx) < 40 && Math.abs(dy) < 40 && p.worldY < this.netY + 200 && p.worldY > this.netY - 300) {
+        } else if (Math.abs(dx) < 40 && Math.abs(dy) < 40 && p.worldY < this.netY + 200 && p.worldY > Math.max(this.netY - 300, 170)) { // not the back / mute buttons
           this.shoot(Math.atan2(p.worldX - this.puckX, this.puckY - this.netY + 75), 0.6);
         }
       });
@@ -3063,6 +3065,7 @@
       A.slide();
     }
     judge(pk, x) {
+      if (!this.running) { [pk.o, pk.leaf].forEach(o => o && o.destroy()); return; } // time is up: the result is already shown (code review)
       const hw = this.netW / 2, off = Math.abs(x - this.netX);
       let res;
       if (off > hw + 22) res = 'wide';
@@ -3143,6 +3146,8 @@
       p.add(txt(this, 0, T0 + 470, '+' + gain + ' XP', 64, '#7fe39a', { stroke: '#0f1240', st: 10 }));
       const notes = [];
       if (after.l > before.l) notes.push('LEVEL UP! Level ' + after.l);
+      const newMoves = MOVES.filter(m => m.lvl > before.l && m.lvl <= after.l);
+      if (newMoves.length && heroDef(this).isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
       if (this.bestStreak >= 3) notes.push('Hat trick! ' + this.bestStreak + ' goals in a row');
       p.add(txt(this, 0, T0 + 560, notes.join('\n'), 36, '#ffd23f', { st: 6, wrap: pw - 100 }));
       const by = T0 + (PORTRAIT ? 760 : 730);

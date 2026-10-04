@@ -23,6 +23,12 @@ test('the comic shows on the first trip to Canada, taps go panel by panel, LET\'
   expect(await page.evaluate(() => [__game.scene.getScene('map').world, __save.data.comics.canada])).toEqual([2, true]);
   await go(page, 'title'); await go(page, 'map', { world: 2 });
   expect(await scenes(page)).toEqual(['map']);
+  // replay from the open Canada tab: the reused scene starts fresh and still reaches LET'S GO
+  await page.evaluate(() => { const m = __game.scene.getScene('map'); m.children.list.find(o => o.type === 'Container' && o.height === 96 && o.list.some(t => t.text === 'CANADA')).emit('pointerup'); });
+  await expect.poll(async () => { await wait(page, 500); return scenes(page); }, { timeout: 30000 }).toEqual(['comic']);
+  expect(await page.evaluate(() => __game.scene.getScene('comic').titled)).toBe(false);
+  await page.evaluate(() => __game.scene.getScene('comic').skipBtn.emit('pointerup'));
+  expect(await page.evaluate(() => __game.scene.getScene('comic').titled)).toBe(true);
   noErrors(page);
 });
 
