@@ -10,7 +10,7 @@
     { id: 'gg', label: 'GG!', icon: 'j:thumbs' }, { id: 'rematch', label: 'REMATCH?', icon: 'j:game' },
     { id: 'lol', label: 'LOL', icon: 'j:joy' }, { id: 'cool', label: 'COOL', icon: 'j:cool' },
     { id: 'wow', label: 'WOW!', icon: 'j:partyface' }, { id: 'hug', label: 'HUG', icon: 'j:hug' },
-    { id: 'zzz', label: 'ZZZ...', icon: 'zzz' }, { id: 'space', label: 'INTO SPACE!', icon: 'polandball' },
+    { id: 'zzz', label: 'ZZZ...', icon: 'zzz' }, { id: 'space', label: 'INTO SPACE!', icon: 'aliens' },
   ];
   const STK = {}; STICKERS.forEach(s => STK[s.id] = s);
   const BAD = /(fuck|shit|bitch|dick|cunt|nigg|fag|porn|sex|kill|nazi|hitler|xyu|hui|pizd|blya|suka)/i;

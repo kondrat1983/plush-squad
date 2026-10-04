@@ -214,7 +214,7 @@
   function iconScale(key, size) { // scale so the icon is ~size px
     if (!key) return 1;
     if (key.startsWith('i:') || key.startsWith('j:')) return size / 144;
-    const base = { polandball: 486, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
+    const base = { polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
     return size / base;
   }
 
@@ -258,9 +258,11 @@
   function spaceDecor(scene, rocketEvery = 7000) {
     const pl = scene.add.image(W * 0.12, H * (PORTRAIT ? 0.1 : 0.16), 'planet').setScale(0.7).setAlpha(0.55).setTint(0xc9b6ff);
     scene.tweens.add({ targets: pl, angle: 360, duration: 60000, repeat: -1 });
-    const u = scene.add.image(-150, H * (PORTRAIT ? 0.33 : 0.3), 'ufo').setScale(0.42).setAlpha(0.8);
-    scene.tweens.add({ targets: u, x: W + 150, duration: 26000, repeat: -1, delay: 1500 });
-    scene.tweens.add({ targets: u, y: u.y - 40, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    if (!(scene.R && scene.R.id === 'dragonboss')) { // no second UFO flying around the Mothership
+      const u = scene.add.image(-150, H * (PORTRAIT ? 0.33 : 0.3), 'ufo').setScale(0.42).setAlpha(0.8);
+      scene.tweens.add({ targets: u, x: W + 150, duration: 26000, repeat: -1, delay: 1500 });
+      scene.tweens.add({ targets: u, y: u.y - 40, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
     scene.time.addEvent({ delay: rocketEvery, loop: true, callback: () => {
       const y = H * (0.08 + Math.random() * 0.3);
       const r = scene.add.image(W + 140, y, 'rocket').setScale(0.4).setAngle(-135).setAlpha(0.9);
@@ -316,7 +318,7 @@
       this.load.on('progress', p => bar.width = 600 * p);
       ['jack_side', 'jack_upside', 'jack_front', 'tiger', 'cow', 'snake', 'owl', 'moon', 'cloud', 'zzz', 'snow', 'star', 'trophy', 'heart', 'sparkles',
         'dumpling', 'milk', 'books', 'lock', 'dizzy', 'dance', 'crown', 'note', 'shield',
-        'robot', 'ghost', 'dragonboss', 'polandball', 'planet', 'rocket', 'extinguisher', 'comet', 'ufo',
+        'robot', 'ghost', 'dragonboss', 'aliens', 'mothership', 'umbrella', 'planet', 'rocket', 'extinguisher', 'comet', 'ufo',
         'pumpkin', 'bat', 'spider', 'vampire', 'kraken', 'candy', 'lollipop', 'web', 'tophat', 'witchhat', 'gift']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
@@ -457,12 +459,13 @@
         { type: 'roar', word: 'BEEP BOOP!', color: 0x6ff7ff, sound: 'beep', dmg: [13, 21], w: 15, log: '{a} plays the loudest BEEP in the galaxy!' },
         { type: 'dance', words: ['BEEP!', 'BOOP!'], uses: 1, w: 12, log: '{a} does the robot dance! {d} gets dizzy watching!' },
         { type: 'heal', tex: 'sparkles', amt: 22, uses: 1, w: 15, log: '{a} plugs in to recharge. Battery full!' }] },
-    { id: 'polandball', world: SPACE, name: 'Polandball', nick: 'Polandball', short: 'POLANDBALL', tex: 'polandball', color: 0xff4d6d, hp: 145, xp: 120,
-      intro: 'Polandball bounces: "Today I will into space! But first... YOU."', laugh: 'Polandball rolled away giggling: "Next time I into space, yes?"',
-      moves: [{ type: 'throw', tex: 'dumpling', dmg: [12, 19], w: 35, log: 'PIEROGI TOSS! {a} throws a hot pierogi at {d}!' },
-        { type: 'hop', word: 'BOUNCE BOUNCE!', dmg: [11, 20], w: 30, log: '{a} goes bounce bounce bounce!' },
-        { type: 'quake', jump: 1, word: 'CANNOT INTO SPACE!', sound: 'bounce', dmg: [15, 24], w: 20, uses: 2, log: '{a} tries to fly into space... CANNOT! Falls right on {d}!' },
-        { type: 'shield', w: 20, log: '{a} puts on a shiny hussar helmet. Next hit only does half!' }] },
+    // v0.8: The Blips replace Polandball (the id stays 'polandball' so old saves keep their stars and stickers)
+    { id: 'polandball', world: SPACE, name: 'The Blips', nick: 'Blips', short: 'THE BLIPS', tex: 'aliens', color: 0x8cff7a, hp: 145, xp: 120, scale: 1.1,
+      intro: 'The Blips wobble on each other\'s shoulders: "We come in peace! And with PILLOWS!"', laugh: 'The Blips giggled so hard they fell off each other. "Take us to your bedtime!"',
+      moves: [{ type: 'throw', tex: 'planet', dmg: [12, 19], w: 35, log: 'MINI PLANET! {a} bowl a tiny planet at {d}!' },
+        { type: 'hop', word: 'WOBBLE WOBBLE!', dmg: [11, 20], w: 30, log: '{a} hop over, wobble wobble!' },
+        { type: 'quake', jump: 1, word: 'BEAM ME UP... OOPS!', color: 0x8cff7a, sound: 'bounce', dmg: [15, 24], w: 20, uses: 2, log: '{a} try to beam up to their saucer... the beam blinks off! They land right on {d}!' },
+        { type: 'shield', w: 20, log: '{a} put on bubble helmets. Next hit only does half!' }] },
     { id: 'ghost', world: SPACE, name: 'Boo the Space Ghost', nick: 'Boo', short: 'BOO', tex: 'ghost', color: 0xd8e6ff, hp: 155, xp: 130, ghostly: true,
       intro: 'Boo floats out of a crater: "Boooo! Are you scared yet, Jack?"', laugh: 'Boo giggled so hard he turned see-through. Bye-booo!',
       moves: [{ type: 'roar', word: 'BOOOO!', color: 0xd8e6ff, sound: 'boo', dmg: [13, 22], w: 25, log: '{a} jumps out and yells BOO at {d}!' },
@@ -470,12 +473,14 @@
         { type: 'dizzy', color: 0x9dff9a, word: 'SPOOKY...', uses: 2, w: 15, sound: 'boo', log: '{a} spins spooky circles... {d} feels wobbly!' },
         { type: 'shield', w: 20, log: '{a} turns see-through. Next hit only does half!' },
         { type: 'tickle', dmg: [6, 22], w: 20 }] },
-    { id: 'dragonboss', world: SPACE, name: 'Giant Dragon Boss', nick: 'Dragon Boss', short: 'DRAGON BOSS', tex: 'dragonboss', big: 1.15, ownCrown: true, color: 0xff8a3d, hp: 200, xp: 180, boss: true, reward: 'ufohat',
-      intro: 'The Giant Dragon Boss puffs smoke: "So YOU are the little dragon everyone talks about..."', laugh: 'The Dragon Boss laughed so hard he sneezed sparkles. Jack is the new champion!',
-      moves: [{ type: 'rain', charge: true, dmg: [24, 30], uses: 2, w: 35, log: '{a} rains fire from the sky!' },
-        { type: 'multi', hits: 3, dmg: [6, 10], w: 25, log: 'TAIL SPIN! {a} whirls like a giant tornado!' },
-        { type: 'roar', word: 'ROOOAR!', color: 0xff8a3d, sound: 'roar', dmg: [15, 23], w: 20, log: '{a} ROARS and the stars shake!' },
-        { type: 'spray', tex: 'i:fire', inhale: true, hitTint: 0xffb36b, word: 'ACHOO!', sound: 'sneeze', dmg: [14, 21], w: 20, log: 'Ah... ah... ACHOO! A fiery sneeze!' }] },
+    // v0.8: The Mothership replaces the Giant Dragon Boss (id kept for old saves; the Dragon is on holiday on her ship)
+    { id: 'dragonboss', world: SPACE, name: 'The Mothership', nick: 'Mothership', short: 'MOTHERSHIP', tex: 'mothership', big: 1.15, color: 0xc6a8ff, hp: 200, xp: 180, boss: true, reward: 'ufohat',
+      intro: 'The Mothership hums down from the stars: "Attention, little dragon! Your friend the Giant Dragon is on holiday on my ship. He taught me INFERNO RAIN!"',
+      laugh: 'The Mothership giggled so hard her lights went disco. The Giant Dragon waves from the window: "Great job, little dragon!"',
+      moves: [{ type: 'rain', charge: true, dmg: [24, 30], uses: 2, w: 35, log: '{a} opens the hatch... INFERNO RAIN!' },
+        { type: 'multi', hits: 3, dmg: [6, 10], w: 25, log: 'SAUCER SPIN! {a} whirls like a giant frisbee!' },
+        { type: 'roar', word: 'WE COME IN PEACE!', color: 0xc6a8ff, sound: 'laser', dmg: [15, 23], w: 20, log: '{a} shouts "WE COME IN PEACE!" so loud the stars wobble!' },
+        { type: 'spray', tex: 'spark', hitTint: 0xffd6ff, word: 'GLITTER RAY!', sound: 'laser', dmg: [14, 21], w: 20, log: '{a} zaps {d} with a sparkly glitter ray!' }] },
   ].concat(EVENT_ON ? [
     // ---- Halloween event world: SPOOKY (open from the start while the event runs)
     { id: 'pumpkin', world: SPOOKY, event: true, name: 'Pumpkin Pete', nick: 'Pete', short: 'PUMPKIN PETE', tex: 'pumpkin', color: C.orange, hp: 110, xp: 50, reward: 'pumpkin',
@@ -1821,7 +1826,7 @@
             // "Cannot into space!": rockets up off the screen, wobbles... and falls right onto the target
             this.tweens.add({ targets: att.squash, scaleX: 0.85, scaleY: 1.15, duration: 200, yoyo: true });
             await tw(this, { targets: att.root, y: -200, duration: 650, ease: 'Quad.out' });
-            this.popWord(W / 2, PORTRAIT ? H * 0.2 : H * 0.18, m.word || 'CANNOT!', '#ff4d6d', 84, -6);
+            this.popWord(W / 2, PORTRAIT ? H * 0.2 : H * 0.18, m.word || 'CANNOT!', m.color ? '#' + m.color.toString(16).padStart(6, '0') : '#ff4d6d', 84, -6);
             A.dizzy(); await wait(this, 750);
             att.root.x = def.root.x; att.root.y = -250;
             await tw(this, { targets: att.root, y: def.root.y - def.height() * 0.6, angle: 360, duration: 420, ease: 'Quad.in' });

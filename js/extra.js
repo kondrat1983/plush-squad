@@ -12,8 +12,10 @@
     { id: 'first_win', name: 'First Win!', desc: 'Win your first duel', icon: 'j:trophy', title: 'Pillow Rookie', ok: d => (d.wins || 0) >= 1 },
     { id: 'wins25', name: 'Pillow Pro', desc: 'Win 25 duels', icon: 'pillow', title: 'Pillow Pro', ok: d => (d.wins || 0) >= 25 },
     { id: 'hoot', name: 'Class Dismissed', desc: 'Beat Professor Hoot', icon: 'owl', title: 'Top Student', ok: d => (d.stars.hoot || 0) > 0 },
-    { id: 'polandball', name: 'Into Space!', desc: 'Beat Polandball', icon: 'polandball', title: 'Space Cadet', ok: d => (d.stars.polandball || 0) > 0 },
-    { id: 'dragon', name: 'Dragon vs Dragon', desc: 'Beat the Giant Dragon Boss', icon: 'dragonboss', title: 'Dragon Champion', ok: d => (d.stars.dragonboss || 0) > 0 },
+    { id: 'polandball', name: 'Into Space!', desc: 'Beat The Blips', icon: 'aliens', title: 'Space Cadet', ok: d => (d.stars.polandball || 0) > 0 },
+    // v0.8: the Dragon Boss is gone; Jack vs a friend's Jack is the new dragon vs dragon (earned stickers stay earned)
+    { id: 'dragon', name: 'Dragon vs Dragon', desc: "Beat a friend's Jack", icon: 'dragonboss', title: 'Dragon Champion', ok: d => (d.stats.fjackWins || 0) > 0 },
+    { id: 'ufo', name: 'Saucer Champ', desc: 'Beat The Mothership', icon: 'ufo', title: 'Space Champion', ok: d => (d.stats.motherWins || 0) > 0 },
     { id: 'fang', name: 'King of Halloween', desc: 'Beat Count Fang', icon: 'vampire', title: 'Pumpkin King', ok: d => (d.stars.fang || 0) > 0 },
     { id: 'hardboss', name: 'Hard as Pillows', desc: 'Beat a boss on HARD', icon: 'j:hundred', title: 'Hard Mode Hero', ok: d => (d.stats.hardBossWins || 0) >= 1 },
     { id: 'allstars', name: 'Superstar', desc: 'All 24 stars in Hills + Space', icon: 'j:glowstar', title: 'Superstar',
@@ -423,6 +425,8 @@
       if (d.won && d.boss && d.diff === 'hard') bump('hardBossWins');
       if (d.won && d.mode === 'friend') bump('friendWins');
       if (d.mode === 'boss') bump('krakenHits');
+      if (d.won && d.rival && d.rival.id === 'fjack') bump('fjackWins');
+      if (d.won && d.rival && d.rival.id === 'dragonboss') bump('motherWins');
     }
     if (name === 'block') bump('blocks');
     if (name === 'move' && d.type === 'nap') bump('naps');
