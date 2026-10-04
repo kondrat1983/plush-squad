@@ -62,6 +62,7 @@ This repo is **public**. Never commit secrets, personal names of the family, e-m
 - Owner notes from the device (4 Oct 2026, iPhone, no B-ID yet), **fix in the next release or hotfix**:
   - Move cards (`Battle.actionCard`): visible strips at the top of the cards, worst on greyed-out / USED cards. Likely cause [?]: the card is three stacked translucent layers (shadow at +10 px, cream body, white highlight), and `c.setAlpha(0.45 / 0.7)` on the container lets the shadow and the highlight show through the body. Fix idea: draw a dedicated disabled look (flat colour, no highlight) instead of container alpha, or tone down the highlight.
   - Move card icons sit too high and almost spill out of the top edge (portrait grid, `L.iy = -48`). Move them a little lower.
+  - Home Screen icon (`assets/apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `manifest.json`): Jack is small and full-body; make a close-up of Jack's face that fills most of the icon (from `assets/jack_front.png` [?]), keep the night-sky background, check the iOS rounded mask and do B29 (maskable icon) in the same step. Note: iOS caches the icon; the kid may need to re-add the app to the Home Screen to see it.
 
 ## Handshake
 Kondrat also works with a **Cowork Claude** (his personal assistant, keeps Apple Notes and family context; the GDD lives in `docs/gdd/` and QA runs in the repo through the `game-designer` and `qa-tester` agents). When Kondrat asks for a **handshake**, reply with one block he can paste over:
