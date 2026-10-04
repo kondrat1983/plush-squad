@@ -62,6 +62,20 @@ test('Title portrait: the level panel sits between the logo and Jack with even g
   noErrors(page);
 });
 
+test('Title on a small phone with a hat on: the hat stays clear of the level panel', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await boot(page, save({ costumes: { witchhat: true }, costume: 'witchhat' }));
+  await go(page, 'title');
+  const g = await page.evaluate(() => {
+    const L = __game.scene.getScene('title').children.list;
+    const lvl = L.find(o => o.type === 'Text' && /^LEVEL \d+$/.test(o.text));
+    const hat = L.find(o => o.type === 'Image' && o.texture.key === 'witchhat');
+    return { panelBot: lvl.y + 140, hatTop: hat.y - hat.displayHeight * 0.85 };
+  });
+  expect(g.hatTop).toBeGreaterThan(g.panelBot - 40); // minus Jack's bob
+  noErrors(page);
+});
+
 test('My Squad: REMOVE is a real button, at least 90 px tall, and still asks first', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => {

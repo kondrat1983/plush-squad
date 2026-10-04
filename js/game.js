@@ -760,7 +760,8 @@
       const jy = PORTRAIT ? H - 330 : H * 0.95;
       // portrait: logo, level panel and Jack share the height evenly; Jack grows on tall phones (QA B44 / #45)
       const logoBot = ly + fs * 1.07 + fs * 0.55, avail = jy - logoBot;
-      const hMax = PORTRAIT ? clamp(avail - 190 - 120, 380, 800) : 425;
+      const hatOn = COSTUMES.some(c => c.id === Save.data.costume && c.tex);
+      const hMax = PORTRAIT ? clamp(avail - 190 - 120 - (hatOn ? 230 : 0), 380, 800) : 425;
       const sh = this.add.image(W / 2, jy + 6, 'shadow').setScale(1.3, 1);
       const hero = heroDef(this);
       const heroKey = hero.isJack ? 'jack_front' : hero.tex;
@@ -774,7 +775,8 @@
       this.add.particles(0, 0, 'spark', { x: { min: W / 2 - 300, max: W / 2 + 300 }, y: { min: jy - hMax, max: jy - 60 }, lifespan: 1200, scale: { start: 0.5, end: 0 }, alpha: { start: 1, end: 0 }, frequency: 220, tint: [C.star, 0xffffff, C.mint], rotate: { min: 0, max: 90 } }).setDepth(-0.5);
       // level panel
       const lv = levelOf(Save.data.xp);
-      const gap = Math.max(24, (avail - 190 - jack.displayHeight) / 2);
+      // the hat sticks up above Jack's head and he bobs 34 px: keep both clear of the panel (code review)
+      const gap = Math.max(24, (avail - 190 - jack.displayHeight - (hat ? hat.displayHeight * 0.85 : 0) - 34) / 2);
       const px = PORTRAIT ? W / 2 : 420, py = PORTRAIT ? logoBot + gap + 95 : H * 0.7;
       const pg = this.add.graphics(); pg.fillStyle(C.night2, 0.9); pg.fillRoundedRect(px - 210, py - 95, 420, 190, 40); pg.lineStyle(4, C.seam); pg.strokeRoundedRect(px - 210, py - 95, 420, 190, 40);
       txt(this, px, py - 46, 'LEVEL ' + lv.l, 50, '#ffd23f', { st: 0 });
@@ -1057,7 +1059,8 @@
         }, { size: 42, color: '#fff3d2' });
         p.add(b2);
         // a real button, big enough for small fingers (QA B50 / #48)
-        const del = button(this, pw / 2 - 150, -ph / 2 + 75, 230, 90, 'REMOVE', C.cream, () => this.confirmRemove(it.toy, close), { size: 30 });
+        // portrait: top right; landscape: under the picture (the name row is full there)
+        const del = button(this, PORTRAIT ? pw / 2 - 150 : ix, PORTRAIT ? -ph / 2 + 75 : ph / 2 - 80, 230, 90, 'REMOVE', C.cream, () => this.confirmRemove(it.toy, close), { size: 30 });
         del.add(img(this, -78, 0, 'i:trash').setScale(iconScale('i:trash', 50))); del.list[1].x = 22;
         p.add(del);
       }
@@ -1231,17 +1234,21 @@
       const sparks = this.add.particles(0, 0, 'spark', { x: { min: W / 2 - ph.displayWidth / 2, max: W / 2 + ph.displayWidth / 2 }, y: { min: cy - ph.displayHeight / 2, max: cy + ph.displayHeight / 2 }, lifespan: 700, scale: { start: 0.5, end: 0 }, frequency: 90, tint: [C.star, 0xffffff], blendMode: 'ADD' });
       const status = txt(this, W / 2, cy + ph.displayHeight / 2 + 80, 'Looking for your toy...', 42, '#fff3d2', { st: 7 });
       this.layer.add([scan, sparks, status]);
-      const cancel = button(this, W / 2, Math.min(H - 120, cy + ph.displayHeight / 2 + 200), 360, 110, 'CANCEL', C.cream, () => this.cancelJob(), { size: 44 });
+      // top right, clear of the photo and the status line on every screen (code review)
+      const cancel = button(this, W - 270, 80, 300, 100, 'CANCEL', C.cream, () => this.cancelJob(), { size: 42 });
       this.layer.add(cancel);
       const files = {};
       const w = getWorker();
       const job = this.job = {};
       const result = await new Promise((res) => {
         job.finish = res;
-        // the magic can be very slow on an old phone: after 90 s use the photo as it is
-        job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (toyWorker === w) toyWorker = null; res({ type: 'error', message: 'timeout' }); });
+        // the magic can be very slow on an old phone: 90 s with no news uses the photo as it is.
+        // Every progress message restarts the clock, so a slow first download is never cut off (code review)
+        const arm = () => { if (job.timer) job.timer.remove(false); job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (toyWorker === w) toyWorker = null; res({ type: 'error', message: 'timeout' }); }); };
+        arm();
         w.onmessage = (ev) => {
           if (this.job !== job) return;
+          arm();
           const m = ev.data;
           if (m.type === 'progress') {
             files[m.file] = [m.loaded, m.total];
