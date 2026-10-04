@@ -12,8 +12,10 @@
     { id: 'first_win', name: 'First Win!', desc: 'Win your first duel', icon: 'j:trophy', title: 'Pillow Rookie', ok: d => (d.wins || 0) >= 1 },
     { id: 'wins25', name: 'Pillow Pro', desc: 'Win 25 duels', icon: 'pillow', title: 'Pillow Pro', ok: d => (d.wins || 0) >= 25 },
     { id: 'hoot', name: 'Class Dismissed', desc: 'Beat Professor Hoot', icon: 'owl', title: 'Top Student', ok: d => (d.stars.hoot || 0) > 0 },
-    { id: 'polandball', name: 'Into Space!', desc: 'Beat Polandball', icon: 'polandball', title: 'Space Cadet', ok: d => (d.stars.polandball || 0) > 0 },
-    { id: 'dragon', name: 'Dragon vs Dragon', desc: 'Beat the Giant Dragon Boss', icon: 'dragonboss', title: 'Dragon Champion', ok: d => (d.stars.dragonboss || 0) > 0 },
+    { id: 'polandball', name: 'Into Space!', desc: 'Beat The Blips', icon: 'aliens', title: 'Space Cadet', ok: d => (d.stars.polandball || 0) > 0 },
+    // v0.8: the Dragon Boss is gone; Jack vs a friend's Jack is the new dragon vs dragon (earned stickers stay earned)
+    { id: 'dragon', name: 'Dragon vs Dragon', desc: "Beat a friend's Jack", icon: 'dragonboss', title: 'Dragon Champion', ok: d => (d.stats.fjackWins || 0) > 0 },
+    { id: 'ufo', name: 'Saucer Champ', desc: 'Beat The Mothership', icon: 'ufo', title: 'Space Champion', ok: d => (d.stats.motherWins || 0) > 0 },
     { id: 'fang', name: 'King of Halloween', desc: 'Beat Count Fang', icon: 'vampire', title: 'Pumpkin King', ok: d => (d.stars.fang || 0) > 0 },
     { id: 'hardboss', name: 'Hard as Pillows', desc: 'Beat a boss on HARD', icon: 'j:hundred', title: 'Hard Mode Hero', ok: d => (d.stats.hardBossWins || 0) >= 1 },
     { id: 'allstars', name: 'Superstar', desc: 'All 24 stars in Hills + Space', icon: 'j:glowstar', title: 'Superstar',
@@ -284,7 +286,17 @@
         txt(this, W / 2, PORTRAIT ? 270 : 150, got + ' / ' + ACH.length + ' stickers  ·  each one = +1 capsule', 32, '#ffd23f', { st: 6 });
         const cols = PORTRAIT ? 3 : 7, cw = PORTRAIT ? 310 : Math.min(200, (W - 120) / 7 - 14), ch = PORTRAIT ? 230 : 250;
         const top = PORTRAIT ? 330 : 200;
-        const shown = ACH.filter(a => a.id !== 'fang' || PS.EVENT_ON || d.ach[a.id]);
+        const all = ACH.filter(a => a.id !== 'fang' || PS.EVENT_ON || d.ach[a.id]);
+        // pages when the stickers do not fit (QA B06; v0.8 has 22+): as many rows as fit above the page buttons
+        const rows = Math.max(1, Math.floor((H - top - 150) / (ch + 14))), per = rows * cols, pages = Math.ceil(all.length / per);
+        const pg = Math.min(pages - 1, Math.max(0, (this.sys.settings.data && this.sys.settings.data.page) || 0));
+        const shown = all.slice(pg * per, pg * per + per);
+        if (pages > 1) {
+          const by = top + rows * (ch + 14) + 60;
+          if (pg > 0) PS.button(this, W / 2 - 260, by, 200, 100, '◀', C.cream, () => this.scene.restart({ page: pg - 1 }), { size: 48 });
+          txt(this, W / 2, by, (pg + 1) + ' / ' + pages, 40, '#fff3d2', { st: 6 });
+          if (pg < pages - 1) PS.button(this, W / 2 + 260, by, 200, 100, '▶', C.star, () => this.scene.restart({ page: pg + 1 }), { size: 48 });
+        }
         shown.forEach((a, i) => {
           const x = W / 2 + ((i % cols) - (cols - 1) / 2) * (cw + 14), y = top + ch / 2 + Math.floor(i / cols) * (ch + 14);
           const has = !!(d.ach || {})[a.id];
@@ -423,6 +435,8 @@
       if (d.won && d.boss && d.diff === 'hard') bump('hardBossWins');
       if (d.won && d.mode === 'friend') bump('friendWins');
       if (d.mode === 'boss') bump('krakenHits');
+      if (d.won && d.rival && d.rival.id === 'fjack') bump('fjackWins');
+      if (d.won && d.rival && d.rival.id === 'dragonboss') bump('motherWins');
     }
     if (name === 'block') bump('blocks');
     if (name === 'move' && d.type === 'nap') bump('naps');
