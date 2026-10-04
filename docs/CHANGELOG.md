@@ -8,7 +8,7 @@ What happened in Plush Squad, newest on top: game releases (what changed for the
 - Space rework: The Blips and The Mothership; "Fire or Beam?" with FOAM! / UMBRELLA! (parts 2 and 3, PRs #46 and #49).
 - Boss hats (part 1, PR #42), 5 new stickers including Umbrella Hero (Kondrat: yes), 6 new quests, What's new 0.8.
 - Bugs fixed: #13 (B06 album pages), #43 (B41 photo CANCEL), #45 (B44 title layout), #48 (B50 REMOVE button), and QA B42-B49.
-- QA reports: `docs/qa/` parts 1 to 7.
+- QA reports in `docs/qa/`: part 1 (hats), part 2 (Space), part 3 (Fire or Beam), parts 4-5 (Canada + SAVE IT!), parts 6-7 (comic, hockey, finish).
 
 ## 4 Oct 2026
 **Docs and process**

@@ -2351,7 +2351,7 @@
         this.popWord(def.root.x, umb.y - 160, 'BOING!', '#d8ff6a', 100, -6);
         this.tweens.add({ targets: umb, scale: 0, alpha: 0, duration: 300, delay: 600, onComplete: () => umb.destroy() });
         await done(); def.blocker = false;
-        if (def === P) emit('block', { tool: 'umbrella' }, this);
+        if (def === P) emit('block', { tool: 'umbrella', mini: !!m.mini }, this);
         if (m.mini) { this.log(def.name + ' blocked the tiny beam with the umbrella! Nice!'); await wait(this, 900); return; }
         this.log(def.name + ' bounced the Tractor Beam back! ' + att.name + (this.R.plural ? ' are' : ' is') + ' all jammed up!');
         await wait(this, 400);

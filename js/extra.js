@@ -459,7 +459,8 @@
       if (d.won && d.rival && d.rival.id === 'dragonboss') bump('motherWins');
     }
     // Firefighter counts extinguisher blocks only; umbrella blocks of the Tractor Beam count apart (v0.8)
-    if (name === 'block') bump(d && d.tool === 'umbrella' ? 'beamBlocks' : 'blocks');
+    // Umbrella Hero counts full Tractor Beams only, not the Blips' Mini Beam (G38)
+    if (name === 'block' && !(d && d.mini)) bump(d && d.tool === 'umbrella' ? 'beamBlocks' : 'blocks');
     if (name === 'move' && d.type === 'nap') bump('naps');
     if (name === 'save' && d.result === 'perfect') bump('perfectSaves');
     if (name === 'hockey') { const st = S().stats; st.hockeyStreak = Math.max(st.hockeyStreak || 0, d.streak || 0); }
