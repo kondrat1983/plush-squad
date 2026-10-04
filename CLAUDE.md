@@ -47,6 +47,9 @@ This repo is **public**. Never commit secrets, personal names of the family, e-m
 - Hotfixes: no What's new entry. Version label bottom-left on the title screen.
 - Prose in docs and messages: plain, short, no em-dashes; mark guesses with [?]; no flattery.
 - Backlog from the QA run on v0.7.4 (IDs kept by the tester): paging / scroll (B05 My Squad, B06 Sticker Album, B07 Capsule machine 2nd row, B11 Me hint on iPad portrait, B15 Parents chart, B16 Quests landscape), touch (B19 Parents YES/NO overlap, B26 touch targets < 90 px, B27 press-down feedback), other (B13 toy-name filter, B18 Title level panel vs wing on 4:3, B22 toy worker re-created on rebuild, B23 Boss "Loading..." on RPC error, B24 Royal Crown not announced, B28 mail paging, B29 maskable icon). New bugs from the tester start at B31. Work on them only when Yuriy says go.
+- Owner notes from the device (4 Oct 2026, iPhone, no B-ID yet), **fix in the next release or hotfix**:
+  - Move cards (`Battle.actionCard`): visible strips at the top of the cards, worst on greyed-out / USED cards. Likely cause [?]: the card is three stacked translucent layers (shadow at +10 px, cream body, white highlight), and `c.setAlpha(0.45 / 0.7)` on the container lets the shadow and the highlight show through the body. Fix idea: draw a dedicated disabled look (flat colour, no highlight) instead of container alpha, or tone down the highlight.
+  - Move card icons sit too high and almost spill out of the top edge (portrait grid, `L.iy = -48`). Move them a little lower.
 
 ## Handshake
 Yuriy also works with a **Cowork Claude** (his personal assistant, keeps the GDD, Apple Notes, the QA loop with a tester Claude, and family context). When Yuriy asks for a **handshake**, reply with one block he can paste over:
