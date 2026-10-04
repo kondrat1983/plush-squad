@@ -74,3 +74,25 @@ for (const [tag, vp] of Object.entries(SIZES)) {
     noErrors(page);
   });
 }
+
+// QA B43: hats given by the migration are announced once as a gift
+test('migration gifts are announced once on the first menu screen', async ({ page }) => {
+  await boot(page, save({ stars: { timmy: 3, moo: 3, sly: 3, hoot: 3 } }));
+  const seen = () => page.evaluate(() => { const out = [], walk = l => l.forEach(o => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+    __game.scene.getScenes(true).forEach(s => walk(s.children.list)); return out.some(t => t.startsWith('A GIFT: Owl Hat')); });
+  await expect.poll(async () => { await wait(page, 500); return seen(); }, { timeout: 60000 }).toBe(true);
+  expect(await page.evaluate(() => __save.data.gifts08)).toBeUndefined();
+  await wait(page, 4000);
+  await boot(page, await page.evaluate(() => __save.data));
+  await wait(page, 4000);
+  expect(await seen()).toBe(false);
+  noErrors(page);
+});
+
+// QA B42: the Royal Crown won with the Superstar sticker is named on the result panel
+test('winning the 24th star announces the Royal Crown', async ({ page }) => {
+  await boot(page, save({ mig08: 1, stars: { timmy: 3, moo: 3, sly: 3, hoot: 3, robot: 3, polandball: 3, ghost: 3, dragonboss: 2 } }));
+  const notes = await winVs(page, { rival: await idx(page, 'dragonboss') });
+  expect(notes.join(' ')).toContain('Royal Crown');
+  noErrors(page);
+});

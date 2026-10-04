@@ -16,7 +16,7 @@
     { id: 'dragon', name: 'Dragon vs Dragon', desc: 'Beat the Giant Dragon Boss', icon: 'dragonboss', title: 'Dragon Champion', ok: d => (d.stars.dragonboss || 0) > 0 },
     { id: 'fang', name: 'King of Halloween', desc: 'Beat Count Fang', icon: 'vampire', title: 'Pumpkin King', ok: d => (d.stars.fang || 0) > 0 },
     { id: 'hardboss', name: 'Hard as Pillows', desc: 'Beat a boss on HARD', icon: 'j:hundred', title: 'Hard Mode Hero', ok: d => (d.stats.hardBossWins || 0) >= 1 },
-    { id: 'allstars', name: 'Superstar', desc: 'Get all 24 stars in Pillow Hills + Space. Wins the Royal Crown!', icon: 'j:glowstar', title: 'Superstar',
+    { id: 'allstars', name: 'Superstar', desc: 'All 24 stars in Hills + Space', icon: 'j:glowstar', title: 'Superstar',
       ok: d => ['timmy', 'moo', 'sly', 'hoot', 'robot', 'polandball', 'ghost', 'dragonboss'].every(k => (d.stars[k] || 0) >= 3) },
     { id: 'block5', name: 'Firefighter', desc: 'Block Inferno Rain 5 times', icon: 'extinguisher', title: 'Firefighter', ok: d => (d.stats.blocks || 0) >= 5 },
     { id: 'caps10', name: 'Capsule Hunter', desc: 'Open 10 capsules', icon: 'gift', title: 'Capsule Hunter', ok: d => (d.stats.capsOpened || 0) >= 10 },
@@ -127,7 +127,7 @@
     list.forEach((a, i) => {
       queued.set(a, tk);
       scene.time.delayedCall(400 + i * 3300, () => {
-        toast(scene, PS, a.icon, 'NEW STICKER: ' + a.name, a.desc + '  ·  +1 capsule');
+        toast(scene, PS, a.icon, a.head || 'NEW STICKER: ' + a.name, a.sub || (a.desc + '  ·  +1 capsule'));
         scene.time.delayedCall(450, () => { pending = pending.filter(x => x !== a); queued.delete(a); }); // seen
       });
     });
@@ -437,6 +437,12 @@
       if ((newDuel || ['title', 'map', 'squad', 'catch', 'gacha', 'me', 'album', 'quests', 'friends', 'boss'].includes(d.key)) && blockedReason()) { scene.time.delayedCall(50, () => PS.fade(scene, 'bedtime')); return; }
       // not on the boot scene of a rebuilt game (it stops at once and the toasts were lost, QA B37);
       // a result panel restored after a rotation shows them like a menu does
+      // v0.8: hats given to old saves by the migration in game.js, announced once like stickers (QA B43)
+      const g = S().gifts08;
+      if (g && d.key !== 'boot' && d.key !== 'battle') {
+        g.forEach(id => { const c = PS.COSTUMES.find(x => x.id === id); if (c) pending.push({ icon: c.tex, head: 'A GIFT: ' + c.name + '!', sub: 'Thank you for playing! Put it on in Me' }); });
+        delete S().gifts08; store();
+      }
       if (d.key !== 'boot' && (d.key !== 'battle' || scene.shown)) flushToasts(scene, PS);
       if (d.key === 'title') scene.time.delayedCall(900, () => whatsNew(scene, PS));
     } else if (name === 'duel') scene.time.delayedCall(2500, () => flushToasts(scene, PS));

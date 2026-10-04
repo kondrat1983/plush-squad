@@ -97,12 +97,16 @@
     if (d.ach && d.ach.allstars) d.costumes.crown = true; // the crown is the Superstar sticker's reward
     // once, for saves from before v0.8 (fresh saves get the flag on their first load):
     if (!d.mig08) {
+      const had = Object.assign({}, d.costumes);
       // the Royal Crown was shown to Dragon Boss winners without being stored (G35). Only for old saves:
       // the v0.8 UFO boss keeps the id 'dragonboss' and gives the UFO Hat instead
       if ((d.stars.dragonboss || 0) > 0) d.costumes.crown = true;
       // boss hats for players who already beat these bosses (owner's decision, v0.8)
       if ((d.stars.hoot || 0) > 0) d.costumes.owlhat = true;
       if ((d.stars.fang || 0) > 0) d.costumes.bat = true;
+      // new hats are announced once as a gift on the first menu screen (js/extra.js, QA B43)
+      const gifts = ['owlhat', 'bat', 'crown'].filter(k => d.costumes[k] && !had[k]);
+      if (gifts.length) d.gifts08 = gifts;
       d.mig08 = 1;
     }
   })(Save.data);
@@ -2120,6 +2124,7 @@
       const newCostume = won && R.reward && !Save.data.costumes[R.reward] ? COSTUMES.find(c => c.id === R.reward) : null;
       if (newCostume) Save.data.costumes[R.reward] = true;
       Save.store();
+      const hadCrown = !!Save.data.costumes.crown;
       emit('duel', { won, mode: this.mode, rival: R, rivalIdx: this.rivalIdx, stars, firstClear, diff: Save.data.diff, boss: !!R.boss,
         dmg: Math.max(0, this.rival.max - Math.max(0, this.rival.hp)), data: this.data0, hero: this.H }, this);
       const after = levelOf(Save.data.xp);
@@ -2134,6 +2139,7 @@
       if (newMoves.length && this.hero.isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
       if (caps) notes.push('+' + caps + ' capsule' + (caps > 1 ? 's' : '') + '! Open on the map');
       if (newCostume) notes.push('New costume: ' + newCostume.name + '! Put it on in Me');
+      if (!hadCrown && Save.data.costumes.crown) notes.push('Superstar! New costume: Royal Crown!'); // the Superstar sticker's reward (QA B42)
       if (this.mode === 'boss') notes.push('You hit the Kraken for ' + Math.max(0, this.rival.max - Math.max(0, this.rival.hp)) + '! Everyone\'s hits add up');
       if (this.xpMul > 1) notes.push((this.boost && this.boost.id === 'superstar' ? 'Super Star ' : '') + (Save.data.diff === 'hard' ? 'Hard mode ' : '') + 'bonus XP!');
       const primary = isCampaign && won && nextIdx < RIVALS.length && isUnlocked(nextIdx) ? 'next' : this.mode === 'boss' ? 'boss' : 'rematch';
