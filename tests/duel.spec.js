@@ -56,3 +56,35 @@ for (const [tag, vp] of [['iPad portrait', { width: 768, height: 1024 }], ['iPad
     noErrors(page);
   });
 }
+
+// owner's device notes (4 Oct 2026): greyed cards showed strips (see-through layers), icons almost spilled out of the card
+test('move cards: greyed cards stay opaque, icons inside the card', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page);
+  await go(page, 'battle', { rival: 0 });
+  await page.evaluate(() => { const b = __game.scene.getScene('battle'); if (b._pick) b._pick(null); });
+  await waitTurn(page);
+  const r = await page.evaluate(() => {
+    const b = __game.scene.getScene('battle');
+    b.hero.used[b.moves.find(m => m.uses).k] = 99; b.setCards(false);
+    return b.moves.map(m => { const c = m.card, ic = c.list[1]; return { alpha: c.alpha, top: ic.y - ic.displayHeight / 2, cardTop: -c.height / 2 }; });
+  });
+  for (const c of r) {
+    expect(c.alpha).toBe(1);
+    expect(c.top).toBeGreaterThanOrEqual(c.cardTop);
+  }
+  noErrors(page);
+});
+
+// B39: the Warm Milk icon is taller than wide and stuck out of its slot in the portrait grid
+test('B39: tall move icons stay inside their slot', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page, Object.assign({}, BASE_SAVE, { boosts: { milk: 1 } }));
+  await go(page, 'battle', { rival: 0 });
+  await page.evaluate(() => __game.scene.getScene('battle')._pick(__BOOSTS.find(x => x.id === 'milk')));
+  await waitTurn(page);
+  const r = await page.evaluate(() => { const c = __game.scene.getScene('battle').moves.find(m => m.icon === 'milk').card, ic = c.list[1]; return { top: ic.y - ic.displayHeight / 2, cardTop: -c.height / 2, h: ic.displayHeight, title: c.list[2].y - c.list[2].displayHeight / 2, bottom: ic.y + ic.displayHeight / 2 }; });
+  expect(r.top).toBeGreaterThanOrEqual(r.cardTop + 4);
+  expect(r.bottom).toBeLessThanOrEqual(r.title);
+  noErrors(page);
+});

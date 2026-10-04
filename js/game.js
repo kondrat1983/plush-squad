@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.7.7';
+  const VERSION = '0.7.8';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -1253,7 +1253,7 @@
       this.backKey = this.mode === 'toy' ? 'squad' : this.mode === 'friend' ? 'friends' : 'map';
     }
     create() {
-      this._leaving = false; this.hero = null; this.over = false; this.busy = false;
+      this._leaving = false; this.hero = null; this.over = false; this.busy = false; this.shown = null; this.celebrating = false;
       // a friend's toy picture may be missing (e.g. after rotating the screen): load it first
       const ft = this.data0.ftoy;
       if (ft && !this.textures.exists('ftoy_' + ft.id)) {
@@ -1435,6 +1435,13 @@
         put(P, res.h); put(T, res.r);
         if (res.charging >= 0 && this.rmoves[res.charging]) { T.charging = this.rmoves[res.charging]; this.chargeFx(T); }
         if (res.log) this.logT.setText(res.log);
+        // the duel was already over: show the result panel again in the new layout (QA B31)
+        if (res.result) {
+          this.setStatus(P); this.setStatus(T);
+          this.over = true; this.busy = true; this.acted = true; this.shown = res.result; this.setCards(false);
+          this.resultPanel(res.result, false);
+          return;
+        }
       }
       this.setStatus(P); this.setStatus(T);
       if (boost && !res) {
@@ -1512,21 +1519,27 @@
       const c = this.add.container(x, y).setDepth(30);
       const g = this.add.graphics();
       const R = Math.min(34, h / 4);
+      // look: 'on', 'off' (wait for your turn) or 'used'. The card stays opaque and gets its own flat colour:
+      // a see-through card showed its shadow and highlight as strips at the top (owner's device notes, 4 Oct 2026)
+      let look = 'on';
       const draw = (pressed) => {
         g.clear();
-        g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-w / 2, -h / 2 + (pressed ? 4 : 10), w, h, R);
-        g.fillStyle(C.cream); g.fillRoundedRect(-w / 2, -h / 2 + (pressed ? 6 : 0), w, h, R);
-        g.fillStyle(0xffffff, 0.6); g.fillRoundedRect(-w / 2 + 14, -h / 2 + 9 + (pressed ? 6 : 0), w - 28, Math.min(26, h * 0.16), 12);
+        const on = look === 'on';
+        g.fillStyle(0x000000, on ? 0.3 : 0.18); g.fillRoundedRect(-w / 2, -h / 2 + (pressed ? 4 : 10), w, h, R);
+        g.fillStyle(on ? C.cream : look === 'off' ? 0xd8d1e4 : 0xa49ec0); g.fillRoundedRect(-w / 2, -h / 2 + (pressed ? 6 : 0), w, h, R);
+        if (on) { g.fillStyle(0xffffff, 0.45); g.fillRoundedRect(-w / 2 + 14, -h / 2 + 9 + (pressed ? 6 : 0), w - 28, Math.min(22, h * 0.13), 11); }
       };
       draw(false);
       const compact = h < 150;
       const V = !compact && w < 400;
       let L;
-      if (V) L = { ix: 0, iy: -48, tx: 0, t1y: 26, t2y: 66, ox: 0.5, f1: 32, f2: 25, isz: 84, tw: w - 30 };
+      // icon fully inside the card, with room for the wobble (owner's device notes: icons almost spilled out)
+      if (V) { const isz = Math.min(80, h * 0.44); L = { ix: 0, iy: Math.min(-h / 2 + isz / 2 + 14, -28), tx: 0, t1y: 26, t2y: 66, ox: 0.5, f1: 32, f2: 25, isz, tw: w - 30 }; }
       else if (compact) L = { ix: -w / 2 + 58, iy: 0, tx: -w / 2 + 110, t1y: -18, t2y: 22, ox: 0, f1: 30, f2: 22, isz: 72, tw: w - 125 };
       else L = { ix: -w / 2 + (PORTRAIT ? 72 : 85), iy: 0, tx: -w / 2 + (PORTRAIT ? 140 : 165), t1y: -24, t2y: 26, ox: 0, f1: PORTRAIT ? 35 : 36, f2: PORTRAIT ? 28 : 27, isz: PORTRAIT ? 96 : 100, tw: w - (PORTRAIT ? 155 : 180) };
       const ik = a.icon || 'pillow';
       const ic = img(this, L.ix, L.iy, ik); ic.setScale(iconScale(ik, L.isz));
+      if (ic.displayHeight > L.isz) ic.setScale(ic.scaleX * L.isz / ic.displayHeight); // tall icons (Warm Milk) stay in their slot (QA B39)
       const t1 = fit(txt(this, L.tx, L.t1y, a.title, L.f1, C.ink, { ox: L.ox, st: 0, shadow: false }), L.tw);
       const t2 = txt(this, L.tx, L.t2y, a.sub || '', L.f2, '#4a4f8c', { ox: L.ox, st: 0, shadow: false, weight: '500' });
       const used = txt(this, 0, 0, 'USED', compact ? 46 : 60, '#ff6b5b', { stroke: '#fff3d2', st: 8 }).setAngle(-12).setVisible(false);
@@ -1542,7 +1555,8 @@
         const isUsed = left <= 0;
         t2.setText(a.uses ? (a.sub || '') + ' · ' + (isUsed ? 'used' : (a.uses === 1 ? 'once' : left + ' left')) : (a.sub || ''));
         fit(t2.setScale(1), L.tw);
-        c.enabled = on && !isUsed; c.setAlpha(c.enabled ? 1 : (isUsed ? 0.45 : 0.7)); used.setVisible(isUsed);
+        c.enabled = on && !isUsed; look = c.enabled ? 'on' : isUsed ? 'used' : 'off'; draw(false);
+        [ic, t1, t2].forEach(o => o.setAlpha(look === 'on' ? 1 : look === 'off' ? 0.7 : 0.45)); used.setVisible(isUsed);
       };
       return c;
     }
@@ -2094,10 +2108,34 @@
       const nextIdx = this.rivalIdx + 1;
       const unlockedNext = firstClear && nextIdx < RIVALS.length && !nextWasOpen; // (QA B20)
 
+      const notes = [];
+      if (firstClear) notes.push('First win bonus +20 XP');
+      if (unlockedNext && worldOf(nextIdx) !== this.world) notes.push('NEW WORLD: ' + WORLDS[worldOf(nextIdx)].name + '! Rival: ' + RIVALS[nextIdx].name);
+      else if (unlockedNext) notes.push('New rival unlocked: ' + RIVALS[nextIdx].name + '!');
+      if (newMoves.length && this.hero.isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
+      if (caps) notes.push('+' + caps + ' capsule' + (caps > 1 ? 's' : '') + '! Open on the map');
+      if (newCostume) notes.push('New costume: ' + newCostume.name + '! Put it on in Me');
+      if (this.mode === 'boss') notes.push('You hit the Kraken for ' + Math.max(0, this.rival.max - Math.max(0, this.rival.hp)) + '! Everyone\'s hits add up');
+      if (this.xpMul > 1) notes.push((this.boost && this.boost.id === 'superstar' ? 'Super Star ' : '') + (Save.data.diff === 'hard' ? 'Hard mode ' : '') + 'bonus XP!');
+      const primary = isCampaign && won && nextIdx < RIVALS.length && isUnlocked(nextIdx) ? 'next' : this.mode === 'boss' ? 'boss' : 'rematch';
+      // kept so a rotation on the result panel can rebuild the panel without giving the rewards again (QA B31)
+      this.shown = { won, stars, gain, before, after, notes, primary, nextIdx };
+      this.resultPanel(this.shown, true);
+      // a rotation waits until the stars, the XP count and LEVEL UP! have played (QA B36, owner's choice)
+      this.celebrating = true;
+      this.time.delayedCall(3300 + stars * 280, () => {
+        this.celebrating = false;
+        if (window.__psRotatePending && window.__psTryRebuild) window.__psTryRebuild();
+      });
+    }
+    // the result panel; fresh = false when it is rebuilt after a rotation (no sounds, no counting up)
+    resultPanel(info, fresh) {
+      const { won, stars, gain, before, after, notes } = info, R = this.R, isCampaign = this.mode === 'campaign';
+      if (!fresh) A.music('calm');
       const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(60).setInteractive();
-      this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 });
+      if (fresh) this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 }); else dim.fillAlpha = 0.6;
       const pw = PORTRAIT ? 920 : 1000, ph = PORTRAIT ? 1230 : 1020, T0 = -ph / 2;
-      const p = this.add.container(W / 2, H / 2).setDepth(61).setScale(0);
+      const p = this.add.container(W / 2, H / 2).setDepth(61).setScale(fresh ? 0 : 1);
       p.add(panel(this, 0, 0, pw, ph, C.night2, 0));
       const icon = this.add.image(0, T0 + 120, won ? 'trophy' : 'zzz').setScale(0.7);
       this.tweens.add({ targets: icon, y: icon.y - 12, angle: { from: -5, to: 5 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -2113,27 +2151,22 @@
       const bar = this.add.rectangle(-bw / 2, T0 + 660, Math.max(4, bw * before.r / before.n), 26, C.star).setOrigin(0, 0.5);
       const note = txt(this, 0, T0 + 700, '', 34, '#ffd23f', { st: 6, wrap: pw - 100, oy: 0 });
       p.add([xpT, lvT, barBg, bar, note]);
-      const notes = [];
-      if (firstClear) notes.push('First win bonus +20 XP');
-      if (unlockedNext && worldOf(nextIdx) !== this.world) notes.push('NEW WORLD: ' + WORLDS[worldOf(nextIdx)].name + '! Rival: ' + RIVALS[nextIdx].name);
-      else if (unlockedNext) notes.push('New rival unlocked: ' + RIVALS[nextIdx].name + '!');
-      if (newMoves.length && this.hero.isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
-      if (caps) notes.push('+' + caps + ' capsule' + (caps > 1 ? 's' : '') + '! Open on the map');
-      if (newCostume) notes.push('New costume: ' + newCostume.name + '! Put it on in Me');
-      if (this.mode === 'boss') notes.push('You hit the Kraken for ' + Math.max(0, this.rival.max - Math.max(0, this.rival.hp)) + '! Everyone\'s hits add up');
-      if (this.xpMul > 1) notes.push((this.boost && this.boost.id === 'superstar' ? 'Super Star ' : '') + (Save.data.diff === 'hard' ? 'Hard mode ' : '') + 'bonus XP!');
       const by = T0 + (PORTRAIT ? 940 : 925);
       // all notes stay above the buttons (QA B09)
       let nfs = notes.length > 2 ? 27 : notes.length > 1 ? 30 : 34;
       note.setText(notes.join('\n')).setFontSize(nfs);
       while (note.height > by - 70 - (T0 + 700) && nfs > 18) { nfs -= 2; note.setFontSize(nfs); }
-      const primary = isCampaign && won && nextIdx < RIVALS.length && isUnlocked(nextIdx)
-        ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: nextIdx })]
+      const primary = info.primary === 'next' ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: info.nextIdx })]
         // Kraken fights only through the Weekly Boss screen: it counts the daily tries (QA B33)
-        : this.mode === 'boss' ? ['BOSS', () => fade(this, 'boss')]
+        : info.primary === 'boss' ? ['BOSS', () => fade(this, 'boss')]
         : ['REMATCH', () => fade(this, 'battle', this.data0)];
       p.add(button(this, PORTRAIT ? 0 : -215, by, 390, 120, primary[0], C.star, primary[1], { size: 46 }));
       p.add(button(this, PORTRAIT ? 0 : 215, PORTRAIT ? by + 150 : by, 390, 120, { squad: 'SQUAD', friends: 'FRIENDS', map: 'MAP' }[this.backKey], C.cream, () => fade(this, this.backKey, { world: this.world }), { size: 46 }));
+      if (!fresh) {
+        sr.slice(0, stars).forEach(s => s.clearTint());
+        xpT.setText('+' + gain + ' XP'); lvT.setText('LEVEL ' + after.l); bar.width = Math.max(4, bw * after.r / after.n);
+        return;
+      }
       this.tweens.add({ targets: p, scale: 1, duration: 420, ease: 'Back.out' });
       for (let i = 0; i < stars && sr.length; i++) {
         this.time.delayedCall(600 + i * 280, () => {
@@ -2515,6 +2548,7 @@
     const key = sc.scene.key, data = Object.assign({}, sc.sys.settings.data || {});
     delete data.resume;
     if (key === 'battle') {
+      if (sc.over && sc.shown && sc.hero) return { key, data, battle: Object.assign(sc.snapshot(), { result: sc.shown }) }; // (QA B31)
       if (sc.over) return { key: sc.backKey || 'map', data: { world: sc.world } };
       if (sc.hero) return { key, data, battle: sc.snapshot() };
     }
@@ -2530,9 +2564,10 @@
     scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, GachaScene].concat(EXTRA_SCENES),
   });
   // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
+  // ...and a rotation held back (duel turn, result celebration) is applied on the next screen if it is still waiting
   game.events.once('ready', () => game.scene.scenes.forEach(sc => {
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
-    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' ? 'calm' : sc.R && sc.R.boss ? 'boss' : 'battle'); emit('scene', { key: sc.scene.key }, sc); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
+    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.R && sc.R.boss ? 'boss' : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
   window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
@@ -2540,7 +2575,7 @@
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)
   // ...and not while a duel turn is playing out: the snapshot would restore it as YOUR TURN (QA B02)
   window.__psBlockRotate = () => game.scene.isActive('studio') || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) ||
-    (game.scene.isActive('battle') && (b => !!(b.hero && b.busy && !b.over))(game.scene.getScene('battle')));
+    (game.scene.isActive('battle') && (b => !!(b.hero && ((b.busy && !b.shown) || b.celebrating)))(game.scene.getScene('battle'))) || window.__psToasts > 0; // ...and not before the rewards are given (QA B31)
   } // end main
 
   let rotT = 0, built = false;
@@ -2548,7 +2583,7 @@
     const snap = target || (window.__psSnapshot && window.__psSnapshot());
     const old = window.__game;
     if (old) { try { old.destroy(true); } catch (e) {} }
-    window.__game = null;
+    window.__game = null; window.__psToasts = 0;
     main(snap);
   }
   window.__psRebuild = rebuild;
