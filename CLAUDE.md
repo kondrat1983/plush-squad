@@ -18,6 +18,12 @@ This repo is **public**. Never commit secrets, personal names of the family, e-m
 - **`/code-review`** and the **`qa-tester`** agent: see the release checklist below.
 - **Kondrat's OK**, then merge.
 
+## Tracker (since 4 Oct 2026)
+- GitHub issues in this repo are the only tracker (Kondrat reads them in the GitHub app; the board is the GitHub Project "Plush Squad", Todo / In progress / Done). Nothing goes to Reminders or Notes.
+- One issue per bug and per task. Labels: `bug` + severity `S1`-`S4`, `design`, `gdd`, `hotfix`, `v0.8`. Bug titles start with the QA ID (`B38: ...`).
+- Work on an issue: open the PR early (it moves the card to In progress); every PR description lists the issues it closes as `Fixes #N`, one per line.
+- New bug found by `qa-tester` or `/code-review` and not fixed in the same PR: open an issue at once.
+
 ## Release checklist
 1. Bump `VERSION` in `js/game.js` and `CACHE` in `sw.js` (same number).
 2. `WHATS_NEW` in `js/extra.js` is keyed by major.minor (`'0.7'`); 0.7.x patches show the 0.7 notes. **Hotfixes never go into What's new** (owner's rule). New features go into the next major.minor list.
@@ -65,6 +71,8 @@ This repo is **public**. Never commit secrets, personal names of the family, e-m
   - Home Screen icon (`assets/apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `manifest.json`): Jack is small and full-body; make a close-up of Jack's face that fills most of the icon (from `assets/jack_front.png` [?]), keep the night-sky background, check the iOS rounded mask and do B29 (maskable icon) in the same step. Note: iOS caches the icon; the kid may need to re-add the app to the Home Screen to see it.
 
 ## Handshake
+Since 4 Oct 2026 Cowork no longer works on Plush Squad, and there are no handshakes unless Kondrat asks for one. Work on your own; if you need something from Kondrat or Cowork, ask Kondrat. All game decisions (including the v0.8 world) are Kondrat's; the chief tester's survey stands: "too easy", new worlds (Canada, Ocean), mini-games, real-life quests.
+
 Kondrat also works with a **Cowork Claude** (his personal assistant, keeps Apple Notes and family context; the GDD lives in `docs/gdd/` and QA runs in the repo through the `game-designer` and `qa-tester` agents). When Kondrat asks for a **handshake**, reply with one block he can paste over:
 
 ```
