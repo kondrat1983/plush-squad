@@ -1956,6 +1956,7 @@
           await tw(this, { targets: att.root, y: this.groundY - 220, duration: 320, ease: 'Quad.out' });
           await tw(this, { targets: att.root, y: this.groundY, duration: 180, ease: 'Quad.in' });
           A.stomp(); buzz(90);
+          if (m.word) this.popWord(att.root.x, this.groundY - att.height() - 60, m.word, m.color ? '#' + m.color.toString(16).padStart(6, '0') : '#d8ecff', 84, -6);
           this.cameras.main.shake(450, 0.016);
           this.dust.explode(26, att.root.x - 120, this.groundY); this.dust.explode(26, att.root.x + 120, this.groundY);
           this.tweens.add({ targets: att.squash, scaleX: 1.2, scaleY: 0.8, duration: 90, yoyo: true });
