@@ -286,7 +286,17 @@
         txt(this, W / 2, PORTRAIT ? 270 : 150, got + ' / ' + ACH.length + ' stickers  ·  each one = +1 capsule', 32, '#ffd23f', { st: 6 });
         const cols = PORTRAIT ? 3 : 7, cw = PORTRAIT ? 310 : Math.min(200, (W - 120) / 7 - 14), ch = PORTRAIT ? 230 : 250;
         const top = PORTRAIT ? 330 : 200;
-        const shown = ACH.filter(a => a.id !== 'fang' || PS.EVENT_ON || d.ach[a.id]);
+        const all = ACH.filter(a => a.id !== 'fang' || PS.EVENT_ON || d.ach[a.id]);
+        // pages when the stickers do not fit (QA B06; v0.8 has 22+): as many rows as fit above the page buttons
+        const rows = Math.max(1, Math.floor((H - top - 150) / (ch + 14))), per = rows * cols, pages = Math.ceil(all.length / per);
+        const pg = Math.min(pages - 1, Math.max(0, (this.sys.settings.data && this.sys.settings.data.page) || 0));
+        const shown = all.slice(pg * per, pg * per + per);
+        if (pages > 1) {
+          const by = top + rows * (ch + 14) + 60;
+          if (pg > 0) PS.button(this, W / 2 - 260, by, 200, 100, '◀', C.cream, () => this.scene.restart({ page: pg - 1 }), { size: 48 });
+          txt(this, W / 2, by, (pg + 1) + ' / ' + pages, 40, '#fff3d2', { st: 6 });
+          if (pg < pages - 1) PS.button(this, W / 2 + 260, by, 200, 100, '▶', C.star, () => this.scene.restart({ page: pg + 1 }), { size: 48 });
+        }
         shown.forEach((a, i) => {
           const x = W / 2 + ((i % cols) - (cols - 1) / 2) * (cw + 14), y = top + ch / 2 + Math.floor(i / cols) * (ch + 14);
           const has = !!(d.ach || {})[a.id];
