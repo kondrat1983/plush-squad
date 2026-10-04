@@ -12,7 +12,7 @@ const winVs = async (page, data) => {
 const idx = (page, id) => page.evaluate(id => __RIVALS.findIndex(r => r.id === id), id);
 
 test('migration: an old save keeps the crown and gets the owl hat, nothing is removed', async ({ page }) => {
-  const old = save({ stars: { timmy: 3, moo: 3, sly: 3, hoot: 3, robot: 3, polandball: 3, ghost: 3, dragonboss: 3 }, ach: { polandball: 1, dragon: 1 }, costumes: { pumpkin: true }, costume: 'crown' });
+  const old = save({ mig08: 0, stars: { timmy: 3, moo: 3, sly: 3, hoot: 3, robot: 3, polandball: 3, ghost: 3, dragonboss: 3 }, ach: { polandball: 1, dragon: 1 }, costumes: { pumpkin: true }, costume: 'crown' });
   await boot(page, old);
   const d = await page.evaluate(() => __save.data);
   expect(d.costumes).toMatchObject({ crown: true, owlhat: true, pumpkin: true });
@@ -84,7 +84,7 @@ for (const [tag, vp] of Object.entries(SIZES)) {
 
 // QA B43: hats given by the migration are announced once as a gift
 test('migration gifts are announced once on the first menu screen', async ({ page }) => {
-  await boot(page, save({ stars: { timmy: 3, moo: 3, sly: 3, hoot: 3 } }));
+  await boot(page, save({ mig08: 0, stars: { timmy: 3, moo: 3, sly: 3, hoot: 3 } })); // a save from before v0.8
   const seen = () => page.evaluate(() => { const out = [], walk = l => l.forEach(o => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
     __game.scene.getScenes(true).forEach(s => walk(s.children.list)); return out.some(t => t.startsWith('A GIFT: Owl Hat')); });
   await expect.poll(async () => { await wait(page, 500); return seen(); }, { timeout: 60000 }).toBe(true);

@@ -4,8 +4,8 @@ const { expect } = require('@playwright/test');
 
 const URL = '/index.html?debug';
 
-// a mid-game save: level ~5, Pillow Hills cleared, sound muted (music state is still tracked)
-const BASE_SAVE = { xp: 1500, wins: 12, muted: true, stars: { timmy: 3, moo: 2, sly: 2, hoot: 1 }, toys: [], hero: 'jack', diff: 'normal', caps: 0, daily: 'x', seenVersion: '0.7', costumes: {} };
+// a mid-game save: level ~5, Pillow Hills cleared, sound muted (music state is still tracked); mig08: already on v0.8 (no migration gift toasts)
+const BASE_SAVE = { mig08: 1, xp: 1500, wins: 12, muted: true, stars: { timmy: 3, moo: 2, sly: 2, hoot: 1 }, toys: [], hero: 'jack', diff: 'normal', caps: 0, daily: 'x', seenVersion: '0.7', costumes: {} };
 
 // Opens the game with a given save. Collects page errors in page._errors. Blocks the online backend (tests are offline).
 async function boot(page, save = BASE_SAVE, query = '') {
