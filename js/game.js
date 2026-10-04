@@ -460,7 +460,7 @@
         { type: 'dance', words: ['BEEP!', 'BOOP!'], uses: 1, w: 12, log: '{a} does the robot dance! {d} gets dizzy watching!' },
         { type: 'heal', tex: 'sparkles', amt: 22, uses: 1, w: 15, log: '{a} plugs in to recharge. Battery full!' }] },
     // v0.8: The Blips replace Polandball (the id stays 'polandball' so old saves keep their stars and stickers)
-    { id: 'polandball', world: SPACE, name: 'The Blips', nick: 'Blips', short: 'THE BLIPS', tex: 'aliens', color: 0x8cff7a, hp: 145, xp: 120, scale: 1.1,
+    { id: 'polandball', world: SPACE, name: 'The Blips', nick: 'Blips', short: 'THE BLIPS', tex: 'aliens', color: 0x8cff7a, hp: 145, xp: 120, scale: 1.1, plural: true,
       intro: 'The Blips wobble on each other\'s shoulders: "We come in peace! And with PILLOWS!"', laugh: 'The Blips giggled so hard they fell off each other. "Take us to your bedtime!"',
       moves: [{ type: 'throw', tex: 'planet', dmg: [13, 20], w: 35, log: 'MINI PLANET! {a} bowl a tiny planet at {d}!' },
         { type: 'hop', word: 'WOBBLE WOBBLE!', dmg: [12, 21], w: 30, log: '{a} hop over, wobble wobble!' },
@@ -478,7 +478,7 @@
     // v0.8: The Mothership replaces the Giant Dragon Boss (id kept for old saves; the Dragon is on holiday on her ship)
     { id: 'dragonboss', world: SPACE, name: 'The Mothership', nick: 'Mothership', short: 'MOTHERSHIP', tex: 'mothership', big: 1.15, color: 0xc6a8ff, hp: 200, xp: 180, boss: true, reward: 'ufohat',
       intro: 'The Mothership hums down from the stars: "Attention, little dragon! Your friend the Giant Dragon is on holiday on my ship. He taught me INFERNO RAIN!"',
-      laugh: 'The Mothership giggled so hard her lights went disco. The Giant Dragon waves from the window: "Great job, little dragon!"',
+      laugh: 'The Mothership giggled into disco lights. The Dragon waves: "Great job!"',
       // "Fire or Beam?": two charged moves, the extinguisher stops the fire, the umbrella stops the beam
       moves: [{ type: 'rain', charge: true, dmg: [24, 30], uses: 1, w: 20, log: '{a} opens the hatch... INFERNO RAIN!' },
         { type: 'beam', charge: true, dmg: [24, 30], uses: 2, usesHard: 3, w: 30, log: '{a} switches on the TRACTOR BEAM!' },
@@ -1950,16 +1950,17 @@
     async rivalTurn0() {
       const T = this.rival;
       await wait(this, 450);
-      this.banner(T.name.toUpperCase() + '\'S TURN', this.R.color === 0xf2f2f7 ? C.cream : this.R.color);
+      this.banner(T.name.toUpperCase() + (/s$/i.test(T.name) ? '\' TURN' : '\'S TURN'), this.R.color === 0xf2f2f7 ? C.cream : this.R.color);
       await wait(this, 1100);
       if (T.dizzy) {
         T.dizzy = false; this.setStatus(T);
+        const is = this.R.plural ? ' are' : ' is'; // the Blips are three (QA B46)
         if (T.charging) {
           const beam = T.charging.type === 'beam';
           this.endCharge(T); T.afterCharge = true; A.steam();
-          this.log(T.name + (beam ? ' is too dizzy... the beam goes disco and fizzles!' : ' is too dizzy... the fire fizzles out!'));
+          this.log(T.name + is + (beam ? ' too dizzy... the beam goes disco and fizzles!' : ' too dizzy... the fire fizzles out!'));
         }
-        else this.log(T.name + ' is too dizzy to move!');
+        else this.log(T.name + is + ' too dizzy to move!');
         A.dizzy();
         await tw(this, { targets: T.root, angle: { from: -12, to: 12 }, duration: 180, yoyo: true, repeat: 2, onComplete: () => T.root.setAngle(0) });
         await wait(this, 500); return;
@@ -2129,7 +2130,7 @@
         this.steamP.explode(40, c.x, topY);
         if (block === 'ext') {
           def.blocker = false;
-          this.log(def.name + ' blocked the Inferno Rain! ' + att.name + ' is all steamed up!');
+          this.log(def.name + ' blocked the Inferno Rain! ' + att.name + (this.R.plural && att === this.rival ? ' are' : ' is') + ' all steamed up!');
           if (def === this.hero) emit('block', { tool: 'ext' }, this);
           await wait(this, 500);
           await this.makeDizzy(def, att, 0x9fdcff, 'STEAMED!');
@@ -2166,7 +2167,7 @@
         await done(); def.blocker = false;
         if (def === P) emit('block', { tool: 'umbrella' }, this);
         if (m.mini) { this.log(def.name + ' blocked the tiny beam with the umbrella! Nice!'); await wait(this, 900); return; }
-        this.log(def.name + ' bounced the Tractor Beam back! ' + att.name + ' is all jammed up!');
+        this.log(def.name + ' bounced the Tractor Beam back! ' + att.name + (this.R.plural ? ' are' : ' is') + ' all jammed up!');
         await wait(this, 400);
         await this.makeDizzy(def, att, 0xd8ff6a, 'BEAM JAM!');
         return;

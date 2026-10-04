@@ -58,3 +58,27 @@ test('old saves keep their Space stars and stickers; Saucer Champ is not given f
   expect(t).not.toMatch(/Polandball|Giant Dragon Boss/);
   noErrors(page);
 });
+
+// QA B06 + code review of v0.8 part 2: 22+ stickers do not fit one screen, so the album pages
+const SIZES = { 'iPhone SE': { width: 375, height: 667 }, 'iPhone 14': { width: 390, height: 844 }, 'iPad portrait': { width: 768, height: 1024 }, 'iPad landscape': { width: 1024, height: 768 }, 'phone landscape': { width: 844, height: 390 } };
+for (const [tag, vp] of Object.entries(SIZES)) {
+  test(`Sticker Album pages fit the screen and show every sticker (${tag})`, async ({ page }) => {
+    await page.setViewportSize(vp);
+    await boot(page, save({}), '&halloween');
+    await page.evaluate(() => { PSExtra.ACH.forEach(a => __save.data.ach[a.id] = 1); });
+    await go(page, 'album');
+    const seen = new Set();
+    for (let p = 0; p < 6; p++) {
+      const r = await page.evaluate(() => { const s = __game.scene.getScene('album'), H = __game.config.height, cam = s.cameras.main, out = { names: [], low: 0 };
+        s.children.list.forEach(o => { if (o.type !== 'Container') return; const t = o.list.filter(x => x.type === 'Text').map(x => x.text); if (t.length === 2) { out.names.push(t[0]); if (o.y - cam.scrollY + o.height / 2 > H + 2 || o.y - cam.scrollY - 120 > H) out.low++; } });
+        return out; });
+      r.names.forEach(n => seen.add(n));
+      expect(r.low, 'sticker cards below the screen').toBe(0);
+      const next = await page.evaluate(() => { const s = __game.scene.getScene('album'); const b = s.children.list.find(o => o.type === 'Container' && o.input && o.list.some(x => x.text === '▶')); if (!b) return false; b.emit('pointerup'); return true; });
+      if (!next) break;
+      await wait(page, 1500);
+    }
+    expect(seen.size).toBe(await page.evaluate(() => PSExtra.ACH.length));
+    noErrors(page);
+  });
+}
