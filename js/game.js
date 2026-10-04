@@ -2394,7 +2394,7 @@
       if (auto) return new Promise(r => this.time.delayedCall(300, () => { cleanup(); r(auto === 'perfect' || auto === 'good' ? auto : 'miss'); }));
       return new Promise(resolve => {
         const pause = rnd(T.pause[0], T.pause[1]);
-        let t0 = performance.now() + pause, last = performance.now(), restarts = 0, early = 0, done = false, launched = false, frozen = null, tapWait = null;
+        let t0 = performance.now() + pause, last = performance.now(), restarts = 0, stalls = 0, early = 0, done = false, launched = false, frozen = null, tapWait = null;
         const finish = r => {
           if (done) return; done = true;
           this.events.off('update', tick); this.input.off('pointerdown', onTap);
@@ -2407,7 +2407,9 @@
           if (done) return;
           const now = performance.now(), t = now - t0;
           if (frozen) { finish('perfect'); return; } // tutorial or the EASY "TAP!" wait
-          if (tutorial) return; // the tutorial waits for its frozen moment
+          // a tap during a stalled frame or in the pause after a restart is forgiven, never judged (code review)
+          if (now - last > 250 || (restarts && t < 0)) return;
+          if (tutorial && T.perfect) return; // the tutorial waits for its frozen moment (EASY: any tap is perfect anyway)
           const j = judgeSave(t, dk);
           if (j === 'perfect' || j === 'good') { glove.setTint(0xb8ffcf); finish(j); return; }
           if (j === 'early') {
@@ -2429,7 +2431,9 @@
           if (done) return;
           const now = performance.now(), gap = now - last; last = now;
           // hiccup rule: a stalled frame during the flight (rotation, background, old iPad) restarts the shot; twice = a good save
-          if (launched && !frozen && gap > 250) {
+          if (!frozen && gap > 250) {
+            // a stall before the launch only stretches the pause (code review: never an instant miss)
+            if (!launched) { if (++stalls > 8) { finish('good'); return; } t0 = Math.max(t0, now + 300); return; } // a device that keeps stalling: good save
             if (++restarts > 2) { finish('good'); return; }
             this.log(att.name + ' slips! Again!');
             t0 = now + 400; launched = false; puck.setVisible(false); ring.setAlpha(0);
@@ -2445,11 +2449,15 @@
           ring.setTint(j === 'perfect' ? 0x7fe39a : j === 'good' ? 0xffd23f : 0xffffff);
           if (frozen != null) return;
           // the very first SAVE IT!: freeze inside the perfect window and wait for the tap
-          if (tutorial && (T.perfect ? t >= (T.perfect[0] + T.perfect[1]) / 2 - 80 : t >= T.F * 0.8)) { freeze(t, 'TAP NOW!'); return; }
+          if (tutorial && T.perfect && t >= (T.perfect[0] + T.perfect[1]) / 2 - 80) { freeze(t, 'TAP NOW!'); return; }
           if (!T.perfect) {
-            // EASY: the puck stops just before the glove and waits up to 3 s; no tap is still a good save
+            // EASY: the puck stops just before the glove and waits up to 3 s; no tap is still a good save.
+            // The first save ever waits there with no time limit.
             const stopT = T.F * (1 - 120 / Math.max(240, Math.hypot(gx - f.x, gy - f.y)));
-            if (t >= stopT) { freeze(stopT, 'TAP!'); this.time.delayedCall(3000, () => { if (!done) { this.popWord(gx, gy - 160, 'OOF!', '#ffd23f', 64, 6); finish('good'); } }); }
+            if (t >= stopT) {
+              freeze(stopT, tutorial ? 'TAP NOW!' : 'TAP!');
+              if (!tutorial) this.time.delayedCall(3000, () => { if (!done) { this.popWord(gx, gy - 160, 'OOF!', '#ffd23f', 64, 6); finish('good'); } });
+            }
             return;
           }
           if (t > T.perfect[1]) finish('miss');
