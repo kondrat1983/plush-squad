@@ -190,9 +190,11 @@ test('B27: back, map nodes, world tabs, nav, capsule and Studio type buttons pre
   };
   const check = r => Object.keys(r.down).forEach(k => {
     expect(r.down[k], k + ' pressed').toBeLessThan(0.96);
-    // the capsule button pulses (scale 1..1.1), so it only has to be clearly back up
-    if (k === 'cap') expect(r.up[k] - r.down[k], k + ' released').toBeGreaterThan(0.05);
-    else expect(r.up[k], k + ' released').toBeCloseTo(1, 1);
+    // the capsule button and the next rival's node pulse (up to x1.1), so released means back in that band
+    // (the scale before the press may have been anywhere in the pulse, so compare with a margin)
+    expect(r.up[k], k + ' released').toBeGreaterThan(0.9);
+    expect(r.up[k], k + ' released').toBeLessThan(1.12);
+    expect(r.up[k] - r.down[k], k + ' released').toBeGreaterThan(0.05);
   });
   // title nav buttons (round, top left)
   check(await pressAll('title', `s => ({ nav: s.children.list.find(o => o.type === 'Container' && o.input && o.x === 90 && o.y === 85) })`));
