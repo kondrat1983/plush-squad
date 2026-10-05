@@ -2872,7 +2872,7 @@
     border(c) { const r = c.r, g = this.add.graphics(); g.lineStyle(10, 0x1d2163); g.strokeRoundedRect(-r.w / 2, -r.h / 2, r.w, r.h, 18); c.add(g); }
     // inner picture fitted to the panel (no masks: the pictures are sized to the panel)
     bg(c, key, tint) { const r = c.r, b = this.add.image(0, 0, key).setDisplaySize(r.w - 10, r.h - 10); if (tint) b.setTint(tint); c.add(b); return b; }
-    actor(c, key, fx, fy, hFrac) { const r = c.r, a = this.add.image((fx - 0.5) * r.w, (fy - 0.5) * r.h, key).setOrigin(0.5, 1); a.setScale(Math.min(hFrac * r.h / a.height, 0.45 * r.w / a.width)); c.add(a); return a; }
+    actor(c, key, fx, fy, hFrac, wFrac = 0.45) { const r = c.r, a = this.add.image((fx - 0.5) * r.w, (fy - 0.5) * r.h, key).setOrigin(0.5, 1); a.setScale(Math.min(hFrac * r.h / a.height, wFrac * r.w / a.width)); c.add(a); return a; }
     bubble(c, fx, fy, text, tailX, instant) {
       const r = c.r, x = (fx - 0.5) * r.w, y = (fy - 0.5) * r.h;
       const t = txt(this, 0, 0, text, PORTRAIT ? 32 : 30, '#1d2163', { st: 0, shadow: false, wrap: Math.min(r.w * 0.8, 560) });
@@ -2908,7 +2908,7 @@
       const c = this.frame(i); this.panels.push(c);
       if (i === 0) {
         this.bg(c, 'sky4'); const au = this.bg(c, 'aurora'); au.setAlpha(0.8);
-        for (let k = 0; k < 4; k++) { const p = this.actor(c, 'pine', 0.12 + k * 0.26, 1, 0.4); p.setAlpha(0.8).setTint(0x9fb6d8); }
+        for (let k = 0; k < 4; k++) { const p = this.actor(c, 'pine', 0.14 + k * 0.24, 0.98, 0.4, 0.2); p.setAlpha(0.8).setTint(0x9fb6d8); }
         const jack = this.actor(c, 'jack_side', instant ? 0.3 : -0.3, 0.95, 0.5);
         this.anim({ targets: jack, angle: { from: -3, to: 3 }, duration: 70, yoyo: true, repeat: -1 });
         if (!instant) this.anim({ targets: jack, x: (0.3 - 0.5) * c.r.w, duration: 700, ease: 'Quad.out' });
@@ -2921,7 +2921,7 @@
         else { let n = 0; const ev = this.time.addEvent({ delay: 30, repeat: full.length - 1, callback: () => { cap.setText(full.slice(0, ++n)); drawCap(); } }); this.steps.push(ev); this.later.push({ fn: () => { cap.setText(full); drawCap(); }, ran: false }); }
         const say = inst => this.bubble(c, 0.68, 0.36, 'Brrr! Why is the sky made of ice cream?', -1, inst);
         instant ? say(true) : this.at(900, say);
-        if (!instant) { const sn = this.add.particles(0, 0, 'dot', { x: { min: -c.r.w / 2, max: c.r.w / 2 }, y: -c.r.h / 2, speedY: { min: 80, max: 160 }, lifespan: c.r.h / 120 * 1000, scale: { min: 0.1, max: 0.22 }, frequency: 120 }); c.add(sn); }
+        if (!instant) { const sn = this.add.particles(0, 0, 'dot', { x: { min: -c.r.w / 2, max: c.r.w / 2 }, y: -c.r.h / 2, speedY: { min: 80, max: 160 }, lifespan: c.r.h / 160 * 1000, scale: { min: 0.1, max: 0.22 }, frequency: 120 }); c.add(sn); }
       } else if (i === 1) {
         this.bg(c, 'sky4');
         const g = this.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.2, c.r.w - 10, c.r.h * 0.3 - 5); c.add(g);
@@ -2941,7 +2941,8 @@
         this.actor(c, 'moose', 0.7, 0.98, 0.42);
         this.actor(c, 'pancakes', 0.5, 0.8, 0.18);
         this.actor(c, 'jack_front', 0.24, 0.98, 0.5);
-        const s1 = inst => this.bubble(c, 0.66, 0.2, 'Sorry, eh! Welcome to Canada!', 1, inst);
+        // B58: narrow pines stay inside panel 1, snow melts before its bottom edge, Max's bubble points at Max
+        const s1 = inst => this.bubble(c, 0.62, 0.2, 'Sorry, eh! Welcome to Canada!', 0.2, inst);
         const s2 = inst => this.bubble(c, 0.34, 0.42, 'Why are YOU sorry? I fell on YOUR snow!', -1, inst);
         if (instant) { s1(true); s2(true); } else { this.at(200, s1); this.at(1400, s2); }
       }
@@ -2988,7 +2989,7 @@
       A.comicSting && A.comicSting(); this.time.delayedCall(400, () => A.levelUp());
       const leaves = this.add.particles(0, 0, 'mapleleaf', { x: { min: 0, max: W }, y: -60, speedY: { min: 250, max: 500 }, speedX: { min: -120, max: 120 }, rotate: { min: 0, max: 360 }, lifespan: 4000, scale: { min: 0.15, max: 0.3 }, quantity: 2, frequency: 120 }).setDepth(49);
       this.time.delayedCall(2500, () => leaves.stop());
-      const go = button(this, W / 2, H - 110, 460, 130, 'LET\'S GO!', C.star, () => {
+      const go = button(this, W / 2, H - 110, 460, 130, this.then.key === 'album' ? 'DONE!' : 'LET\'S GO!', C.star, () => {
         Save.data.comics = Object.assign({}, Save.data.comics, { canada: true }); Save.store();
         fade(this, this.then.key, this.then.data);
       }, { size: 56 }).setDepth(60);
