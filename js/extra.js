@@ -195,6 +195,9 @@
 
   // ---------- "What's new" popup: shows once per version (CLOSE = see it again next time, DON'T SHOW AGAIN = hide until the next update)
   const WHATS_NEW = {
+    '0.9': [
+      { icon: 'j:album', title: 'Comics', text: 'Jack lands in every world! Watch all 4 comics in the Album.' },
+    ],
     '0.8': [
       { icon: 'mapleleaf', title: 'CANADA', text: 'A new snowy world! Meet Max the Moose, Beaver Bob, Mountie Bear and Sasquatch.' },
       { icon: 'glove', title: 'SAVE IT!', text: 'Sasquatch shoots hockey pucks. Tap at the right moment for a super save!' },
@@ -380,7 +383,7 @@
           const lk = img(this, 0, -ch * 0.1, 'lock'); lk.setScale(iconScale('lock', ch * 0.3)); c.add(lk);
         }
         c.add(fit(txt(this, 0, ch * 0.3, has ? cm.title : '???', 40, has ? C.ink : '#8a8fd6', { st: 0, shadow: false }), cw - 40));
-        if (!has) c.add(fit(txt(this, 0, ch * 0.42, cm.hint, 26, '#6a72d6', { st: 0, shadow: false, weight: '500' }), cw - 40));
+        if (!has) c.add(fit(txt(this, 0, ch * 0.42, cm.id === 'spooky' && PS.EVENT_ON ? 'Visit Spooky to unlock' : cm.hint, 26, '#6a72d6', { st: 0, shadow: false, weight: '500' }), cw - 40));
         c.setSize(cw, ch).setInteractive({ useHandCursor: true });
         c.on('pointerdown', () => this.tweens.add({ targets: c, scale: 0.96, duration: 70 }));
         c.on('pointerout', () => this.tweens.add({ targets: c, scale: 1, duration: 120 }));

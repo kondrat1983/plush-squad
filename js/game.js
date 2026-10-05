@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.8.3';
+  const VERSION = '0.9.0';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -3239,14 +3239,15 @@
       if (this.done) return; this.done = true;
       this.steps.forEach(e => e.remove(false)); this.steps = [];
       const later = this.later; this.later = [];
-      if (!auto) later.forEach(r => { if (!r.ran && !r.auto) { r.ran = true; r.fn(true); } });
-      // stop the finite tweens and put their targets at the end values (Tween.complete() does not jump to the end)
+      // stop the finite tweens and put their targets at the end values (Tween.complete() does not jump to the end);
+      // then the steps not run yet draw their end state (after the tweens, so a later step wins: the BONK! pillow bounces off)
       const META = ['targets', 'duration', 'ease', 'delay', 'yoyo', 'repeat', 'onComplete'];
       this.live.forEach(([t, cfg]) => {
         t.stop();
         [].concat(cfg.targets).forEach(o => Object.keys(cfg).forEach(k => { if (META.includes(k)) return; const v = cfg[k]; if (typeof v === 'number') o[k] = v; else if (v && typeof v.to === 'number') o[k] = v.to; }));
       });
       this.live = [];
+      if (!auto) later.forEach(r => { if (!r.ran && !r.auto) { r.ran = true; r.fn(true); } });
       const c = this.panels[this.cur]; if (c) { c.y = c.r.y; c.setAlpha(1); }
       if (auto) this.nextEv = this.time.delayedCall(300, () => { this.nextEv = null; this.next(); });
     }

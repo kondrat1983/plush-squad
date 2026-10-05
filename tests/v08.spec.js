@@ -17,11 +17,11 @@ test('the 5 new stickers are earned from their stats, the 6 new quests are in th
   noErrors(page);
 });
 
-test('What\'s new 0.8 shows for a player coming from 0.7', async ({ page }) => {
-  await boot(page, save({ seenVersion: '0.7' })); // the title opens first and shows it (once per launch)
+test('What\'s new 0.9 shows for a player coming from 0.8', async ({ page }) => {
+  await boot(page, save({ seenVersion: '0.8' })); // the title opens first and shows it (once per launch)
   const texts = () => page.evaluate(() => __game.scene.getScene('title').children.list.flatMap(o => o.list || [o]).filter(o => o.type === 'Text').map(t => t.text).join(' | '));
-  await expect.poll(async () => { await wait(page, 500); return texts(); }, { timeout: 30000 }).toContain("WHAT'S NEW in v0.8!");
-  expect(await texts()).toContain('CANADA');
+  await expect.poll(async () => { await wait(page, 500); return texts(); }, { timeout: 30000 }).toContain("WHAT'S NEW in v0.9!");
+  expect(await texts()).toContain('Comics');
   noErrors(page);
 });
 

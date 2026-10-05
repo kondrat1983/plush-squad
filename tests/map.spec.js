@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 const { boot, go, noErrors } = require('./helpers');
 
 test('B04: fresh player starts in Pillow Hills during the Halloween event', async ({ page }) => {
-  await boot(page, { muted: true, seenVersion: '0.7' }, '&halloween');
+  await boot(page, { muted: true, seenVersion: '0.7', comics: { hills: true } }, '&halloween'); // Hills comic seen (since v0.9 it plays first for a new save)
   await go(page, 'map');
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(0);
   noErrors(page);

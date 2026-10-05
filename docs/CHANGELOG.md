@@ -4,6 +4,9 @@ What happened in Plush Squad, newest on top: game releases (what changed for the
 
 
 ## 5 Oct 2026
+**Game: v0.9.0**
+- Comics for every world (#62): Jack lands in Pillow Hills (new players), Space (everyone, once) and Spooky (during Halloween), like the Canada comic. All 4 in the Album COMICS shelf (2 x 2). The open map tab no longer replays a comic; SKIP jumps to the title page.
+
 **Game: v0.8.3 (hotfix)**
 - One account on two devices: the newer progress wins on start and when coming back to the app; before, the device that saved last overwrote the other one (#64).
 
