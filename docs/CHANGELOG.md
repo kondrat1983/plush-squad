@@ -2,6 +2,14 @@
 
 What happened in Plush Squad, newest on top: game releases (what changed for the player), owner decisions, new or changed docs. Details: [decisions](gdd/decisions.md), [GitHub issues](https://github.com/kondrat1983/plush-squad/issues?q=is%3Aissue).
 
+
+## 5 Oct 2026
+**Game: v0.8.1 (hotfix)**
+- New Home Screen icon: a close-up of Jack's face (re-add the app to see it on iPhone).
+- Sticker Album: STICKERS / COMICS switch to watch the Canada comic again.
+- Layout fixes: My Squad pages, capsule machine, Me, Parents, Quests, title on 4:3 iPads, bigger result notes.
+- Fixes: tap after rotation, kid-safe names, Kraken error with RETRY, press-down feedback, mail pages.
+- Full QA run on v0.8.1 still to do (released early, owner's call).
 ## 4 Oct 2026 (evening)
 **Game: v0.8.0** (release PR from `claude/v0.8`, live after Kondrat's OK)
 - Canada world: Max the Moose, Beaver Bob, Mountie Bear, Sasquatch; SLAPSHOT + SAVE IT!; Pond Hockey; arrival comic (#31).
