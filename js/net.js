@@ -289,7 +289,7 @@
     // ---------- FRIENDS hub: friends, mail, museum, top catch
     class FriendsScene extends Phaser.Scene {
       constructor() { super('friends'); }
-      init(data) { this.tab = (data && data.tab) || 'friends'; }
+      init(data) { this.tab = (data && data.tab) || 'friends'; this.mailPage = (data && data.mailPage) || 0; }
       create() {
         X().header(this, PS, 'FRIENDS');
         if (!Net.ready) { txt(this, W / 2, H / 2, 'Online play is not set up yet', 44, '#fff3d2', { st: 7 }); return; }
@@ -435,8 +435,17 @@
       async showMail() {
         const list = await Net.inbox(); this.clearLoading();
         if (!list.length) { txt(this, W / 2, H / 2, 'No new mail', 44, '#fff3d2', { st: 7 }); return; }
+        // the 30 newest messages, a page at a time (QA B28 / #26)
         const w = Math.min(W - 80, 1100), h = 150, top = this.top + 40;
-        list.slice(0, PORTRAIT ? 8 : 5).forEach((m, i) => {
+        const per = Math.max(1, Math.floor((H - top - 110) / (h + 14))), pages = Math.ceil(list.length / per);
+        this.mailPage = Math.max(0, Math.min(this.mailPage || 0, pages - 1));
+        if (pages > 1) {
+          const py = top + per * (h + 14) + 40;
+          txt(this, W / 2, py, (this.mailPage + 1) + ' / ' + pages, 30, '#bcc0ee', { st: 5 });
+          if (this.mailPage > 0) button(this, W / 2 - 160, py, 120, 64, '◀', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage - 1 }), { size: 30 });
+          if (this.mailPage < pages - 1) button(this, W / 2 + 160, py, 120, 64, '▶', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage + 1 }), { size: 30 });
+        }
+        list.slice(this.mailPage * per, this.mailPage * per + per).forEach((m, i) => {
           const y = top + h / 2 + i * (h + 14), from = m.from_name || 'A friend';
           this.add.existing(X().card(this, PS, W / 2, y, w, h));
           let icon = 'j:letter', text = '', act = null, actLabel = 'OK';
@@ -450,9 +459,9 @@
           const ic = img(this, W / 2 - w / 2 + 80, y, icon); ic.setScale(iconScale(icon, 100));
           fit(txt(this, W / 2 - w / 2 + 150, y, text, 32, '#fff3d2', { st: 5, ox: 0 }), w - 470);
           button(this, W / 2 + w / 2 - 140, y, 230, 90, actLabel, act ? C.star : C.cream, async () => {
-            const r = await Net.claim(m.id); if (!r) return this.scene.restart({ tab: 'mail' });
+            const r = await Net.claim(m.id); if (!r) return this.scene.restart({ tab: 'mail', mailPage: this.mailPage });
             A.win(); if (act) act();
-            if (m.kind !== 'beat') this.scene.restart({ tab: 'mail' });
+            if (m.kind !== 'beat') this.scene.restart({ tab: 'mail', mailPage: this.mailPage });
           }, { size: 30 });
         });
       }
