@@ -307,7 +307,13 @@
     }
 
     // ---------- ALBUM: stickers, and the comics to watch again (switch at the bottom, #54)
-    const COMICS = [{ id: 'canada', title: 'Welcome to Canada!', icon: 'mapleleaf', hint: 'Reach Canada to unlock' }];
+    // world order; cover = the comic's sky, Jack in his pose and the world's peeking character (docs/gdd/0.9-world-comics.md 4)
+    const COMICS = [
+      { id: 'hills', title: 'Pillows at Dawn', icon: 'owl', bg: 'sky', jack: 'jack_upside', hint: 'Play to unlock' },
+      { id: 'space', title: 'Beam Me Up... Oops', icon: 'mothership', bg: 'sky2', jack: 'jack_side', hint: 'Reach Space to unlock' },
+      { id: 'canada', title: 'Welcome to Canada!', icon: 'mapleleaf', bg: 'sky4', aurora: true, jack: 'jack_side', hint: 'Reach Canada to unlock' },
+      { id: 'spooky', title: 'Hats for Everyone', icon: 'pumpkin', bg: 'sky3', jack: 'jack_upside', hint: 'Comes back on Halloween' },
+    ];
     class AlbumScene extends Phaser.Scene {
       constructor() { super('album'); }
       create() {
@@ -355,23 +361,26 @@
     AlbumScene.prototype.comics = function () {
       const d = Save.data, seen = d.comics || {};
       txt(this, W / 2, PORTRAIT ? 270 : 150, 'Tap a comic to watch it again', 32, '#ffd23f', { st: 6 });
-      const cw = PORTRAIT ? 620 : 560, ch = PORTRAIT ? 440 : 400, top = PORTRAIT ? 340 : 210;
-      COMICS.forEach((cm, i) => {
-        const has = !!seen[cm.id], x = W / 2 + (i - (COMICS.length - 1) / 2) * (cw + 30), y = top + ch / 2;
+      // a 2 x 2 shelf, clear of the STICKERS / COMICS switch; Spooky out of season only if it was seen (like the fang sticker)
+      const list = COMICS.filter(cm => cm.id !== 'spooky' || PS.EVENT_ON || seen.spooky);
+      const cw = PORTRAIT ? 470 : 560, ch = PORTRAIT ? 340 : 330, top = PORTRAIT ? 340 : 210, gap = 30;
+      list.forEach((cm, i) => {
+        const has = !!seen[cm.id], lone = i === list.length - 1 && i % 2 === 0;
+        const x = lone ? W / 2 : W / 2 + ((i % 2) - 0.5) * (cw + gap), y = top + ch / 2 + Math.floor(i / 2) * (ch + gap);
         const c = this.add.container(x, y);
         c.add(card(this, PS, 0, 0, cw, ch, has ? C.cream : 0x161946, has ? C.star : C.seam));
         if (has) {
-          // a little cover: the Canada sky, Jack flying in, the title burst
-          const sky = this.add.image(0, -ch * 0.1, 'sky4').setDisplaySize(cw - 60, ch * 0.6); c.add(sky);
-          const au = this.add.image(0, -ch * 0.16, 'aurora').setDisplaySize(cw - 60, ch * 0.4).setAlpha(0.8); c.add(au);
-          const j = this.add.image(-cw * 0.18, -ch * 0.02, 'jack_side'); j.setScale(ch * 0.4 / j.height).setAngle(-10); c.add(j);
+          // a little cover: the comic's sky, Jack, the world's character
+          const sky = this.add.image(0, -ch * 0.1, cm.bg).setDisplaySize(cw - 60, ch * 0.6); c.add(sky);
+          if (cm.aurora) { const au = this.add.image(0, -ch * 0.16, 'aurora').setDisplaySize(cw - 60, ch * 0.4).setAlpha(0.8); c.add(au); }
+          const j = this.add.image(-cw * 0.18, -ch * 0.02, cm.jack); j.setScale(ch * 0.4 / j.height).setAngle(-10); c.add(j);
           const leaf = img(this, cw * 0.22, -ch * 0.18, cm.icon); leaf.setScale(iconScale(cm.icon, ch * 0.24)); c.add(leaf);
           this.tweens.add({ targets: leaf, angle: { from: -10, to: 10 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         } else {
           const lk = img(this, 0, -ch * 0.1, 'lock'); lk.setScale(iconScale('lock', ch * 0.3)); c.add(lk);
         }
         c.add(fit(txt(this, 0, ch * 0.3, has ? cm.title : '???', 40, has ? C.ink : '#8a8fd6', { st: 0, shadow: false }), cw - 40));
-        if (!has) c.add(txt(this, 0, ch * 0.4, cm.hint, 26, '#6a72d6', { st: 0, shadow: false, weight: '500' }));
+        if (!has) c.add(fit(txt(this, 0, ch * 0.42, cm.hint, 26, '#6a72d6', { st: 0, shadow: false, weight: '500' }), cw - 40));
         c.setSize(cw, ch).setInteractive({ useHandCursor: true });
         c.on('pointerdown', () => this.tweens.add({ targets: c, scale: 0.96, duration: 70 }));
         c.on('pointerout', () => this.tweens.add({ targets: c, scale: 1, duration: 120 }));

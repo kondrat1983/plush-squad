@@ -110,6 +110,13 @@
       if (gifts.length) d.gifts08 = gifts;
       d.mig08 = 1;
     }
+    // once, for saves from before v0.9 (comics for every world, #62): the Pillow Hills comic is unlocked in the Album
+    // for players who already played (it autoplays for new players only); Space is not, it plays once for everyone
+    if (!d.mig09) {
+      const played = (d.xp || 0) > 0 || (d.wins || 0) > 0 || Object.keys(d.stars).some(k => d.stars[k] > 0);
+      if (played) d.comics = Object.assign({}, d.comics, { hills: true });
+      d.mig09 = 1;
+    }
   })(Save.data);
   // Halloween event: October + first week of November (or ?halloween to test)
   const NOW = new Date();
