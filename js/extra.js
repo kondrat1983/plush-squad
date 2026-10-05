@@ -245,7 +245,9 @@
       create() {
         header(this, PS, 'ME');
         const d = Save.data, hero = heroDef(this), lv = levelOf(d.xp).l, Net = window.PSNet;
-        const cw = Math.min(W - 80, 960), cx = W / 2, cy = PORTRAIT ? 640 : 410, chh = PORTRAIT ? 560 : 520;
+        // short portrait screens (iPads): the card, the hat row and the account box move closer together (QA B11)
+        const short = PORTRAIT && H < 1700;
+        const cw = Math.min(W - 80, 960), cx = W / 2, cy = PORTRAIT ? (short ? 600 : 640) : 410, chh = PORTRAIT ? 560 : 520;
         this.add.existing(card(this, PS, cx, cy, cw, chh, C.night2, C.star));
         const ax = PORTRAIT ? cx : cx - cw / 2 + 200, ay = PORTRAIT ? cy - 120 : cy;
         const av = this.add.image(ax, ay + 110, hero.isJack ? 'jack_front' : hero.tex).setOrigin(0.5, 1);
@@ -265,16 +267,16 @@
         txt(this, tx, ty + 205, 'Wins ' + (d.wins || 0) + '   ·   Toys ' + (d.toys || []).length, 30, '#bcc0ee', { st: 5, ox, weight: '500' });
         // costumes
         const owned = COSTUMES.filter(c => c.id === 'none' || (d.costumes || {})[c.id]);
-        const yC = cy + chh / 2 + 90;
+        const yC = cy + chh / 2 + (short ? 60 : 90), hy = yC + (short ? 100 : 110);
         txt(this, cx, yC, 'COSTUME', 40, '#ffd23f', { st: 7 });
         // more hats than fit in one row (v0.8: up to 8 + none): tall portrait screens wrap into two rows, others shrink the cards
         // (a second row must stay above the account box, which starts about H - 340 in portrait; iPad portrait has no room)
-        const wrap = PORTRAIT && owned.length * 170 > W - 80 && yC + 110 + 170 + 75 < H - 340;
-        const step = wrap ? 170 : Math.min(170, (W - 80) / owned.length), cs = step - 20;
+        const wrap = PORTRAIT && owned.length * 170 > W - 80 && hy + 170 + 75 < H - 340;
+        const step = wrap ? 170 : Math.min(short ? 150 : 170, (W - 80) / owned.length), cs = step - 20;
         const perRow = wrap ? Math.floor((W - 80) / 170) : owned.length;
         owned.forEach((c, i) => {
           const row = Math.floor(i / perRow), inRow = Math.min(perRow, owned.length - row * perRow), col = i % perRow;
-          const x = cx + (col - (inRow - 1) / 2) * step, y = yC + 110 + row * 170, on = d.costume === c.id;
+          const x = cx + (col - (inRow - 1) / 2) * step, y = hy + row * 170, on = d.costume === c.id;
           const b = this.add.container(x, y);
           b.add(card(this, PS, 0, 0, cs, cs, on ? C.star : C.night2, on ? 0xffffff : C.seam));
           if (c.tex) { const im = PS.hatImage(this, 0, -8, c); im.setScale(cs * 0.66 / Math.max(im.width, im.height)); b.add(im); }
@@ -282,9 +284,9 @@
           b.setSize(cs, cs).setInteractive({ useHandCursor: true });
           b.on('pointerup', () => { d.costume = c.id; Save.store(); A.click(); this.scene.restart(); });
         });
-        if (owned.length === 1) txt(this, cx, yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat Professor Hoot to win the Owl Hat!', 28, '#bcc0ee', { st: 5, weight: '500' });
+        if (owned.length === 1) txt(this, cx, short ? hy + cs / 2 + 40 : yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat Professor Hoot to win the Owl Hat!', 28, '#bcc0ee', { st: 5, weight: '500' });
         // account
-        const yA = PORTRAIT ? H - 260 : H - 55;
+        const yA = PORTRAIT ? H - (short ? 230 : 260) : H - 55;
         if (Net && Net.ready) {
           if (Net.user) {
             txt(this, PORTRAIT ? cx : 300, yA - (PORTRAIT ? 60 : 0), 'Friend code: ' + (Net.user.code || '...'), 38, '#7fe39a', { st: 6 });
