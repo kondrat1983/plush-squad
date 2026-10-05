@@ -777,7 +777,8 @@
       const lv = levelOf(Save.data.xp);
       // the hat sticks up above Jack's head and he bobs 34 px: keep both clear of the panel (code review)
       const gap = Math.max(24, (avail - 190 - jack.displayHeight - (hat ? hat.displayHeight * 0.85 : 0) - 34) / 2);
-      const px = PORTRAIT ? W / 2 : 420, py = PORTRAIT ? logoBot + gap + 95 : H * 0.7;
+      // landscape: the panel stays left of Jack's wing, also on 4:3 iPads (QA B18 / #19)
+      const px = PORTRAIT ? W / 2 : clamp(W / 2 - jack.displayWidth / 2 - 240, 230, 420), py = PORTRAIT ? logoBot + gap + 95 : H * 0.7;
       const pg = this.add.graphics(); pg.fillStyle(C.night2, 0.9); pg.fillRoundedRect(px - 210, py - 95, 420, 190, 40); pg.lineStyle(4, C.seam); pg.strokeRoundedRect(px - 210, py - 95, 420, 190, 40);
       txt(this, px, py - 46, 'LEVEL ' + lv.l, 50, '#ffd23f', { st: 0 });
       this.add.rectangle(px, py + 10, 320, 26, C.night3).setStrokeStyle(3, C.seam);
@@ -2624,28 +2625,37 @@
       if (!fresh) A.music('calm');
       const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(60).setInteractive();
       if (fresh) this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 }); else dim.fillAlpha = 0.6;
-      const pw = PORTRAIT ? 920 : 1000, ph = PORTRAIT ? 1230 : 1020, T0 = -ph / 2;
+      // notes keep a readable size (QA B32 / #28): the panel makes room for them first. Portrait: it grows taller.
+      // Landscape (no height to spare): it grows wider, the icon moves beside the title and the rest moves up.
+      const pw = PORTRAIT ? 920 : (notes.length > 2 ? Math.min(W - 120, 1300) : 1000);
+      const NFS = 34, nTop = 700, probe = txt(this, 0, 0, notes.join('\n'), NFS, '#ffd23f', { st: 6, wrap: pw - 100 });
+      const need = notes.length ? probe.height : 0; probe.destroy();
+      const ph0 = PORTRAIT ? 1230 : 1020, by0 = PORTRAIT ? 940 : 925;
+      let extra = Math.max(0, need - (by0 - 70 - nTop));
+      const grow = Math.max(0, Math.min(extra, H - 60 - ph0)); extra -= grow;
+      const lift = PORTRAIT ? 0 : Math.min(extra, 150);
+      const ph = ph0 + grow, T0 = -ph / 2, Y = v => T0 + v - lift;
       const p = this.add.container(W / 2, H / 2).setDepth(61).setScale(fresh ? 0 : 1);
       p.add(panel(this, 0, 0, pw, ph, C.night2, 0));
-      const icon = this.add.image(0, T0 + 120, won ? 'trophy' : 'zzz').setScale(0.7);
+      const icon = lift ? this.add.image(-pw / 2 + 150, Y(265), won ? 'trophy' : 'zzz').setScale(0.55) : this.add.image(0, T0 + 120, won ? 'trophy' : 'zzz').setScale(0.7);
       this.tweens.add({ targets: icon, y: icon.y - 12, angle: { from: -5, to: 5 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      const title = txt(this, 0, T0 + 265, won ? 'YOU WIN!' : 'SO SLEEPY...', 100, won ? '#ffd23f' : '#bcc0ee', { stroke: '#0f1240', st: 14 });
-      const sub = txt(this, 0, T0 + 345, won ? (R.laugh || '') : this.hero.name + ' needs a nap. Next time for sure!', 34, '#fff3d2', { st: 0, weight: '500', wrap: pw - 120 });
+      const title = txt(this, 0, Y(265), won ? 'YOU WIN!' : 'SO SLEEPY...', 100, won ? '#ffd23f' : '#bcc0ee', { stroke: '#0f1240', st: 14 });
+      const sub = txt(this, 0, Y(345), won ? (R.laugh || '') : this.hero.name + ' needs a nap. Next time for sure!', 34, '#fff3d2', { st: 0, weight: '500', wrap: pw - 120 });
       p.add([icon, title, sub]);
       const sr = [];
-      if (isCampaign) for (let i = 0; i < 3; i++) { const s = this.add.image((i - 1) * 120, T0 + 445 - (i === 1 ? 14 : 0), 'star').setScale(0.42).setTint(0x3a3f7a); p.add(s); sr.push(s); }
-      const xpT = txt(this, 0, T0 + 545, '+0 XP', 60, '#7fe39a', { stroke: '#0f1240', st: 10 });
-      const bw = pw - 220;
-      const lvT = txt(this, -bw / 2, T0 + 610, 'LEVEL ' + before.l, 34, '#fff3d2', { ox: 0, st: 0 });
-      const barBg = this.add.rectangle(0, T0 + 660, bw, 34, C.night3).setStrokeStyle(4, C.seam);
-      const bar = this.add.rectangle(-bw / 2, T0 + 660, Math.max(4, bw * before.r / before.n), 26, C.star).setOrigin(0, 0.5);
-      const note = txt(this, 0, T0 + 700, '', 34, '#ffd23f', { st: 6, wrap: pw - 100, oy: 0 });
+      if (isCampaign) for (let i = 0; i < 3; i++) { const s = this.add.image((i - 1) * 120, Y(445) - (i === 1 ? 14 : 0), 'star').setScale(0.42).setTint(0x3a3f7a); p.add(s); sr.push(s); }
+      const xpT = txt(this, 0, Y(545), '+0 XP', 60, '#7fe39a', { stroke: '#0f1240', st: 10 });
+      const bw = Math.min(pw, 1000) - 220;
+      const lvT = txt(this, -bw / 2, Y(610), 'LEVEL ' + before.l, 34, '#fff3d2', { ox: 0, st: 0 });
+      const barBg = this.add.rectangle(0, Y(660), bw, 34, C.night3).setStrokeStyle(4, C.seam);
+      const bar = this.add.rectangle(-bw / 2, Y(660), Math.max(4, bw * before.r / before.n), 26, C.star).setOrigin(0, 0.5);
+      const note = txt(this, 0, Y(nTop), '', NFS, '#ffd23f', { st: 6, wrap: pw - 100, oy: 0 });
       p.add([xpT, lvT, barBg, bar, note]);
-      const by = T0 + (PORTRAIT ? 940 : 925);
-      // all notes stay above the buttons (QA B09)
-      let nfs = notes.length > 2 ? 27 : notes.length > 1 ? 30 : 34;
-      note.setText(notes.join('\n')).setFontSize(nfs);
-      while (note.height > by - 70 - (T0 + 700) && nfs > 18) { nfs -= 2; note.setFontSize(nfs); }
+      const by = T0 + by0 + grow;
+      // all notes stay above the buttons (QA B09); only the rare 6-note landscape case still shrinks a little
+      let nfs = NFS;
+      note.setText(notes.join('\n'));
+      while (note.height > by - 70 - Y(nTop) && nfs > 24) { nfs -= 2; note.setFontSize(nfs); }
       const primary = info.primary === 'next' ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: info.nextIdx })]
         // Kraken fights only through the Weekly Boss screen: it counts the daily tries (QA B33)
         : info.primary === 'boss' ? ['BOSS', () => fade(this, 'boss')]
@@ -2662,7 +2672,7 @@
         this.time.delayedCall(600 + i * 280, () => {
           sr[i].clearTint(); A.starDing(i);
           this.tweens.add({ targets: sr[i], scale: { from: 0.8, to: 0.42 }, angle: { from: -30, to: 0 }, duration: 320, ease: 'Back.out' });
-          this.sparks.explode(10, W / 2 + (i - 1) * 120, H / 2 + T0 + 445);
+          this.sparks.explode(10, W / 2 + (i - 1) * 120, H / 2 + Y(445));
         });
       }
       const st = sr.length ? stars : 0;
