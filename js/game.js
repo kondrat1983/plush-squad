@@ -1374,9 +1374,18 @@
       this.nameEl.setAlpha(0); this.tweens.add({ targets: this.nameEl, alpha: 1, delay: 300, duration: 200 });
     }
     removeInput() { if (this.nameEl) { this.nameEl.destroy(); this.nameEl = null; } }
+    hintName(s) {
+      if (this._hint) this._hint.destroy();
+      const t = this._hint = txt(this, W / 2, H - (PORTRAIT ? 70 : 50), s, 36, '#ff9ed8', { st: 7 }).setDepth(90);
+      this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
+    }
     async save() {
-      const t = this.toy;
-      t.name = (t.name || '').trim() || TOYS.ARCH_BY_ID[t.arch].nicks[0];
+      const t = this.toy, nick = TOYS.ARCH_BY_ID[t.arch].nicks[0];
+      t.name = (t.name || '').trim() || nick;
+      if (TOYS.badName(t.name)) { // not a kind name: put a friendly one in the box and ask again (QA B13 / #16)
+        t.name = nick; if (this.nameEl) this.nameEl.node.value = nick;
+        A.block(); this.hintName('Let\'s pick a kinder name!'); return;
+      }
       try { await IDB.set(t.id, this.cut.url); } catch (e) { /* storage unavailable: keep for this session */ }
       await addTexture(this, 'toy_' + t.id, this.cut.url);
       Save.data.toys.push(t); Save.store();

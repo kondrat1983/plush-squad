@@ -155,5 +155,21 @@
     const el = ELEMENTS[element] ? ELEMENTS[element].name : '';
     return a.nicks.concat([el + ' ' + a.name, 'Captain ' + a.nicks[0]]);
   }
-  window.PSToys = { ARCH, ARCH_BY_ID, ELEMENTS, QUIRKS, makeKit, createToy, elementFromPixels, seedFromPixels, nameIdeas, subFor };
+  // kid-safe names (QA B13 / #16): a short built-in list, any case, also with simple leetspeak (sh1t, @ss) and spacing (f u c k)
+  const BAD_ANY = ['fuck', 'fuk', 'fck', 'shit', 'bitch', 'cunt', 'nigg', 'whore', 'slut', 'porn', 'penis', 'vagina', 'nazi', 'hitler',
+    'wank', 'twat', 'bastard', 'dildo', 'asshole', 'retard', 'faggot', 'xyu', 'pizd', 'blyat', 'mudak'];
+  const BAD_WORD = ['ass', 'arse', 'dick', 'cock', 'tit', 'tits', 'boob', 'boobs', 'sex', 'sexy', 'kill', 'die', 'damn', 'crap', 'piss',
+    'fag', 'rape', 'suka', 'hui', 'idiot', 'stupid', 'dumb', 'moron', 'loser', 'poopface'];
+  const LEET = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b', '@': 'a', $: 's', '!': 'i', '|': 'i', '+': 't' };
+  function badName(name) {
+    const s = String(name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[0-9@$!|+]/g, ch => LEET[ch] || ch);
+    const words = s.split(/[^a-z]+/).filter(Boolean);
+    const all = words.join(''), once = all.replace(/(.)\1+/g, '$1'); // "fuuuck" -> "fuck"
+    if (BAD_ANY.some(w => all.includes(w) || once.includes(w))) return true;
+    // whole words only for short ones, so Cassie, Grape or Skills stay fine; "a s s" counts as one word
+    const spaced = words.length > 1 && words.every(w => w.length === 1) ? [all] : [];
+    return words.concat(spaced).some(w => BAD_WORD.includes(w) || BAD_WORD.includes(w.replace(/(.)\1+/g, '$1')));
+  }
+  const safeName = (name, fallback) => badName(name) ? fallback : name;
+  window.PSToys = { ARCH, ARCH_BY_ID, ELEMENTS, QUIRKS, makeKit, createToy, elementFromPixels, seedFromPixels, nameIdeas, subFor, badName, safeName };
 })();

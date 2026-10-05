@@ -14,6 +14,11 @@
   ];
   const STK = {}; STICKERS.forEach(s => STK[s.id] = s);
   const BAD = /(fuck|shit|bitch|dick|cunt|nigg|fag|porn|sex|kill|nazi|hitler|xyu|hui|pizd|blya|suka)/i;
+  // names typed on other devices are shown here only through the kid-safe filter (QA B13 / #16)
+  const T = () => window.PSToys || {};
+  const okName = (n, fb) => T().badName && T().badName(n) ? fb : n;
+  const okUser = n => n != null && BAD.test(n) ? 'Player' : okName(n, 'Player'); // the sign-up rule, then the toy-name filter
+  const okToy = meta => { if (meta && meta.name != null) meta.name = okName(meta.name, ((T().ARCH_BY_ID || {})[meta.arch] || { nicks: ['Plushie'] }).nicks[0]); return meta; };
 
   const Net = {
     ready: false, sb: null, user: null, unread: 0, inboxCache: [], boss: null, _push: 0, _lastInbox: 0,
@@ -150,15 +155,19 @@
       } catch (e) { console.warn('toy upload', e); }
     },
     // ---- friends + inbox
-    async friends() { const { data } = await this.sb.rpc('my_friends'); return data || []; },
+    async friends() {
+      const { data } = await this.sb.rpc('my_friends');
+      return (data || []).map(f => Object.assign(f, { username: okUser(f.username), avatar: f.avatar && f.avatar.name ? Object.assign(f.avatar, { name: okName(f.avatar.name, 'Toy') }) : f.avatar }));
+    },
     async addFriend(code) { const { data, error } = await this.sb.rpc('add_friend', { p_code: code }); if (error) throw new Error(error.message); return data; },
     async removeFriend(id) { await this.sb.rpc('remove_friend', { p_id: id }); },
-    async squad(id) { const { data } = await this.sb.from('toys').select('id, meta, img').eq('owner', id).order('created_at'); return data || []; },
+    async squad(id) { const { data } = await this.sb.from('toys').select('id, meta, img').eq('owner', id).order('created_at'); return (data || []).map(t => (okToy(t.meta), t)); },
     async send(to, kind, payload) { const { data, error } = await this.sb.rpc('send_inbox', { p_to: to, p_kind: kind, p_payload: payload || {} }); if (error) throw new Error(error.message); return data; },
     async inbox() {
       if (!this.user) return [];
       const { data } = await this.sb.from('inbox').select('*').eq('done', false).order('created_at', { ascending: false }).limit(30);
-      this.inboxCache = data || []; this.unread = this.inboxCache.length; this._lastInbox = Date.now();
+      this.inboxCache = (data || []).map(m => { m.from_name = m.from_name && okUser(m.from_name); if (m.payload && m.payload.toy) m.payload.toy = okName(m.payload.toy, 'toy'); return m; });
+      this.unread = this.inboxCache.length; this._lastInbox = Date.now();
       return this.inboxCache;
     },
     async claim(id) { const { data } = await this.sb.rpc('claim_inbox', { p_id: id }); this.inboxCache = this.inboxCache.filter(m => m.id !== id); this.unread = this.inboxCache.length; return data; },
@@ -168,8 +177,8 @@
     async bossHit(d) { const { data } = await this.sb.rpc('boss_hit', { p_dmg: d }); this.boss = data; return data; },
     async bossClaim() { const { data } = await this.sb.rpc('boss_claim'); return !!data; },
     async submitCatch(n) { try { await this.sb.rpc('submit_catch', { p_score: n }); } catch (e) {} },
-    async board() { const { data } = await this.sb.rpc('catch_board'); return data || []; },
-    async museum() { const { data } = await this.sb.rpc('museum'); return data || []; },
+    async board() { const { data } = await this.sb.rpc('catch_board'); return (data || []).map(r => Object.assign(r, { username: okUser(r.username) })); },
+    async museum() { const { data } = await this.sb.rpc('museum'); return (data || []).map(t => (okToy(t.meta), Object.assign(t, { username: okUser(t.username) }))); },
     async like(id) { const { data } = await this.sb.rpc('toggle_like', { p_toy: id }); return data || 0; },
   };
   const lvl = x => { let l = 1, r = x; while (r >= 100 + (l - 1) * 50) { r -= 100 + (l - 1) * 50; l++; } return l; };
