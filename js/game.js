@@ -3013,8 +3013,64 @@
       s.tweens.add({ targets: m, y, alpha: 1, duration: 700, ease: 'Back.out', onComplete: () => s.tweens.add({ targets: m, y: y - 14, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' }) });
     },
   };
+  COMIC_SCRIPTS.hills = {
+    world: 0, title: 'PILLOW HILLS!', len: [2700, 2500, 3500],
+    confetti: { key: 'feather', speedY: { min: 200, max: 400 }, scale: { min: 0.35, max: 0.6 }, lifespan: 5000 },
+    panels: [
+      // Jack naps upside down under the moon (Professor Hoot hides behind it)
+      (s, c, instant) => {
+        s.bg(c, 'sky');
+        const mf = PORTRAIT ? [0.88, 0.5, 0.4, 0.16] : [0.76, 0.34, 0.18, 0.32];
+        const owl = s.actor(c, 'owl', mf[0], mf[1], mf[2] * 0.8, mf[3] * 0.8).setVisible(false);
+        const moon = s.actor(c, 'moon', ...mf); owl.y = moon.y - moon.displayHeight * 0.08; s.peekObj = owl; s.peekDX = -moon.displayWidth * 0.6;
+        const jack = s.actor(c, 'jack_upside', PORTRAIT ? 0.34 : 0.5, 0.97, PORTRAIT ? 0.62 : 0.34, PORTRAIT ? 0.3 : 0.5);
+        s.anim({ targets: jack, angle: { from: -4, to: 4 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        const z = s.actor(c, 'zzz', 0, 0, 0.16, 0.12); z.x = jack.x + jack.displayWidth * 0.35; z.y = jack.y - jack.displayHeight * 0.75;
+        s.anim({ targets: z, y: z.y - c.r.h * 0.12, alpha: { from: 1, to: 0.2 }, duration: 1400, repeat: -1 });
+        s.caption(c, 'MEANWHILE, IN THE PILLOW HILLS...', instant);
+        if (!instant) s.at(300, () => A.snore());
+        const say = inst => s.bubble(c, PORTRAIT ? 0.66 : 0.5, PORTRAIT ? 0.62 : 0.45, 'Zzz... dumplings... zzz...', -1, inst);
+        instant ? say(true) : s.at(1000, say);
+      },
+      // BONK! a pillow out of nowhere, feathers everywhere
+      (s, c, instant) => {
+        s.bg(c, 'sky');
+        const jack = s.actor(c, 'jack_side', PORTRAIT ? 0.62 : 0.55, PORTRAIT ? 0.97 : 0.9, PORTRAIT ? 0.62 : 0.35, PORTRAIT ? 0.3 : 0.55);
+        const px = jack.x - jack.displayWidth * 0.5, py = jack.y - jack.displayHeight * 0.65;
+        const pillow = s.actor(c, 'pillow', 0, 0, PORTRAIT ? 0.24 : 0.12, PORTRAIT ? 0.2 : 0.3); pillow.y = py + pillow.displayHeight / 2;
+        if (instant) pillow.x = px - c.r.w * 0.06; else { pillow.x = -c.r.w * 0.6; s.anim({ targets: pillow, x: px, angle: 25, duration: 450, ease: 'Quad.in' }); A.whoosh(); }
+        const hit = inst => {
+          s.burst(c, PORTRAIT ? 0.2 : 0.3, PORTRAIT ? 0.3 : 0.2, 'BONK!', PORTRAIT ? 72 : 60, inst);
+          if (inst) { jack.angle = 22; jack.x += c.r.w * 0.04; pillow.angle = -20; return; }
+          s.anim({ targets: jack, angle: 22, x: jack.x + c.r.w * 0.04, duration: 260, ease: 'Back.out' });
+          s.anim({ targets: pillow, angle: -20, x: px - c.r.w * 0.06, duration: 320, ease: 'Quad.out' });
+          const fe = s.add.particles(px, py, 'feather', { speed: { min: 150, max: 380 }, angle: { min: 0, max: 360 }, rotate: { min: 0, max: 360 }, scale: { min: 0.3, max: 0.55 }, lifespan: 1000, gravityY: 300, emitting: false });
+          c.add(fe); fe.explode(14); A.poof();
+        };
+        instant ? hit(true) : s.at(450, hit);
+      },
+      // Timmy wants a pillow fight, Jack wants a nap
+      (s, c, instant) => {
+        s.bg(c, 'sky');
+        s.strip(c, 0xfff3d2, 0.8, 1);
+        s.actor(c, 'tiger', 0.74, 0.98, 0.5);
+        s.actor(c, 'pillow', 0.56, 0.74, 0.16, 0.16).setAngle(-20);
+        s.actor(c, 'jack_front', 0.24, 0.98, 0.5);
+        const s1 = inst => s.bubble(c, 0.62, 0.2, 'Pillows at dawn, Jack!', 0.2, inst);
+        const s2 = inst => s.bubble(c, 0.34, 0.42, 'It\'s not dawn. It\'s NAP time!', -1, inst);
+        if (instant) { s1(true); s2(true); } else { s.at(200, s1); s.at(1400, s2); }
+      },
+    ],
+    // Professor Hoot peeks out from behind the moon and wobbles
+    peek: s => {
+      const o = s.peekObj; if (!o) return;
+      o.setVisible(true);
+      s.tweens.add({ targets: o, x: o.x + (s.peekDX || 0), duration: 500, ease: 'Back.out', onComplete: () => s.tweens.add({ targets: o, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 }) });
+    },
+  };
   const comicSeen = id => !!(Save.data.comics && Save.data.comics[id]);
   const COMIC_DUE = {
+    hills: () => !(Save.data.xp || 0) && !(Save.data.wins || 0) && !Object.keys(Save.data.stars).some(k => Save.data.stars[k] > 0), // new players only
     space: () => worldOpen(SPACE), // everyone, once (also players already past Space)
     canada: () => worldOpen(CANADA),
   };
@@ -3088,9 +3144,11 @@
     // maxW: the word is scaled down to fit (long world names on the title page)
     burst(c, fx, fy, word, size, instant, maxW) {
       const r = c ? c.r : null, x = c ? (fx - 0.5) * r.w : fx, y = c ? (fy - 0.5) * r.h : fy, R = size * 1.6, g = this.add.graphics();
-      const star = (rad, col) => { const pts = []; for (let k = 0; k < 28; k++) { const a = k * Math.PI / 14, rr = k % 2 ? rad * 0.62 : rad; pts.push(new Phaser.Geom.Point(Math.cos(a) * rr * 1.25, Math.sin(a) * rr)); } g.fillStyle(col); g.fillPoints(pts, true); g.lineStyle(6, 0x1d2163); g.strokePoints(pts, true); };
-      star(R, 0xffd23f); star(R * 0.72, 0xff6b5b);
       const t = txt(this, 0, 0, word, size, '#fff3d2', { stroke: '#1d2163', st: Math.round(size / 6) });
+      // long words (PILLOW HILLS!) get a wider star; short ones keep the round one
+      const sx = Math.max(1, t.width / (2 * R * 1.25) / 1.3);
+      const star = (rad, col) => { const pts = []; for (let k = 0; k < 28; k++) { const a = k * Math.PI / 14, rr = k % 2 ? rad * 0.62 : rad; pts.push(new Phaser.Geom.Point(Math.cos(a) * rr * 1.25 * sx, Math.sin(a) * rr)); } g.fillStyle(col); g.fillPoints(pts, true); g.lineStyle(6, 0x1d2163); g.strokePoints(pts, true); };
+      star(R, 0xffd23f); star(R * 0.72, 0xff6b5b);
       const k = maxW && t.width > maxW ? maxW / t.width : 1;
       const b = this.add.container(x, y, [g, t]).setAngle(-6).setScale(k);
       if (c) c.add(b);
