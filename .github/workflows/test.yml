@@ -7,6 +7,11 @@ jobs:
   browser-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # v0.8 has ~80 browser tests; 3 parallel shards keep each job well under the time limit
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,10 +19,10 @@ jobs:
           node-version: 22
       - run: npm install --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
+      - run: npx playwright test --shard=${{ matrix.shard }}/3
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: playwright-report
           retention-days: 7

@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.7.8';
+  const VERSION = '0.8.0';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -126,6 +126,20 @@
     hard: { name: 'HARD', color: 0xff6b5b, hp: 1.2, dmg: 1.15, scale: true, smart: true, xp: 1.5 },
   };
   const diff = () => DIFFS[Save.data.diff] || DIFFS.normal;
+  // SAVE IT! (v0.8 Canada, docs/gdd/0.8-canada.md section 4). Times in ms after the puck leaves the stick; F = flight time.
+  const SAVE_T = {
+    easy: { pause: [800, 800], F: 2000 },
+    normal: { pause: [600, 600], F: 1200, perfect: [880, 1280], good: [480, 880] },
+    hard: { pause: [300, 1000], F: 1000, perfect: [810, 1060], good: [560, 810] },
+  };
+  // a tap t ms after launch (negative = during the pause): 'perfect', 'good', 'early' or 'late'. EASY: any tap until F + 300 is perfect.
+  function judgeSave(t, d) {
+    const T = SAVE_T[d] || SAVE_T.normal;
+    if (!T.perfect) return t <= T.F + 300 ? 'perfect' : 'late';
+    if (t >= T.perfect[0] && t <= T.perfect[1]) return 'perfect';
+    if (t >= T.good[0] && t < T.good[1]) return 'good';
+    return t < T.good[0] ? 'early' : 'late';
+  }
 
   // ---------- boosters from the capsule machine (just for the surprise, nothing to buy)
   // rarity: 1 common, 2 rare, 3 super rare. Each booster is used up in one duel.
@@ -214,17 +228,18 @@
   function iconScale(key, size) { // scale so the icon is ~size px
     if (!key) return 1;
     if (key.startsWith('i:') || key.startsWith('j:')) return size / 144;
-    const base = { polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
+    const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
     return size / base;
   }
 
   // ---------- shared scenery
   const SPACE = 1;
-  const SPOOKY = 2;
-  const groundKey = w => w === SPACE ? 'ground2' : w === SPOOKY ? 'ground3' : 'ground';
+  const CANADA = 2; // v0.8
+  const SPOOKY = 3;
+  const groundKey = w => w === SPACE ? 'ground2' : w === SPOOKY ? 'ground3' : w === CANADA ? 'ground4' : 'ground';
   function sky(scene, world = 0) {
-    const sp = world === SPACE, spook = world === SPOOKY;
-    scene.add.image(BLEED.cx, BLEED.cy, sp ? 'sky2' : spook ? 'sky3' : 'sky').setDisplaySize(GW, GH);
+    const sp = world === SPACE, spook = world === SPOOKY, can = world === CANADA;
+    scene.add.image(BLEED.cx, BLEED.cy, sp ? 'sky2' : spook ? 'sky3' : can ? 'sky4' : 'sky').setDisplaySize(GW, GH);
     const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(0.55);
     scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : 1); i++) {
@@ -234,6 +249,7 @@
     }
     if (sp) spaceDecor(scene, scene.scene.key === 'battle' ? 15000 : 7000);
     else if (spook) spookyDecor(scene);
+    else if (can) canadaDecor(scene);
     else for (let i = 0; i < 5; i++) {
       const cl = scene.add.image(Math.random() * W, H * (0.08 + Math.random() * 0.42), 'cloud')
         .setAlpha(0.13 + Math.random() * 0.12).setScale(0.8 + Math.random() * 1.3);
@@ -252,6 +268,20 @@
       const b = scene.add.image(dir > 0 ? -100 : W + 100, y, 'bat').setScale(0.3).setFlipX(dir < 0).setAlpha(0.85);
       scene.tweens.add({ targets: b, scaleY: 0.18, duration: 140, yoyo: true, repeat: -1 });
       scene.tweens.add({ targets: b, x: dir > 0 ? W + 100 : -100, y: y + rnd(-120, 120), duration: 5200, ease: 'Sine.inOut', onComplete: () => b.destroy() });
+    } });
+  }
+  // Canada: northern lights, pines on the horizon, falling snow and now and then a maple leaf
+  function canadaDecor(scene) {
+    const au = scene.add.image(BLEED.cx, PORTRAIT ? H * 0.2 : H * 0.22, 'aurora').setDisplaySize(GW, PORTRAIT ? H * 0.32 : H * 0.42).setAlpha(0.55);
+    scene.tweens.add({ targets: au, alpha: 0.28, duration: 3200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null; // pines only on the map (QA B53)
+    if (gy) for (let i = 0; i < 6; i++) scene.add.image(W * (0.05 + i * 0.18) + rnd(-30, 30), gy + rnd(-20, 20), 'pine').setOrigin(0.5, 1).setScale(0.5 + Math.random() * 0.4).setAlpha(0.55).setTint(0x9fb6d8);
+    const snow = scene.add.particles(0, 0, 'dot', { x: { min: -40, max: W + 40 }, y: -30, speedY: { min: 60, max: 140 }, speedX: { min: -40, max: 40 }, lifespan: 16000, scale: { min: 0.1, max: 0.28 }, alpha: { min: 0.5, max: 0.95 }, frequency: 260 });
+    snow.setDepth(3);
+    scene.time.addEvent({ delay: 6500, loop: true, callback: () => {
+      if (Math.random() < 0.4) return;
+      const y = H * (0.1 + Math.random() * 0.35), l = scene.add.image(-80, y, 'mapleleaf').setScale(0.22).setAlpha(0.9).setDepth(3);
+      scene.tweens.add({ targets: l, angle: 720, x: W + 80, y: y + rnd(80, 260), duration: 9000, ease: 'Sine.inOut', onComplete: () => l.destroy() });
     } });
   }
   // Space world: a far planet, a drifting UFO and a rocket that zooms by now and then
@@ -319,7 +349,8 @@
       ['jack_side', 'jack_upside', 'jack_front', 'tiger', 'cow', 'snake', 'owl', 'moon', 'cloud', 'zzz', 'snow', 'star', 'trophy', 'heart', 'sparkles',
         'dumpling', 'milk', 'books', 'lock', 'dizzy', 'dance', 'crown', 'note', 'shield',
         'robot', 'ghost', 'dragonboss', 'aliens', 'mothership', 'umbrella', 'planet', 'rocket', 'extinguisher', 'comet', 'ufo',
-        'pumpkin', 'bat', 'spider', 'vampire', 'kraken', 'candy', 'lollipop', 'web', 'tophat', 'witchhat', 'gift']
+        'pumpkin', 'bat', 'spider', 'vampire', 'kraken', 'candy', 'lollipop', 'web', 'tophat', 'witchhat', 'gift',
+        'moose', 'beaver', 'bear', 'sasquatch', 'mapleleaf', 'pine', 'pancakes', 'hockey', 'glove']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
       this.load.atlas('icons2', 'assets/icons2.webp', 'assets/icons2.json');
@@ -348,6 +379,10 @@
       g.lineStyle(5, 0xb7a6ef); g.strokeRoundedRect(6, 10, 200, 120, 46);
       g.fillStyle(0xb7a6ef); [[22, 26], [190, 26], [22, 114], [190, 114]].forEach(([x, y]) => g.fillCircle(x, y, 10));
       g.generateTexture('pillow', 216, 150); g.clear();
+      g.fillStyle(0x9fc3ea); g.fillCircle(60, 62, 56); g.fillStyle(0xffffff); g.fillCircle(56, 56, 52); g.fillStyle(0xe6f1ff); g.fillCircle(72, 72, 22);
+      g.generateTexture('snowball', 120, 120); g.clear();
+      g.fillStyle(0x0b0d1a); g.fillEllipse(50, 34, 96, 44); g.fillStyle(0x2a2f4a); g.fillEllipse(50, 26, 96, 40); g.fillStyle(0x4a5070, 0.8); g.fillEllipse(42, 22, 50, 14);
+      g.generateTexture('puck', 100, 60); g.clear();
       g.destroy();
       // sky gradient + glow + quilt ground (canvas textures)
       const sk = this.textures.createCanvas('sky', W, H), cx = sk.getContext();
@@ -393,6 +428,42 @@
         q2.fillStyle = 'rgba(220,210,255,0.25)'; q2.beginPath(); q2.ellipse(x, y - r * 0.12, r * 0.8, r * 0.22, 0, Math.PI, 0); q2.fill();
       }
       q2.restore(); gt2.refresh();
+      // Canada: twilight sky with northern lights (separate texture so it can shimmer), snow ground
+      const sk4 = this.textures.createCanvas('sky4', W, H), cx4 = sk4.getContext();
+      const gr4 = cx4.createLinearGradient(0, 0, 0, H); gr4.addColorStop(0, '#0b1a3a'); gr4.addColorStop(0.6, '#1f3f6e'); gr4.addColorStop(1, '#3d6597');
+      cx4.fillStyle = gr4; cx4.fillRect(0, 0, W, H); sk4.refresh();
+      const ht = this.textures.createCanvas('halftone', 24, 24), hx = ht.getContext();
+      hx.fillStyle = 'rgba(29,33,99,0.08)'; [[6, 6], [18, 18]].forEach(([x, y]) => { hx.beginPath(); hx.arc(x, y, 3, 0, Math.PI * 2); hx.fill(); }); ht.refresh();
+      const au = this.textures.createCanvas('aurora', 512, 256), ax = au.getContext();
+      [['rgba(111,247,194,0.55)', 90, 0], ['rgba(80,220,230,0.4)', 130, 2], ['rgba(255,140,220,0.28)', 60, 4]].forEach(([col, y0, ph]) => {
+        ax.strokeStyle = col; ax.lineCap = 'round';
+        for (let k = 0; k < 6; k++) {
+          ax.lineWidth = 34 - k * 5; ax.globalAlpha = 0.35 + k * 0.1; ax.beginPath();
+          for (let x = 0; x <= 512; x += 8) { const y = y0 + Math.sin(x / 70 + ph) * 28 + Math.sin(x / 31 + ph) * 8; if (x) ax.lineTo(x, y); else ax.moveTo(x, y); }
+          ax.stroke();
+        }
+      });
+      ax.globalAlpha = 1; au.refresh();
+      const gt4 = this.textures.createCanvas('ground4', GW, GH), q4 = gt4.getContext();
+      q4.save(); q4.beginPath(); q4.ellipse(GW / 2, RY, GW / 2, RY, 0, Math.PI, 0); q4.lineTo(GW, GH); q4.lineTo(0, GH); q4.closePath(); q4.clip();
+      const qg4 = q4.createLinearGradient(0, 0, 0, GH); qg4.addColorStop(0, '#f2f8ff'); qg4.addColorStop(0.4, '#b9d3f0'); qg4.addColorStop(1, '#6d8fc4');
+      q4.fillStyle = qg4; q4.fillRect(0, 0, GW, GH);
+      for (let i = 0; i < 22; i++) {
+        const x = Math.random() * GW, y = RY * 0.6 + Math.random() * (GH - RY * 0.6), r = 40 + Math.random() * 90 * (0.4 + y / GH);
+        q4.fillStyle = 'rgba(255,255,255,0.35)'; q4.beginPath(); q4.ellipse(x, y, r, r * 0.25, 0, 0, Math.PI * 2); q4.fill();
+      }
+      for (let i = 0; i < 90; i++) { q4.fillStyle = 'rgba(255,255,255,' + (0.4 + Math.random() * 0.6) + ')'; q4.fillRect(Math.random() * GW, RY * 0.4 + Math.random() * GH, 3, 3); }
+      q4.restore(); gt4.refresh();
+      // the Sasquatch reward: a red knit toque with a white band, a pom-pom and a maple leaf (owner's choice, 4 Oct 2026)
+      const tq = this.textures.createCanvas('toque', 240, 230), tx = tq.getContext();
+      tx.fillStyle = '#ffffff'; tx.beginPath(); tx.arc(120, 40, 36, 0, Math.PI * 2); tx.fill();
+      tx.fillStyle = '#e8eef8'; for (let i = 0; i < 14; i++) { tx.beginPath(); tx.arc(120 + Math.cos(i) * 26, 40 + Math.sin(i * 1.7) * 26, 9, 0, Math.PI * 2); tx.fill(); }
+      tx.fillStyle = '#d7263d'; tx.beginPath(); tx.moveTo(22, 175); tx.bezierCurveTo(18, 60, 222, 60, 218, 175); tx.closePath(); tx.fill();
+      tx.strokeStyle = 'rgba(120,10,30,0.35)'; tx.lineWidth = 6; for (let x = 50; x <= 190; x += 28) { tx.beginPath(); tx.moveTo(x, 168); tx.quadraticCurveTo(120 + (x - 120) * 0.5, 90, 120 + (x - 120) * 0.3, 78); tx.stroke(); }
+      tx.fillStyle = '#ffffff'; tx.beginPath(); tx.roundRect ? tx.roundRect(8, 160, 224, 58, 26) : tx.rect(8, 160, 224, 58); tx.fill();
+      tx.strokeStyle = 'rgba(160,170,200,0.6)'; tx.lineWidth = 4; for (let x = 24; x < 228; x += 18) { tx.beginPath(); tx.moveTo(x, 166); tx.lineTo(x, 212); tx.stroke(); }
+      const leaf = this.textures.get('mapleleaf').getSourceImage(); tx.drawImage(leaf, 82, 92, 76, 79);
+      tq.refresh();
       // spooky grass for the Halloween world
       const gt3 = this.textures.createCanvas('ground3', GW, GH), q3 = gt3.getContext();
       q3.save(); q3.beginPath(); q3.ellipse(GW / 2, RY, GW / 2, RY, 0, Math.PI, 0); q3.lineTo(GW, GH); q3.lineTo(0, GH); q3.closePath(); q3.clip();
@@ -429,6 +500,7 @@
   const WORLDS = [
     { name: 'PILLOW HILLS', icon: 'moon' },
     { name: 'SPACE', icon: 'rocket' },
+    { name: 'CANADA', icon: 'mapleleaf' },
   ].concat(EVENT_ON ? [{ name: 'SPOOKY', icon: 'pumpkin', event: true }] : []);
   const RIVALS = [
     { id: 'timmy', name: 'Timmy the Tiger', nick: 'Timmy', short: 'TIMMY', tex: 'tiger', scale: 2.0, color: C.orange, hp: 100, xp: 40,
@@ -485,6 +557,34 @@
         { type: 'multi', hits: 3, dmg: [7, 11], w: 25, log: 'SAUCER SPIN! {a} whirls like a giant frisbee!' },
         { type: 'roar', word: 'WE COME IN PEACE!', color: 0xc6a8ff, sound: 'beam', dmg: [16, 24], w: 20, log: '{a} shouts "WE COME IN PEACE!" so loud the stars wobble!' },
         { type: 'spray', tex: 'spark', tint: [0xff9ed8, 0xffd23f, 0x7fd6c2, 0x9aa2ff], hitTint: 0xffd6ff, word: 'GLITTER RAY!', sound: 'laser', dmg: [15, 22], w: 15, log: '{a} zaps {d} with a sparkly glitter ray!' }] },
+    // ---- World 3: CANADA (v0.8, docs/gdd/0.8-canada.md). Harder than Space: +10 pep per slot, scaling from level 6.
+    { id: 'moose', world: CANADA, name: 'Max the Moose', nick: 'Max', short: 'MAX', tex: 'moose', color: 0xa0714f, hp: 145, xp: 130,
+      intro: 'Max the Moose bows: "Sorry, eh! I have to pillow-fight you now. So sorry!"', laugh: 'Max laughed so hard his antlers wobbled. "Sorry for losing, eh!"',
+      // Max teaches SAVE IT! before the boss: one small slapshot
+      moves: [{ type: 'slapshot', charge: true, mini: true, dmg: [14, 20], uses: 1, w: 30, log: '{a} winds up a mini SLAPSHOT!' },
+        { type: 'rush', word: 'ANTLERS!', dmg: [12, 21], w: 30, log: '{a} charges in antlers first... gently!' },
+        { type: 'roar', word: 'SORRY, EH!', color: 0xffd9a0, sound: 'honk', dmg: [13, 21], w: 20, log: '{a} says SORRY so loud that {d} falls over!' },
+        { type: 'heal', tex: 'pancakes', amt: 22, uses: 1, w: 15, log: '{a} eats a stack of pancakes with maple syrup. Yum!' }] },
+    { id: 'beaver', world: CANADA, name: 'Beaver Bob', nick: 'Bob', short: 'BEAVER BOB', tex: 'beaver', color: 0xc08a5a, hp: 155, xp: 140,
+      intro: 'Beaver Bob slaps his tail: "Nice pillows! I will build a dam with them."', laugh: 'Bob giggled and hid in his pillow dam. "Best game ever, eh!"',
+      moves: [{ type: 'rush', word: 'TAIL SLAP!', dmg: [12, 20], w: 35, log: '{a} slaps the ice with his tail. SPLAT!' },
+        { type: 'throw', tex: 'pillow', dmg: [12, 19], w: 25, log: 'PILLOW LOG! {a} rolls a fluffy log at {d}!' },
+        { type: 'spray', tex: 'feather', word: 'CHOMP CHOMP!', sound: 'chomp', dmg: [11, 19], w: 25, log: '{a} chews a pillow and sprays fluff at {d}!' },
+        { type: 'shield', w: 20, log: '{a} builds a pillow dam. Next hit only does half!' }] },
+    { id: 'mountie', world: CANADA, name: 'Mountie Bear', nick: 'Mountie Bear', short: 'MOUNTIE BEAR', tex: 'bear', color: 0xd94a3d, hp: 165, xp: 150,
+      intro: 'Mountie Bear tips his hat: "Pillow fight rules: no biting, no crying, always say sorry!"', laugh: 'Mountie Bear laughed and gave himself a ticket for being too ticklish.',
+      moves: [{ type: 'rush', word: 'BEAR HUG!', dmg: [13, 21], w: 30, log: '{a} gives {d} a big squishy BEAR HUG!' },
+        { type: 'volley', tex: 'snowball', word: 'SNOWBALL FIGHT!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} starts a SNOWBALL FIGHT!' },
+        { type: 'dizzy', color: 0xffb347, word: 'STICKY!', sound: 'gulp', uses: 1, w: 15, log: '{a} pours maple syrup! {d} is all sticky!' },
+        { type: 'roar', word: 'PARDON ME!', color: 0xff6b5b, sound: 'roar', dmg: [13, 21], w: 20, log: '{a} roars very politely. Still loud!' },
+        { type: 'heal', tex: 'i:honey', amt: 25, uses: 1, w: 10, log: '{a} has a honey snack. Bears love honey!' }] },
+    { id: 'sasquatch', world: CANADA, name: 'Sasquatch', nick: 'Sasquatch', short: 'SASQUATCH', tex: 'sasquatch', big: 1.15, color: 0x9c6b4a, hp: 210, xp: 200, boss: true, reward: 'toque',
+      intro: 'Sasquatch peeks out from behind a pine tree: "H-hello... do you want to play hockey? I shoot REALLY hard."',
+      laugh: 'Sasquatch giggled so hard the snow fell off the trees. "You are my best friend now!"',
+      moves: [{ type: 'slapshot', charge: true, dmg: [26, 32], uses: 2, usesHard: 3, w: 35, log: '{a} shoots the hardest SLAPSHOT in the North!' },
+        { type: 'quake', word: 'AVALANCHE!', sound: 'stomp', dmg: [16, 24], w: 25, log: '{a} stomps his giant feet. AVALANCHE!' },
+        { type: 'volley', tex: 'snowball', word: 'SNOWBALLS!', sound: 'whoosh', dmg: [16, 24], w: 20, log: '{a} throws a mountain of snowballs at {d}!' },
+        { type: 'roar', word: 'HELLO FRIEND!', color: 0xc9a27a, sound: 'roar', dmg: [15, 23], w: 20, log: '{a} waves and yells HELLO so loud the snow falls off the trees!' }] },
   ].concat(EVENT_ON ? [
     // ---- Halloween event world: SPOOKY (open from the start while the event runs)
     { id: 'pumpkin', world: SPOOKY, event: true, name: 'Pumpkin Pete', nick: 'Pete', short: 'PUMPKIN PETE', tex: 'pumpkin', color: C.orange, hp: 110, xp: 50, reward: 'pumpkin',
@@ -519,6 +619,7 @@
     { id: 'owlhat', name: 'Owl Hat', tex: 'owl', w: 0.38, tint: 0x8fe39a },
     { id: 'ufohat', name: 'UFO Hat', tex: 'ufo', w: 0.5 },
     { id: 'bat', name: 'Bat Hat', tex: 'bat', w: 0.5 },
+    { id: 'toque', name: 'Canada Toque', tex: 'toque', w: 0.46 },
     { id: 'pumpkin', name: 'Pumpkin Hat', tex: 'pumpkin', w: 0.42 },
     { id: 'tophat', name: 'Top Hat', tex: 'tophat', w: 0.45 },
     { id: 'witchhat', name: 'Witch Hat', tex: 'witchhat', w: 0.55 },
@@ -533,7 +634,7 @@
       { type: 'spray', tex: 'dot', tint: [0x3b2a6e, 0x6a4fb0], word: 'INK!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} squirts pillow ink at {d}!' },
       { type: 'tickle', dmg: [8, 26], w: 25 },
       { type: 'roar', word: 'BLUB BLUB!', color: 0xff9ed8, sound: 'boo', dmg: [13, 21], w: 20, log: '{a} bubbles a giant BLUB!' }] };
-  const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, beam: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
+  const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, beam: 30, slapshot: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
   const isUnlocked = i => i === 0 || (RIVALS[i].event && !RIVALS[i - 1].event) || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
   const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
   const worldOpen = w => RIVALS.some((r, i) => (r.world || 0) === w && isUnlocked(i));
@@ -558,6 +659,8 @@
   }
   function fade(scene, key, data) {
     if (scene._leaving) return; scene._leaving = true;
+    // the first trip to Canada starts with the comic (#31); the comic then goes on to where the player was heading
+    if (key === 'battle' && data && RIVALS[data.rival] && RIVALS[data.rival].world === CANADA && comicDue()) { data = { world: 'canada', then: { key, data } }; key = 'comic'; }
     scene.cameras.main.fadeOut(320, 15, 18, 64);
     scene.cameras.main.once('camerafadeoutcomplete', () => {
       // the screen was rotated while we couldn't rebuild (e.g. in the toy studio): rebuild now, straight into the next scene
@@ -655,7 +758,10 @@
       }
       // hero
       const jy = PORTRAIT ? H - 330 : H * 0.95;
-      const hMax = PORTRAIT ? Math.min(590, jy - 760) : 425;
+      // portrait: logo, level panel and Jack share the height evenly; Jack grows on tall phones (QA B44 / #45)
+      const logoBot = ly + fs * 1.07 + fs * 0.55, avail = jy - logoBot;
+      const hatOn = COSTUMES.some(c => c.id === Save.data.costume && c.tex);
+      const hMax = PORTRAIT ? clamp(avail - 190 - 120 - (hatOn ? 230 : 0), hatOn ? 280 : 380, 800) : 425; // small iPads with a hat: Jack shrinks a bit (QA B55)
       const sh = this.add.image(W / 2, jy + 6, 'shadow').setScale(1.3, 1);
       const hero = heroDef(this);
       const heroKey = hero.isJack ? 'jack_front' : hero.tex;
@@ -669,7 +775,9 @@
       this.add.particles(0, 0, 'spark', { x: { min: W / 2 - 300, max: W / 2 + 300 }, y: { min: jy - hMax, max: jy - 60 }, lifespan: 1200, scale: { start: 0.5, end: 0 }, alpha: { start: 1, end: 0 }, frequency: 220, tint: [C.star, 0xffffff, C.mint], rotate: { min: 0, max: 90 } }).setDepth(-0.5);
       // level panel
       const lv = levelOf(Save.data.xp);
-      const px = PORTRAIT ? W / 2 : 420, py = PORTRAIT ? 640 : H * 0.7;
+      // the hat sticks up above Jack's head and he bobs 34 px: keep both clear of the panel (code review)
+      const gap = Math.max(24, (avail - 190 - jack.displayHeight - (hat ? hat.displayHeight * 0.85 : 0) - 34) / 2);
+      const px = PORTRAIT ? W / 2 : 420, py = PORTRAIT ? logoBot + gap + 95 : H * 0.7;
       const pg = this.add.graphics(); pg.fillStyle(C.night2, 0.9); pg.fillRoundedRect(px - 210, py - 95, 420, 190, 40); pg.lineStyle(4, C.seam); pg.strokeRoundedRect(px - 210, py - 95, 420, 190, 40);
       txt(this, px, py - 46, 'LEVEL ' + lv.l, 50, '#ffd23f', { st: 0 });
       this.add.rectangle(px, py + 10, 320, 26, C.night3).setStrokeStyle(3, C.seam);
@@ -712,14 +820,19 @@
     }
     create() {
       this._leaving = false;
+      if (this.world === CANADA && comicDue()) { this.scene.start('comic', { world: 'canada', then: { key: 'map', data: { world: CANADA } } }); return; }
       if (Save.data.lastWorld !== this.world) { Save.data.lastWorld = this.world; Save.store(); }
       const wd = this.world;
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this, wd);
       bottomGround(this, groundKey(wd), PORTRAIT ? 0.45 : 0.5, 0.8);
-      // world tabs
-      const ty = PORTRAIT ? 190 : 95, tw0 = Math.min(PORTRAIT ? 420 : 440, (PORTRAIT ? W - 60 : W - 480) / WORLDS.length - 30);
-      WORLDS.forEach((w, i) => this.tab(w, i, W / 2 + (i - (WORLDS.length - 1) / 2) * (tw0 + 30), ty, tw0));
+      // world tabs (landscape keeps room for back, mute and the capsule button: QA B51; names that would be squeezed become icon-only tabs: QA B52)
+      const ty = PORTRAIT ? 190 : 95, room = PORTRAIT ? W - 60 : W - 600, n = WORLDS.length, tw0 = Math.min(PORTRAIT ? 420 : 440, room / n - 30);
+      // 4 worlds (Canada + the October event): names do not fit any more, so only the open tab is wide with its name,
+      // the others show just their icon
+      const wide = tw0 - 140 < 230, tws = WORLDS.map((w, i) => !wide ? tw0 : i === this.world ? Math.min(400, (room - 30 * (n - 1)) * 2 / (n + 1)) : Math.min(200, (room - 30 * (n - 1)) / (n + 1)));
+      let tx0 = W / 2 - (tws.reduce((a, b) => a + b, 0) + 30 * (n - 1)) / 2;
+      WORLDS.forEach((w, i) => { this.tab(w, i, tx0 + tws[i] / 2, ty, tws[i], wide && i !== this.world); tx0 += tws[i] + 30; });
       const lv = levelOf(Save.data.xp);
       txt(this, W / 2, PORTRAIT ? 285 : 180, 'Level ' + lv.l + '  ·  ★ ' + totalStars() + ' / ' + RIVALS.length * 3, 34, '#ffd23f', { st: 6 });
       // portrait: fit the 4 nodes between the difficulty switch and the bottom buttons (short phones shrink the nodes)
@@ -759,8 +872,11 @@
       const sq = button(this, PORTRAIT ? W * 0.73 : W - 200, by, 330, 110, 'MY SQUAD', C.cream, () => fade(this, 'squad'), { size: 44 });
       const face = this.add.image(-125, 0, hero.isJack ? 'jack_front' : hero.tex); face.setScale(Math.min(84 / face.height, 84 / face.width));
       sq.add(face); sq.list[1].x = 25;
-      const mg = button(this, PORTRAIT ? W * 0.27 : 220, by, 360, 110, 'STAR CATCH', C.mint, () => fade(this, 'catch', { world: wd }), { size: 42 });
-      const st = this.add.image(-140, 0, 'star').setScale(0.36); mg.add(st); mg.list[1].x = 28;
+      // Canada after the first win over Beaver Bob: Pond Hockey instead of Star Catch
+      const hk = wd === CANADA && hockeyOpen();
+      const mg = button(this, PORTRAIT ? W * 0.27 : 220, by, 360, 110, hk ? 'POND HOCKEY' : 'STAR CATCH', C.mint, () => fade(this, hk ? 'hockey' : 'catch', { world: wd }), { size: 42 });
+      if (hk) fit(mg.list[1], 230);
+      const st = this.add.image(-140, 0, hk ? 'puck' : 'star').setScale(hk ? 0.8 : 0.36); mg.add(st); mg.list[1].x = 28;
       this.tweens.add({ targets: st, angle: 360, duration: 4000, repeat: -1 });
       this.diffSwitch(W / 2, PORTRAIT ? 370 : H - 90);
       let cbtn = capsuleButton(this, W - 200, 80, wd);
@@ -794,21 +910,21 @@
       draw();
       return c;
     }
-    tab(w, i, x, y, tw0) {
+    tab(w, i, x, y, tw0, iconOnly) {
       const open = worldOpen(i), on = i === this.world, h = 96;
       const c = this.add.container(x, y).setDepth(6);
       const g = this.add.graphics();
       g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-tw0 / 2, -h / 2 + 8, tw0, h, h / 2);
       g.fillStyle(on ? C.star : (open ? C.night2 : 0x161946)); g.fillRoundedRect(-tw0 / 2, -h / 2, tw0, h, h / 2);
       g.lineStyle(5, on ? 0xffffff : C.seam); g.strokeRoundedRect(-tw0 / 2, -h / 2, tw0, h, h / 2);
-      const ic = this.add.image(-tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
-      const t = fit(txt(this, 26, 0, open ? w.name : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140);
+      const ic = this.add.image(iconOnly ? 0 : -tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
+      const t = fit(txt(this, 26, 0, open ? w.name : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140).setVisible(!iconOnly);
       c.add([g, ic, t]);
       c.setSize(tw0, h).setInteractive({ useHandCursor: true });
       c.on('pointerup', () => {
         A.init();
         if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); const fi = RIVALS.findIndex(r => (r.world || 0) === i); this.hint(fi > 0 ? 'Beat ' + RIVALS[fi - 1].name + ' to open ' + w.name + '!' : 'Locked!'); return; }
-        if (on) return;
+        if (on) { if (i === CANADA) fade(this, 'comic', { world: 'canada', then: { key: 'map', data: { world: CANADA } } }); return; } // replay the comic
         A.click(); A.whoosh(); fade(this, 'map', { world: i });
       });
     }
@@ -942,8 +1058,10 @@
           fade(this, 'battle', { toy: it.toy.id });
         }, { size: 42, color: '#fff3d2' });
         p.add(b2);
-        const del = txt(this, pw / 2 - 90, -ph / 2 + 70, 'remove', 26, '#8a8fd6', { st: 0, weight: '500' }).setInteractive({ useHandCursor: true });
-        del.on('pointerup', () => this.confirmRemove(it.toy, close));
+        // a real button, big enough for small fingers (QA B50 / #48)
+        // portrait: top right; landscape: under the picture (the name row is full there)
+        const del = button(this, PORTRAIT ? pw / 2 - 150 : ix, PORTRAIT ? -ph / 2 + 75 : ph / 2 - 80, 230, 90, 'REMOVE', C.cream, () => this.confirmRemove(it.toy, close), { size: 30 });
+        del.add(img(this, -78, 0, 'i:trash').setScale(iconScale('i:trash', 50))); del.list[1].x = 22;
         p.add(del);
       }
       const x = txt(this, -pw / 2 + 70, -ph / 2 + 70, '✕', 50, '#bcc0ee', { st: 0 }).setInteractive({ useHandCursor: true });
@@ -1065,18 +1183,28 @@
   class StudioScene extends Phaser.Scene {
     constructor() { super('studio'); }
     create() {
-      this._leaving = false; this.busyState = false;
+      this._leaving = false; this.busyState = false; this.job = null;
       this.cameras.main.fadeIn(350, 15, 18, 64);
       sky(this);
       bottomGround(this, 'ground', PORTRAIT ? 0.45 : 0.5, 0.8);
       this.title = txt(this, W / 2, PORTRAIT ? 190 : 95, 'NEW TOY', PORTRAIT ? 80 : 72, '#fff3d2', { stroke: '#0f1240', st: 12 });
       this.layer = this.add.container(0, 0);
-      backButton(this, () => { if (!this.busyState) fade(this, Save.data.toys.length ? 'squad' : 'title'); });
+      // BACK while the photo is processed cancels it (QA B41 / #43)
+      backButton(this, () => { if (this.busyState) this.cancelJob(); else fade(this, Save.data.toys.length ? 'squad' : 'title'); });
       muteButton(this);
       this.intro();
       try { getWorker(); } catch (e) {}
     }
     clear() { this.layer.removeAll(true); }
+    // stop the photo magic: the worker is replaced, so a late reply can never land (the model files stay in the browser cache)
+    cancelJob() {
+      const job = this.job; if (!job) return;
+      this.job = null; this.busyState = false;
+      try { if (toyWorker) toyWorker.terminate(); } catch (e) {}
+      toyWorker = null;
+      job.finish({ type: 'cancel' });
+      A.click(); this.intro();
+    }
     intro() {
       this.clear(); this.title.setVisible(true);
       const cy = PORTRAIT ? H * 0.42 : H * 0.45;
@@ -1106,10 +1234,21 @@
       const sparks = this.add.particles(0, 0, 'spark', { x: { min: W / 2 - ph.displayWidth / 2, max: W / 2 + ph.displayWidth / 2 }, y: { min: cy - ph.displayHeight / 2, max: cy + ph.displayHeight / 2 }, lifespan: 700, scale: { start: 0.5, end: 0 }, frequency: 90, tint: [C.star, 0xffffff], blendMode: 'ADD' });
       const status = txt(this, W / 2, cy + ph.displayHeight / 2 + 80, 'Looking for your toy...', 42, '#fff3d2', { st: 7 });
       this.layer.add([scan, sparks, status]);
+      // top right, clear of the photo and the status line on every screen (code review)
+      const cancel = button(this, W - 310, 80, 300, 100, 'CANCEL', C.cream, () => this.cancelJob(), { size: 42 });
+      this.layer.add(cancel);
       const files = {};
       const w = getWorker();
+      const job = this.job = {};
       const result = await new Promise((res) => {
+        job.finish = res;
+        // the magic can be very slow on an old phone: 90 s with no news uses the photo as it is.
+        // Every progress message restarts the clock, so a slow first download is never cut off (code review)
+        const arm = () => { if (job.timer) job.timer.remove(false); job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (toyWorker === w) toyWorker = null; res({ type: 'error', message: 'timeout' }); }); };
+        arm();
         w.onmessage = (ev) => {
+          if (this.job !== job) return;
+          arm();
           const m = ev.data;
           if (m.type === 'progress') {
             files[m.file] = [m.loaded, m.total];
@@ -1119,10 +1258,14 @@
             status.setText({ download: 'Getting the magic ready...', cutout: 'Cutting out your toy...', classify: 'Who could this be?...' }[m.stage] || status.text);
           } else if (m.type === 'done' || m.type === 'error') res(m);
         };
-        w.onerror = (e) => res({ type: 'error', message: e.message || 'worker failed' });
+        w.onerror = (e) => { if (this.job === job) res({ type: 'error', message: e.message || 'worker failed' }); };
         const buf = pic.data.data.buffer.slice(0);
         w.postMessage({ type: 'process', rgba: buf, w: pic.w, h: pic.h }, [buf]);
       });
+      if (job.timer) job.timer.remove(false);
+      if (result.type === 'cancel' || this.job !== job || !this.sys.isActive()) return; // cancelled (BACK / CANCEL) or left the scene
+      this.job = null;
+      cancel.destroy();
       scan.destroy(); sparks.stop();
       let cut = null, scores = [];
       if (result.type === 'done') { cut = finishCutout(new Uint8ClampedArray(result.rgba), result.w, result.h); scores = result.scores || []; }
@@ -1356,10 +1499,12 @@
       const boost = boostId && BOOST_BY_ID[boostId];
       this.boost = boost || null;
       const space = this.world === SPACE;
+      // level scaling per world: Hills and Spooky from L1, Space from L4, Canada from L6 (docs/gdd/0.8-canada.md section 5)
+      const from = space ? 4 : this.world === CANADA ? 6 : 0;
       // difficulty: chosen mode + it grows with the player's level ("too easy!" said the chief tester)
       const lvl = levelOf(Save.data.xp).l, D = diff();
-      const hpMul = this.mode === 'boss' ? 1 : D.hp * (!D.scale ? 1 : space ? clamp(1 + 0.05 * (lvl - 4), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4));
-      const dmgMul = D.dmg * (!D.scale ? 1 : space ? clamp(1 + 0.04 * (lvl - 4), 1, 1.2) : clamp(1 + 0.05 * (lvl - 1), 1, 1.3));
+      const hpMul = this.mode === 'boss' ? 1 : D.hp * (!D.scale ? 1 : from ? clamp(1 + 0.05 * (lvl - from), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4));
+      const dmgMul = D.dmg * (!D.scale ? 1 : from ? clamp(1 + 0.04 * (lvl - from), 1, 1.2) : clamp(1 + 0.05 * (lvl - 1), 1, 1.3));
       this.rHp = Math.round(R.hp * hpMul / 5) * 5;
       this.H = heroDef(this);
       this.moves = this.H.moves.slice();
@@ -1391,6 +1536,7 @@
       const zoom = compact ? 0.82 : (PORTRAIT ? clamp((groundY - 330) / 520, 0.55, 1) : 1);
       const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, space ? 'planet' : 'moon').setScale((PORTRAIT ? 0.6 : 0.62 * zoom) * (space ? 1.15 : 1)).setAlpha(0.95);
       if (this.world === SPOOKY) moon.setTint(0xffa64d).setScale(moon.scale * 1.3);
+      if (this.world === CANADA) moon.setTint(0xd8ecff);
       this.tweens.add({ targets: moon, angle: -6, y: moon.y + 12, duration: 2800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       const bg = this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), groundKey(this.world)).setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
       if (bg.y + bg.displayHeight < H + SB + 4) bg.setScale(1, (H + SB + 4 - bg.y) / bg.height); // reach the bottom edge
@@ -1453,6 +1599,11 @@
       this.blockBtn = toolBtn('BLOCK IT!', C.coral, 'extinguisher', () => this.playerBlock(this.rival.charging && this.rival.charging.type === 'beam' ? 'umb' : 'ext'));
       this.extBtn = toolBtn('FOAM!', C.coral, 'extinguisher', () => this.playerBlock('ext'));
       this.umbBtn = toolBtn('UMBRELLA!', 0x6c7bff, 'umbrella', () => this.playerBlock('umb'));
+      // SLAPSHOT wind-up: a reminder by the hero instead of a button
+      // under the hero's pep bar, where the booster chip is (hidden meanwhile): clear of a hat on the hero (QA B54)
+      this.saveChip = chip(this, W * 0.27, hy + (PORTRAIT ? 70 : 76), '        NEXT: SAVE IT!', 0xd8ecff, 30).setDepth(35).setVisible(false);
+      this.saveChip.add(img(this, -this.saveChip.w / 2 + 44, 0, 'glove').setScale(iconScale('glove', 56)));
+      this.tweens.add({ targets: this.saveChip, scale: 1.06, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       backButton(this, () => {
         if (this.busy && !this.over) return;
         // no move made yet: the booster goes back to the collection (QA B30)
@@ -1611,7 +1762,10 @@
     setCards(on) {
       this.moves.forEach(m => m.card.refresh(on && !this.over));
       if (this.blockBtn) {
-        const ch = on && !this.over ? this.rival.charging : null, beam = !!(ch && ch.type === 'beam');
+        const cur = on && !this.over ? this.rival.charging : null, slap = !!(cur && cur.type === 'slapshot');
+        const ch = slap ? null : cur, beam = !!(ch && ch.type === 'beam');
+        // SLAPSHOT has no block button: the save is a timed tap when the shot comes
+        if (this.saveChip) this.saveChip.setVisible(slap);
         const one = !!(ch && this.easy && !ch.mini), two = !!(ch && !this.easy && !ch.mini);
         this.blockBtn.setVisible(one); this.blockBtn.icon.setTexture(beam ? 'umbrella' : 'extinguisher').setScale(iconScale(beam ? 'umbrella' : 'extinguisher', 118));
         this.extBtn.setVisible(two);
@@ -1619,6 +1773,7 @@
         // the buttons sit where the HARD / booster chips are on iPad and phone landscape: hide the chips meanwhile (QA B48)
         const btns = one || two || !!(ch && ch.mini);
         [this.diffChip, this.boostChip].forEach(o => o && o.setVisible(!btns));
+        if (this.boostChip && slap) this.boostChip.setVisible(false);
         // HARD: the two buttons swap sides at random each charge (this.toolSwap is set in startCharge)
         const dx = 230, sw = this.toolSwap ? -1 : 1;
         this.extBtn.x = W / 2 - dx * sw; this.umbBtn.x = two ? W / 2 + dx * sw : W / 2;
@@ -1651,14 +1806,15 @@
       return t;
     }
     async hitStop(ms) { this.tweens.pauseAll(); await new Promise(r => setTimeout(r, ms)); if (this.sys && this.sys.isActive()) this.tweens.resumeAll(); }
-    async impact(target, dmg, kind = 'pillow', quiet = false) {
+    // raw: a fixed hit (the SAVE IT! bounce-back): no boosters, no shield
+    async impact(target, dmg, kind = 'pillow', quiet = false, raw = false) {
       const p = target.center();
       // boosters that make the hero's hits stronger
-      if (target === this.rival && dmg > 0) {
+      if (target === this.rival && dmg > 0 && !raw) {
         if (this.hero.bonus) dmg += this.hero.bonus;
         if (this.hero.firstBonus) { dmg += this.hero.firstBonus; this.hero.firstBonus = 0; this.popWord(p.x, p.y - 300, 'ROCKET START!', '#ff8a3d', 64, 6); }
       }
-      if (target.shield && dmg > 0) {
+      if (target.shield && dmg > 0 && !raw) {
         dmg = Math.ceil(dmg / 2); target.shield = false; this.setStatus(target);
         A.block(); this.popWord(p.x, p.y - 220, 'BLOCKED!', '#9fdcff', 70, -6);
       }
@@ -1873,6 +2029,7 @@
           await tw(this, { targets: att.root, y: this.groundY - 220, duration: 320, ease: 'Quad.out' });
           await tw(this, { targets: att.root, y: this.groundY, duration: 180, ease: 'Quad.in' });
           A.stomp(); buzz(90);
+          if (m.word) this.popWord(att.root.x, this.groundY - att.height() - 60, m.word, m.color ? '#' + m.color.toString(16).padStart(6, '0') : '#d8ecff', 84, -6);
           this.cameras.main.shake(450, 0.016);
           this.dust.explode(26, att.root.x - 120, this.groundY); this.dust.explode(26, att.root.x + 120, this.groundY);
           this.tweens.add({ targets: att.squash, scaleX: 1.2, scaleY: 0.8, duration: 90, yoyo: true });
@@ -1890,6 +2047,7 @@
         }
         case 'rain': await this.rain(m, att, def, d); break;
         case 'beam': await this.beam(m, att, def, d); break;
+        case 'slapshot': await this.slapshot(m, att, def, d); break;
         case 'hop': {
           const sx = att.root.x, tx = def.root.x - att.dir * (PORTRAIT ? 330 : 400);
           for (let i = 1; i <= 3; i++) {
@@ -1960,7 +2118,13 @@
       if (T.dizzy) {
         T.dizzy = false; this.setStatus(T);
         const is = this.R.plural ? ' are' : ' is'; // the Blips are three (QA B46)
-        if (T.charging) {
+        if (T.charging && T.charging.type === 'slapshot' && this.hard) {
+          // HARD: Six-Seven only delays the shot, the wind-up stays
+          this.log(T.name + is + ' too dizzy... the SLAPSHOT waits one turn!');
+        } else if (T.charging && T.charging.type === 'slapshot') {
+          this.endCharge(T); T.afterCharge = true;
+          this.log(T.name + is + ' too dizzy... ' + (this.R.plural ? 'they drop' : 'and drops') + ' the puck!');
+        } else if (T.charging) {
           const beam = T.charging.type === 'beam';
           this.endCharge(T); T.afterCharge = true; A.steam();
           this.log(T.name + is + (beam ? ' too dizzy... the beam goes disco and fizzles!' : ' too dizzy... the fire fizzles out!'));
@@ -2005,6 +2169,15 @@
     // Block it with the fire extinguisher (or, for rivals, with milk!)
     chargeFx(T) {
       const beam = T.charging && T.charging.type === 'beam';
+      if (T.charging && T.charging.type === 'slapshot') {
+        // SLAPSHOT wind-up: frosty tint, snowflakes rising around the rival
+        this.fireFx.fillColor = 0x9fdcff;
+        this.tweens.add({ targets: this.fireFx, fillAlpha: 0.14, duration: 600 });
+        this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: 0.06, duration: 800, yoyo: true, repeat: -1, delay: 600 });
+        T.spr.setTint(0xcfeaff);
+        this.embers = this.add.particles(0, 0, 'snow', { x: { min: T.root.x - 160, max: T.root.x + 160 }, y: T.root.y - 20, speedY: { min: -360, max: -160 }, speedX: { min: -50, max: 50 }, lifespan: 1300, scale: { start: 0.14, end: 0 }, rotate: { min: 0, max: 360 }, frequency: 90 }).setDepth(12);
+        return;
+      }
       this.fireFx.fillColor = beam ? 0xc8ff3d : 0xff3b1f;
       this.tweens.add({ targets: this.fireFx, fillAlpha: beam ? 0.2 : 0.3, duration: 600 });
       this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: beam ? 0.08 : 0.14, duration: 700, yoyo: true, repeat: -1, delay: 600 });
@@ -2026,6 +2199,16 @@
     }
     async startCharge(m, T) {
       T.charging = m;
+      if (m.type === 'slapshot') {
+        this.log(T.name + ' winds up a ' + (m.mini ? 'mini ' : '') + 'SLAPSHOT! Get ready to SAVE IT!');
+        A.slide();
+        this.chargeFx(T);
+        await tw(this, { targets: T.squash, angle: -14 * T.dir, scaleX: 1.06, duration: 600, ease: 'Sine.in' });
+        this.popWord(T.center().x, T.center().y - 240, 'WINDING UP...', '#d8ecff', 60, 6);
+        await tw(this, { targets: T.squash, angle: 0, scaleX: 1, duration: 300 });
+        await wait(this, 600);
+        return;
+      }
       this.toolSwap = this.hard && Math.random() < 0.5;
       const beam = m.type === 'beam';
       const tap = m.mini ? ' Grab the UMBRELLA!' : this.easy ? ' Tap BLOCK IT!' : ' Pick your tool!';
@@ -2052,7 +2235,7 @@
     }
     // tool: 'ext' (fire extinguisher, stops Inferno Rain) or 'umb' (umbrella, stops a Tractor Beam)
     async playerBlock(tool) {
-      if (this.busy || this.over || !this.rival.charging) return;
+      if (this.busy || this.over || !this.rival.charging || this.rival.charging.type === 'slapshot') return;
       tool = tool === 'umb' ? 'umb' : 'ext';
       this.busy = true; this.acted = true; this.setCards(false);
       const P = this.hero;
@@ -2170,7 +2353,7 @@
         this.popWord(def.root.x, umb.y - 160, 'BOING!', '#d8ff6a', 100, -6);
         this.tweens.add({ targets: umb, scale: 0, alpha: 0, duration: 300, delay: 600, onComplete: () => umb.destroy() });
         await done(); def.blocker = false;
-        if (def === P) emit('block', { tool: 'umbrella' }, this);
+        if (def === P) emit('block', { tool: 'umbrella', mini: !!m.mini }, this);
         if (m.mini) { this.log(def.name + ' blocked the tiny beam with the umbrella! Nice!'); await wait(this, 900); return; }
         this.log(def.name + ' bounced the Tractor Beam back! ' + att.name + (this.R.plural ? ' are' : ' is') + ' all jammed up!');
         await wait(this, 400);
@@ -2206,6 +2389,128 @@
       if (take) this.log(att.name + ' beamed up ' + def.name + '\'s ' + take.title + '! It comes back after the duel.');
       await this.impact(def, d, 'roar');
       await done();
+    }
+    // ---- SLAPSHOT + SAVE IT! (v0.8 Canada). The rival shoots a puck; the kid taps anywhere (or SPACE) when the ring closes.
+    // Perfect: 0 damage and the puck bounces back for 10. Good: half damage. Miss: full damage. No turn is used.
+    async slapshot(m, att, def, d) {
+      const P = this.hero, dk = Save.data.diff in SAVE_T ? Save.data.diff : 'normal';
+      const res = await this.saveIt(att, def);
+      if (att.charging) this.endCharge(att);
+      const c = def.center();
+      if (res === 'perfect') {
+        A.glove(); A.goalHorn(); buzz([30, 40, 30]);
+        this.popWord(c.x, c.y - 260, 'SAVE!', '#7fe39a', 110, -6);
+        this.confetti.explode(30, c.x, c.y - 100);
+        this.log(def.name + ' makes a PERFECT SAVE! The puck bounces back!');
+        const pk = this.add.image(c.x + def.dir * 120, c.y, 'puck').setDepth(26);
+        const t = att.center();
+        await tw(this, { targets: pk, x: t.x, y: t.y, angle: 720, duration: 380, ease: 'Quad.in' });
+        pk.destroy();
+        await this.impact(att, 10, 'pillow', true, true);
+      } else if (res === 'good') {
+        A.glove();
+        this.popWord(c.x, c.y - 260, 'GOOD SAVE!', '#ffd23f', 96, -6);
+        this.log('Good save! Only half of the SLAPSHOT gets through.');
+        await this.impact(def, Math.ceil(d / 2), 'pillow');
+      } else {
+        this.popWord(c.x, c.y - 260, 'BONK!', '#ff9ed8', 96, 6);
+        await this.impact(def, d, 'pillow');
+        this.log(att.name + ': "Oh! Sorry!"');
+        await wait(this, 500);
+      }
+      if (def === P) {
+        const st = Save.data.stats || (Save.data.stats = {});
+        if (!st.saveSeen) { st.saveSeen = 1; Save.store(); }
+        emit('save', { result: res, diff: dk }, this);
+      }
+    }
+    // the timed save: resolves 'perfect' | 'good' | 'miss'. Judged with performance.now() (Phaser treats slow frames as 33 ms).
+    saveIt(att, def) {
+      const dk = Save.data.diff in SAVE_T ? Save.data.diff : 'normal', T = SAVE_T[dk];
+      const auto = window.__psSaveAuto; // ?debug only: tests run at 2-3 fps and cannot time a tap
+      const tutorial = !((Save.data.stats || {}).saveSeen);
+      const f = att.front(), c = def.center();
+      const gx = c.x + def.dir * 130, gy = c.y - 20;
+      const glove = this.add.image(gx, gy, 'glove').setDepth(27).setScale(0).setFlipX(def.dir < 0);
+      const gs = iconScale('glove', 260);
+      const ring = this.add.image(gx, gy, 'ring').setDepth(28).setAlpha(0).setScale(3);
+      const puck = this.add.image(f.x, f.y + 40, 'puck').setDepth(29).setVisible(false);
+      const ready = txt(this, gx, gy - 220, 'GET READY...', 56, '#d8ecff', { st: 8 }).setDepth(30);
+      const cleanup = () => { [glove, ring, puck, ready].forEach(o => this.tweens.add({ targets: o, alpha: 0, duration: 300, delay: 200, onComplete: () => o.destroy() })); };
+      this.tweens.add({ targets: glove, scale: gs, duration: 200, ease: 'Back.out' });
+      if (auto) return new Promise(r => this.time.delayedCall(300, () => { cleanup(); r(auto === 'perfect' || auto === 'good' ? auto : 'miss'); }));
+      return new Promise(resolve => {
+        const pause = rnd(T.pause[0], T.pause[1]);
+        let t0 = performance.now() + pause, last = performance.now(), restarts = 0, stalls = 0, early = 0, done = false, launched = false, frozen = null, tapWait = null;
+        const finish = r => {
+          if (done) return; done = true;
+          this.events.off('update', tick); this.input.off('pointerdown', onTap);
+          if (this.input.keyboard) this.input.keyboard.off('keydown-SPACE', onKey);
+          if (tapWait) tapWait.destroy();
+          cleanup(); resolve(r);
+        };
+        const wobble = word => { this.tweens.add({ targets: glove, angle: { from: -14, to: 14 }, duration: 90, yoyo: true, repeat: 2, onComplete: () => glove.setAngle(0) }); this.popWord(gx, gy - 160, word, '#ffb3b3', 56, 6); };
+        const tap = () => {
+          if (done) return;
+          const now = performance.now(), t = now - t0;
+          if (frozen) { finish('perfect'); return; } // tutorial or the EASY "TAP!" wait
+          // a tap during a stalled frame or in the pause after a restart is forgiven, never judged (code review)
+          if (now - last > 250 || (restarts && t < 0)) return;
+          if (tutorial && T.perfect) return; // the tutorial waits for its frozen moment (EASY: any tap is perfect anyway)
+          const j = judgeSave(t, dk);
+          if (j === 'perfect' || j === 'good') { glove.setTint(0xb8ffcf); finish(j); return; }
+          if (j === 'early') {
+            if (dk === 'normal' && !early++) { wobble('WAIT FOR IT!'); return; }
+            wobble('TOO EARLY!'); finish('miss'); return;
+          }
+          finish('miss');
+        };
+        const onTap = p => { if (p.worldY > (PORTRAIT ? 300 : 170)) tap(); };
+        const onKey = () => tap();
+        this.input.on('pointerdown', onTap);
+        if (this.input.keyboard) this.input.keyboard.on('keydown-SPACE', onKey);
+        const freeze = (t, word) => {
+          frozen = t; puck.setTint(0xffffff); ready.setVisible(false);
+          tapWait = txt(this, gx, gy - 230, word, 64, '#7fe39a', { st: 9 }).setDepth(31);
+          this.tweens.add({ targets: tapWait, scale: 1.15, duration: 320, yoyo: true, repeat: -1 });
+        };
+        const tick = () => {
+          if (done) return;
+          const now = performance.now(), gap = now - last; last = now;
+          // hiccup rule: a stalled frame during the flight (rotation, background, old iPad) restarts the shot; twice = a good save
+          if (!frozen && gap > 250) {
+            // a stall before the launch only stretches the pause (code review: never an instant miss)
+            if (!launched) { if (++stalls > 8) { finish('good'); return; } t0 = Math.max(t0, now + 300); return; } // a device that keeps stalling: good save
+            if (++restarts > 2) { finish('good'); return; }
+            this.log(att.name + ' slips! Again!');
+            t0 = now + 400; launched = false; puck.setVisible(false); ring.setAlpha(0); ready.setText('GET READY...');
+            return;
+          }
+          const t = frozen != null ? frozen : now - t0;
+          if (t < 0) return;
+          if (!launched) { launched = true; ready.setText('SLAPSHOT!'); A.slap(); puck.setVisible(true); ring.setAlpha(0.9); }
+          const k = Math.min(1, t / T.F);
+          puck.x = f.x + (gx - f.x) * k; puck.y = f.y + 40 + (gy - f.y - 40) * k; puck.angle = t * 0.6;
+          ring.setScale(3 - 2 * k);
+          const j = judgeSave(t, dk);
+          ring.setTint(j === 'perfect' ? 0x7fe39a : j === 'good' ? 0xffd23f : 0xffffff);
+          if (frozen != null) return;
+          // the very first SAVE IT!: freeze inside the perfect window and wait for the tap
+          if (tutorial && T.perfect && t >= (T.perfect[0] + T.perfect[1]) / 2 - 80) { freeze(t, 'TAP NOW!'); return; }
+          if (!T.perfect) {
+            // EASY: the puck stops just before the glove and waits up to 3 s; no tap is still a good save.
+            // The first save ever waits there with no time limit.
+            const stopT = T.F * (1 - 120 / Math.max(240, Math.hypot(gx - f.x, gy - f.y)));
+            if (t >= stopT) {
+              freeze(stopT, tutorial ? 'TAP NOW!' : 'TAP!');
+              if (!tutorial) this.time.delayedCall(3000, () => { if (!done) { this.popWord(gx, gy - 160, 'OOF!', '#ffd23f', 64, 6); finish('good'); } });
+            }
+            return;
+          }
+          if (t > T.perfect[1]) finish('miss');
+        };
+        this.events.on('update', tick);
+      });
     }
     // the card the beam takes: the first limited card that still has uses. Never an unlimited one, so the kid can always act.
     // Jack: Nap, Inferno Rain, Frosty Sneeze, Dumpling, booster move, Six-Seven Dance. Toys: heal / nap first, then the strongest.
@@ -2293,6 +2598,7 @@
 
       const notes = [];
       if (firstClear) notes.push('First win bonus +20 XP');
+      if (firstClear && id === 'beaver') notes.push('Bob challenges you to POND HOCKEY! Find it on the Canada map');
       if (unlockedNext && worldOf(nextIdx) !== this.world) notes.push('NEW WORLD: ' + WORLDS[worldOf(nextIdx)].name + '! Rival: ' + RIVALS[nextIdx].name);
       else if (unlockedNext) notes.push('New rival unlocked: ' + RIVALS[nextIdx].name + '!');
       if (newMoves.length && this.hero.isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
@@ -2530,6 +2836,365 @@
     }
   }
 
+  // ---------- Comic: a short animated comic page the first time the player arrives in a new world (#31, docs/gdd/0.8-canada.md 7b)
+  const comicDue = () => !(Save.data.comics && Save.data.comics.canada) && worldOpen(CANADA);
+  class ComicScene extends Phaser.Scene {
+    constructor() { super('comic'); }
+    init(data) { this.d = data || {}; this.then = this.d.then || { key: 'map', data: { world: CANADA } }; this.start0 = this.d.panel || 0; }
+    create() {
+      this._leaving = false;
+      this.cameras.main.fadeIn(300, 15, 18, 64);
+      // paper with halftone dots
+      this.add.rectangle(W / 2, H / 2, W, H, 0xfff3d2);
+      this.add.tileSprite(BLEED.cx, BLEED.cy, GW, GH, 'halftone').setAlpha(0.6);
+      const top = PORTRAIT ? 150 : 130, bot = 200, gut = 30;
+      const rects = [];
+      for (let i = 0; i < 3; i++) {
+        if (PORTRAIT) { const ph = (H - top - bot - gut * 2) / 3; rects.push({ x: W / 2, y: top + ph / 2 + i * (ph + gut), w: W - 80, h: ph }); }
+        else { const pw = (W - 80 - gut * 2) / 3, ph = H - top - bot; rects.push({ x: 40 + pw / 2 + i * (pw + gut), y: top + ph / 2, w: pw, h: ph }); }
+      }
+      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = []; this.titled = false; this.nextEv = null; // the scene object is reused (replay)
+      const skip = button(this, W - 150, PORTRAIT ? 80 : 70, 220, 90, 'SKIP', C.cream, () => this.toTitle(), { size: 40 }).setDepth(90);
+      this.skipBtn = skip;
+      this.hint = txt(this, W / 2, H - 100, 'Tap to go on', 34, '#4a4f8c', { st: 0, shadow: false, weight: '500' }).setDepth(90);
+      this.input.on('pointerdown', p => { if (p.worldY < 140 && p.worldX > W - 300) return; this.tap(); });
+      A.whoosh();
+      for (let i = 0; i < this.start0 && i < 3; i++) this.play(i, true);
+      if (this.start0 >= 3) this.toTitle(); else this.play(this.start0, false);
+    }
+    // a panel frame: ink border, hard shadow, tilted a little; returns a container in panel coordinates (0..w, 0..h, centred)
+    frame(i) {
+      const r = this.rects[i], c = this.add.container(r.x, r.y).setDepth(10 + i).setAngle((i - 1) * 1.2);
+      const g = this.add.graphics();
+      g.fillStyle(0x1d2163, 0.25); g.fillRoundedRect(-r.w / 2 + 12, -r.h / 2 + 12, r.w, r.h, 18);
+      c.add(g); c.r = r; return c;
+    }
+    border(c) { const r = c.r, g = this.add.graphics(); g.lineStyle(10, 0x1d2163); g.strokeRoundedRect(-r.w / 2, -r.h / 2, r.w, r.h, 18); c.add(g); }
+    // inner picture fitted to the panel (no masks: the pictures are sized to the panel)
+    bg(c, key, tint) { const r = c.r, b = this.add.image(0, 0, key).setDisplaySize(r.w - 10, r.h - 10); if (tint) b.setTint(tint); c.add(b); return b; }
+    actor(c, key, fx, fy, hFrac) { const r = c.r, a = this.add.image((fx - 0.5) * r.w, (fy - 0.5) * r.h, key).setOrigin(0.5, 1); a.setScale(Math.min(hFrac * r.h / a.height, 0.45 * r.w / a.width)); c.add(a); return a; }
+    bubble(c, fx, fy, text, tailX, instant) {
+      const r = c.r, x = (fx - 0.5) * r.w, y = (fy - 0.5) * r.h;
+      const t = txt(this, 0, 0, text, PORTRAIT ? 32 : 30, '#1d2163', { st: 0, shadow: false, wrap: Math.min(r.w * 0.8, 560) });
+      const bw = t.width + 60, bh = t.height + 44, g = this.add.graphics();
+      g.fillStyle(0xffffff); g.lineStyle(6, 0x1d2163);
+      g.fillTriangle(tailX * bw * 0.3 - 20, bh / 2 - 8, tailX * bw * 0.3 + 20, bh / 2 - 8, tailX * bw * 0.45, bh / 2 + 44);
+      g.strokeTriangle(tailX * bw * 0.3 - 20, bh / 2 - 8, tailX * bw * 0.3 + 20, bh / 2 - 8, tailX * bw * 0.45, bh / 2 + 44);
+      g.fillEllipse(0, 0, bw, bh); g.strokeEllipse(0, 0, bw, bh);
+      g.fillStyle(0xffffff); g.fillRect(tailX * bw * 0.3 - 16, bh / 2 - 14, 32, 10);
+      // keep the bubble inside its panel (a little overlap on the border is comic style)
+      const b = this.add.container(clamp(x, -r.w / 2 + bw / 2 - 10, r.w / 2 - bw / 2 + 10), y, [g, t]); c.add(b);
+      if (!instant) { b.setScale(0); this.anim({ targets: b, scale: 1, duration: 260, ease: 'Back.out' }); A.babble && A.babble(text.length); }
+      return b;
+    }
+    burst(c, fx, fy, word, size, instant) {
+      const r = c ? c.r : null, x = c ? (fx - 0.5) * r.w : fx, y = c ? (fy - 0.5) * r.h : fy, R = size * 1.6, g = this.add.graphics();
+      const star = (rad, col) => { const pts = []; for (let k = 0; k < 28; k++) { const a = k * Math.PI / 14, rr = k % 2 ? rad * 0.62 : rad; pts.push(new Phaser.Geom.Point(Math.cos(a) * rr * 1.25, Math.sin(a) * rr)); } g.fillStyle(col); g.fillPoints(pts, true); g.lineStyle(6, 0x1d2163); g.strokePoints(pts, true); };
+      star(R, 0xffd23f); star(R * 0.72, 0xff6b5b);
+      const t = txt(this, 0, 0, word, size, '#fff3d2', { stroke: '#1d2163', st: Math.round(size / 6) });
+      const b = this.add.container(x, y, [g, t]).setAngle(-6);
+      if (c) c.add(b);
+      if (!instant) { b.setScale(0); this.anim({ targets: b, scale: 1, duration: 300, ease: 'Back.out' }); }
+      return b;
+    }
+    // finite tweens are kept so a tap can jump them to their end; endless wobbles keep running
+    anim(cfg) { const t = this.tweens.add(cfg); if (cfg.repeat !== -1) this.live.push([t, cfg]); return t; }
+    // a timed step of the panel script; fn(instant)
+    at(ms, fn, auto) { const rec = { fn, auto, ran: false }; this.later.push(rec); this.steps.push(this.time.delayedCall(ms, () => { rec.ran = true; fn(false); })); }
+    // panel i: instant = draw it already finished (fast taps, coming back after a rotation)
+    play(i, instant) {
+      this.cur = i; this.d.panel = i; this.sys.settings.data = Object.assign({}, this.d, { panel: i });
+      this.steps = []; this.later = []; this.live = []; this.done = false;
+      const c = this.frame(i); this.panels.push(c);
+      if (i === 0) {
+        this.bg(c, 'sky4'); const au = this.bg(c, 'aurora'); au.setAlpha(0.8);
+        for (let k = 0; k < 4; k++) { const p = this.actor(c, 'pine', 0.12 + k * 0.26, 1, 0.4); p.setAlpha(0.8).setTint(0x9fb6d8); }
+        const jack = this.actor(c, 'jack_side', instant ? 0.3 : -0.3, 0.95, 0.5);
+        this.anim({ targets: jack, angle: { from: -3, to: 3 }, duration: 70, yoyo: true, repeat: -1 });
+        if (!instant) this.anim({ targets: jack, x: (0.3 - 0.5) * c.r.w, duration: 700, ease: 'Quad.out' });
+        // caption types in
+        const cap = txt(this, -c.r.w / 2 + 30, -c.r.h / 2 + 30, '', PORTRAIT ? 34 : 30, '#1d2163', { ox: 0, oy: 0, st: 0, shadow: false });
+        const capBg = this.add.graphics(); c.add([capBg, cap]);
+        const full = 'MEANWHILE, IN CANADA...';
+        const drawCap = () => { capBg.clear(); capBg.fillStyle(0xffd23f); capBg.lineStyle(5, 0x1d2163); capBg.fillRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); capBg.strokeRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); };
+        if (instant) { cap.setText(full); drawCap(); }
+        else { let n = 0; const ev = this.time.addEvent({ delay: 30, repeat: full.length - 1, callback: () => { cap.setText(full.slice(0, ++n)); drawCap(); } }); this.steps.push(ev); this.later.push({ fn: () => { cap.setText(full); drawCap(); }, ran: false }); }
+        const say = inst => this.bubble(c, 0.68, 0.36, 'Brrr! Why is the sky made of ice cream?', -1, inst);
+        instant ? say(true) : this.at(900, say);
+        if (!instant) { const sn = this.add.particles(0, 0, 'dot', { x: { min: -c.r.w / 2, max: c.r.w / 2 }, y: -c.r.h / 2, speedY: { min: 80, max: 160 }, lifespan: c.r.h / 120 * 1000, scale: { min: 0.1, max: 0.22 }, frequency: 120 }); c.add(sn); }
+      } else if (i === 1) {
+        this.bg(c, 'sky4');
+        const g = this.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.2, c.r.w - 10, c.r.h * 0.3 - 5); c.add(g);
+        // head first in the snowbank: the upside-down Jack, the head half hidden by a snow mound, tail wagging
+        const j = this.actor(c, 'jack_upside', 0.55, 0.88, 0.7);
+        // the mound is sized from Jack, so his tail always sticks out (QA B57)
+        const mh = Math.min(j.displayHeight * 0.55, 2 * (c.r.h * 0.48 - j.y));
+        const snow = this.add.graphics(); snow.fillStyle(0xffffff); snow.fillEllipse(j.x, j.y, Math.max(j.displayWidth * 1.4, c.r.w * 0.4), mh); c.add(snow);
+        this.anim({ targets: j, angle: { from: -6, to: 6 }, duration: 260, yoyo: true, repeat: -1 });
+        const fw = inst => { this.burst(c, 0.22, 0.28, 'FWUMP!', PORTRAIT ? 72 : 60, inst); if (!inst) { A.stomp(); A.whoosh(); } };
+        instant ? fw(true) : this.at(200, fw);
+      } else {
+        this.bg(c, 'sky4');
+        const g = this.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.15, c.r.w - 10, c.r.h * 0.35 - 5); c.add(g);
+        this.actor(c, 'pine', 0.88, 0.72, 0.5).setAlpha(0.9);
+        this.sasq = this.actor(c, 'sasquatch', 0.88, 0.7, 0.3).setVisible(false);
+        this.actor(c, 'moose', 0.7, 0.98, 0.42);
+        this.actor(c, 'pancakes', 0.5, 0.8, 0.18);
+        this.actor(c, 'jack_front', 0.24, 0.98, 0.5);
+        const s1 = inst => this.bubble(c, 0.66, 0.2, 'Sorry, eh! Welcome to Canada!', 1, inst);
+        const s2 = inst => this.bubble(c, 0.34, 0.42, 'Why are YOU sorry? I fell on YOUR snow!', -1, inst);
+        if (instant) { s1(true); s2(true); } else { this.at(200, s1); this.at(1400, s2); }
+      }
+      this.border(c);
+      if (!instant) {
+        c.y += 60; c.setAlpha(0); this.anim({ targets: c, y: c.r.y, alpha: 1, duration: 300, ease: 'Back.out' });
+        const len = [2700, 2500, 3500][i];
+        this.at(len, () => this.finishPanel(true), true);
+      } else this.done = true;
+    }
+    // jump to the end state of the current panel
+    finishPanel(auto) {
+      if (this.done) return; this.done = true;
+      this.steps.forEach(e => e.remove(false)); this.steps = [];
+      const later = this.later; this.later = [];
+      if (!auto) later.forEach(r => { if (!r.ran && !r.auto) { r.ran = true; r.fn(true); } });
+      // stop the finite tweens and put their targets at the end values (Tween.complete() does not jump to the end)
+      const META = ['targets', 'duration', 'ease', 'delay', 'yoyo', 'repeat', 'onComplete'];
+      this.live.forEach(([t, cfg]) => {
+        t.stop();
+        [].concat(cfg.targets).forEach(o => Object.keys(cfg).forEach(k => { if (META.includes(k)) return; const v = cfg[k]; if (typeof v === 'number') o[k] = v; else if (v && typeof v.to === 'number') o[k] = v.to; }));
+      });
+      this.live = [];
+      const c = this.panels[this.cur]; if (c) { c.y = c.r.y; c.setAlpha(1); }
+      if (auto) this.nextEv = this.time.delayedCall(300, () => { this.nextEv = null; this.next(); });
+    }
+    next() { if (this._leaving || this.titled) return; if (this.cur >= 2) this.toTitle(); else this.play(this.cur + 1, false); }
+    tap() {
+      if (this.titled) return;
+      if (this.nextEv) { this.nextEv.remove(false); this.nextEv = null; } // a tap in the short pause after an auto-finish: one step only (code review)
+      if (!this.done) this.finishPanel(false); else this.next();
+    }
+    toTitle() {
+      if (this.titled) return; this.titled = true;
+      Save.data.comics = Object.assign({}, Save.data.comics, { canada: true }); Save.store(); // seen once the title page shows (SKIP or the end)
+      if (this.nextEv) { this.nextEv.remove(false); this.nextEv = null; }
+      while (this.cur < 2) { this.finishPanel(false); this.play(this.cur + 1, true); }
+      if (!this.done) this.finishPanel(false);
+      this.d.panel = 3; this.sys.settings.data = Object.assign({}, this.d, { panel: 3 });
+      this.skipBtn.setVisible(false); this.hint.setVisible(false);
+      if (this.sasq) { this.sasq.setVisible(true); this.tweens.add({ targets: this.sasq, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 }); }
+      const r0 = this.rects[0], r1 = this.rects[1];
+      const b = this.burst(null, PORTRAIT ? W / 2 : (r0.x + r1.x) / 2, PORTRAIT ? (r0.y + r0.h / 2 + r1.y - r1.h / 2) / 2 : H * 0.42, 'CANADA!', PORTRAIT ? 120 : 110, false); b.setDepth(50);
+      A.comicSting && A.comicSting(); this.time.delayedCall(400, () => A.levelUp());
+      const leaves = this.add.particles(0, 0, 'mapleleaf', { x: { min: 0, max: W }, y: -60, speedY: { min: 250, max: 500 }, speedX: { min: -120, max: 120 }, rotate: { min: 0, max: 360 }, lifespan: 4000, scale: { min: 0.15, max: 0.3 }, quantity: 2, frequency: 120 }).setDepth(49);
+      this.time.delayedCall(2500, () => leaves.stop());
+      const go = button(this, W / 2, H - 110, 460, 130, 'LET\'S GO!', C.star, () => {
+        Save.data.comics = Object.assign({}, Save.data.comics, { canada: true }); Save.store();
+        fade(this, this.then.key, this.then.data);
+      }, { size: 56 }).setDepth(60);
+      this.tweens.add({ targets: go, scale: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+  }
+
+  // ---------- Pond Hockey (v0.8 Canada, docs/gdd/0.8-canada.md 4b): shoot pucks past Beaver Bob. 45 s, nobody loses.
+  const hockeyOpen = () => (Save.data.stars.beaver || 0) > 0;
+  class HockeyScene extends Phaser.Scene {
+    constructor() { super('hockey'); }
+    init() { this.world = CANADA; }
+    create() {
+      this._leaving = false;
+      this.cameras.main.fadeIn(350, 15, 18, 64);
+      sky(this, CANADA);
+      // the rink: light-blue ice with scratch lines and snowy boards
+      // the net sits in the middle of the screen (portrait) so the shot is not too long
+      this.netY = PORTRAIT ? Math.max(720, H * 0.4) : Math.max(290, H * 0.32); this.netW = PORTRAIT ? 420 : 460; this.netX = W / 2;
+      const top = this.netY - (PORTRAIT ? 260 : 200);
+      const g = this.add.graphics().setDepth(1);
+      g.fillGradientStyle(0xe8f4ff, 0xe8f4ff, 0x9fc3ea, 0x9fc3ea, 1); g.fillRect(-SL, top, W + SL + SR, H - top + SB);
+      g.lineStyle(4, 0xffffff, 0.6); for (let i = 0; i < 26; i++) { const x = rnd(0, W), y = rnd(top + 40, H); g.lineBetween(x, y, x + rnd(-120, 120), y + rnd(-20, 20)); }
+      g.fillStyle(0xffffff, 0.95); g.fillRect(-SL, top - 30, W + SL + SR, 40);
+      g.lineStyle(6, 0xd94a3d, 0.7); g.lineBetween(-SL, this.netY + 120, W + SR, this.netY + 120);
+      // the net and Bob
+      const ng = this.add.graphics().setDepth(4);
+      ng.fillStyle(0xffffff, 0.35); ng.fillRect(this.netX - this.netW / 2, this.netY - 150, this.netW, 150);
+      ng.lineStyle(2, 0xffffff, 0.7); for (let x = -this.netW / 2; x <= this.netW / 2; x += 30) ng.lineBetween(this.netX + x, this.netY - 150, this.netX + x, this.netY);
+      for (let y = -150; y <= 0; y += 30) ng.lineBetween(this.netX - this.netW / 2, this.netY + y, this.netX + this.netW / 2, this.netY + y);
+      ng.lineStyle(14, 0xd94a3d); ng.strokeRect(this.netX - this.netW / 2, this.netY - 150, this.netW, 150);
+      this.bob = this.add.image(this.netX, this.netY + 10, 'beaver').setOrigin(0.5, 1).setDepth(6);
+      this.bob.setScale(150 / this.bob.width); this.bobV = 1; this.bobHalf = 75;
+      this.dam = this.add.image(0, this.netY - 40, 'pillow').setDepth(7).setScale(1.05, 1.2).setVisible(false); this.damSide = 0; this.damT = 0; this.nextDam = 30;
+      // the hero with the puck
+      const hero = heroDef(this);
+      this.heroY = H - (PORTRAIT ? 140 : 70);
+      this.p = this.add.image(W / 2, this.heroY, hero.isJack ? 'jack_side' : hero.tex).setOrigin(0.5, 1).setDepth(10);
+      const ps = PORTRAIT ? 300 : 240; this.p.setScale(Math.min(ps / this.p.height, ps / this.p.width));
+      this.stick = this.add.image(W / 2 + 120, this.heroY - 40, 'hockey').setDepth(11).setScale(iconScale('hockey', 150));
+      this.puckY = this.heroY - (PORTRAIT ? 380 : 300); this.puckX = W / 2;
+      this.puck = null; this.aim = 0; this.shots = 0; this.score = 0; this.streak = 0; this.bestStreak = 0;
+      this.left = 45; this.elapsed = 0; this.running = false; this.waitT = 0;
+      this.sparks = this.add.particles(0, 0, 'spark', { emitting: false, speed: { min: 200, max: 600 }, lifespan: 450, scale: { start: 0.7, end: 0 }, tint: [C.star, 0xffffff], blendMode: 'ADD' }).setDepth(21);
+      this.confetti = this.add.particles(0, 0, 'conf', { emitting: false, speed: { min: 500, max: 1300 }, angle: { min: 230, max: 310 }, gravityY: 1100, lifespan: 2600, rotate: { min: 0, max: 360 }, tint: [0xff6b5b, 0xffd23f, 0x7fd6c2, 0x9aa2ff, 0xff9ed8] }).setDepth(70);
+      // HUD
+      const hy = PORTRAIT ? 200 : 80;
+      this.add.image(W / 2 - 80, hy, 'puck').setScale(0.7).setDepth(30);
+      this.scoreT = txt(this, W / 2 - 10, hy, '0', 80, '#ffd23f', { ox: 0, st: 12 }).setDepth(30);
+      this.timeT = txt(this, PORTRAIT ? W / 2 : W - 220, PORTRAIT ? hy + 100 : hy, '45', 64, '#fff3d2', { st: 10 }).setDepth(30);
+      backButton(this, () => fade(this, 'map', { world: CANADA }));
+      muteButton(this);
+      // controls: swipe up from the lower half (angle + speed), tap the net area, or arrows + SPACE
+      this.input.on('pointerdown', p => { this.sw = { x: p.worldX, y: p.worldY, t: performance.now() }; });
+      this.input.on('pointerup', p => {
+        const s = this.sw; this.sw = null; if (!s || !this.running) return;
+        const dx = p.worldX - s.x, dy = p.worldY - s.y, dt = Math.max(30, performance.now() - s.t);
+        if (dy < -60 && s.y > H * 0.45) {
+          const ang = clamp(Math.atan2(dx, -dy), -0.61, 0.61), v = -dy / dt; // px per ms
+          this.shoot(ang, clamp(0.7 - (v - 0.5) * 0.12, 0.45, 0.7));
+        } else if (Math.abs(dx) < 40 && Math.abs(dy) < 40 && p.worldY < this.netY + 200 && p.worldY > Math.max(this.netY - 300, 170)) { // not the back / mute buttons
+          this.shoot(Math.atan2(p.worldX - this.puckX, this.puckY - this.netY + 75), 0.6);
+        }
+      });
+      this.keys = this.input.keyboard && this.input.keyboard.createCursorKeys();
+      if (this.input.keyboard) this.input.keyboard.on('keydown-SPACE', () => this.running && this.shoot(this.aim, 0.55));
+      this.aimLine = this.add.graphics().setDepth(9);
+      this.intro();
+    }
+    async intro() {
+      const c = this.add.container(W / 2, H * 0.45).setDepth(60);
+      const pw = PORTRAIT ? 900 : 1000, ph = PORTRAIT ? 760 : 620;
+      c.add(panel(this, 0, 0, pw, ph, C.night2, 0));
+      c.add(txt(this, 0, -ph / 2 + 100, 'POND HOCKEY!', 90, '#ffd23f', { stroke: '#0f1240', st: 14 }));
+      [['puck', 'GOAL +1', '#ffd23f'], ['mapleleaf', 'GOLD +2', '#7fe39a'], ['beaver', 'NOPE!', '#ff9ed8']].forEach(([k, l, col], i) => {
+        const x = (i - 1) * (PORTRAIT ? 280 : 300), y = -10;
+        c.add(img(this, x, y, k).setScale(iconScale(k, 130)));
+        c.add(txt(this, x, y + 110, l, 48, col, { st: 8 }));
+      });
+      c.add(txt(this, 0, ph / 2 - (PORTRAIT ? 150 : 110), PORTRAIT ? 'Shoot past Bob!\nSwipe up or tap the net.' : 'Shoot past Bob! Swipe up, tap the net, or arrows + SPACE.', 36, '#fff3d2', { st: 0, weight: '500' }));
+      c.setScale(0);
+      await tw(this, { targets: c, scale: 1, duration: 380, ease: 'Back.out' });
+      await wait(this, 2300);
+      await tw(this, { targets: c, scale: 0, alpha: 0, duration: 250, ease: 'Quad.in' });
+      c.destroy();
+      for (const n of ['3', '2', '1', 'GO!']) {
+        const t = txt(this, W / 2, H * 0.45, n, n === 'GO!' ? 200 : 180, n === 'GO!' ? '#7fe39a' : '#fff3d2', { stroke: '#0f1240', st: 18 }).setDepth(60).setScale(0);
+        n === 'GO!' ? A.levelUp() : A.tick();
+        await tw(this, { targets: t, scale: 1, duration: 260, ease: 'Back.out' });
+        await wait(this, 380);
+        this.tweens.add({ targets: t, scale: 1.5, alpha: 0, duration: 250, onComplete: () => t.destroy() });
+      }
+      this.running = true; this.newPuck();
+    }
+    newPuck() {
+      if (!this.running) return;
+      const gold = (this.shots + 1) % 5 === 0;
+      this.puck = { o: this.add.image(this.puckX, this.puckY, 'puck').setDepth(12).setScale(0), gold, flying: false };
+      if (gold) { this.puck.leaf = this.add.image(this.puckX, this.puckY - 10, 'mapleleaf').setDepth(13).setScale(0); this.tweens.add({ targets: this.puck.leaf, scale: iconScale('mapleleaf', 60), duration: 200 }); this.puck.o.setTint(0xffd23f); }
+      this.tweens.add({ targets: this.puck.o, scale: 0.9, duration: 200, ease: 'Back.out' });
+    }
+    // ang: radians from straight up; dur: travel time in s
+    shoot(ang, dur) {
+      const pk = this.puck; if (!pk || pk.flying) return;
+      pk.flying = true; this.shots++;
+      A.slap(); buzz(20);
+      this.tweens.add({ targets: this.stick, angle: { from: 0, to: -50 }, duration: 120, yoyo: true });
+      const tx = this.puckX + Math.tan(ang) * (this.puckY - (this.netY - 70)), ty = this.netY - 70;
+      const objs = [pk.o].concat(pk.leaf ? [pk.leaf] : []);
+      this.tweens.add({ targets: objs, x: tx, y: ty, scale: '*=0.7', duration: dur * 1000, ease: 'Quad.out', onComplete: () => this.judge(pk, tx) });
+      A.slide();
+    }
+    judge(pk, x) {
+      if (!this.running) { [pk.o, pk.leaf].forEach(o => o && o.destroy()); return; } // time is up: the result is already shown (code review)
+      const hw = this.netW / 2, off = Math.abs(x - this.netX);
+      let res;
+      if (off > hw + 22) res = 'wide';
+      else if (off > hw - 18) res = 'post';
+      else if (Math.abs(x - this.bob.x) < this.bobHalf + 10) res = 'save';
+      else if (this.damT > 0 && (this.damSide < 0 ? x < this.netX : x > this.netX)) res = 'save';
+      else res = 'goal';
+      const fx = x, fy = this.netY - 120;
+      if (res === 'goal') {
+        const n = pk.gold ? 2 : 1; this.score += n; this.streak++; this.bestStreak = Math.max(this.bestStreak, this.streak);
+        A.goalHorn(); if (pk.gold) A.levelUp(); buzz(40);
+        this.sparks.explode(pk.gold ? 24 : 14, fx, fy);
+        this.float(fx, fy, pk.gold ? 'GOLDEN GOAL! +2' : 'GOAL! +1', pk.gold ? '#7fe39a' : '#ffd23f');
+        if (this.streak === 3) this.float(W / 2, this.netY + 120, 'HAT TRICK!', '#ff9ed8');
+        this.scoreT.setText(String(this.score));
+        this.tweens.add({ targets: this.scoreT, scale: { from: 1.25, to: 1 }, duration: 200, ease: 'Back.out' });
+      } else {
+        this.streak = 0;
+        if (res === 'post') { A.block(); this.float(fx, fy, 'DING!', '#d8ecff'); }
+        else if (res === 'save') { A.chomp(); this.float(fx, fy, 'NOPE!', '#ff9ed8'); this.tweens.add({ targets: this.bob, angle: { from: -10, to: 10 }, duration: 90, yoyo: true, repeat: 1, onComplete: () => this.bob.setAngle(0) }); }
+        else this.float(fx, fy, 'WIDE!', '#bcc0ee');
+      }
+      const objs = [pk.o].concat(pk.leaf ? [pk.leaf] : []);
+      this.tweens.add({ targets: objs, alpha: 0, duration: 250, delay: 150, onComplete: () => objs.forEach(o => o.destroy()) });
+      this.puck = null; this.waitT = 0.4;
+    }
+    float(x, y, s, col) {
+      const t = txt(this, x, y, s, 64, col, { stroke: '#0f1240', st: 10 }).setDepth(40);
+      this.tweens.add({ targets: t, y: y - 140, alpha: 0, duration: 800, ease: 'Quad.out', onComplete: () => t.destroy() });
+    }
+    update(time, dtMs) {
+      const dt = Math.min(dtMs, 50) / 1000;
+      // Bob slides in the net: slow, medium, then fast with random turns
+      const ph = this.elapsed < 15 ? 0 : this.elapsed < 30 ? 1 : 2, sp = [140, 230, 330][ph];
+      if (ph === 2 && Math.random() < dt * 0.8) this.bobV *= -1;
+      this.bob.x += this.bobV * sp * dt;
+      const lim = this.netW / 2 - this.bobHalf;
+      if (this.bob.x > this.netX + lim) { this.bob.x = this.netX + lim; this.bobV = -1; }
+      if (this.bob.x < this.netX - lim) { this.bob.x = this.netX - lim; this.bobV = 1; }
+      // aim with the arrows
+      if (this.keys) { if (this.keys.left.isDown) this.aim = clamp(this.aim - 1.2 * dt, -0.61, 0.61); if (this.keys.right.isDown) this.aim = clamp(this.aim + 1.2 * dt, -0.61, 0.61); }
+      this.aimLine.clear();
+      if (this.puck && !this.puck.flying && this.aim) { this.aimLine.lineStyle(6, 0xffffff, 0.5); this.aimLine.lineBetween(this.puckX, this.puckY, this.puckX + Math.sin(this.aim) * 260, this.puckY - Math.cos(this.aim) * 260); }
+      if (!this.running) return;
+      this.elapsed += dt; this.left -= dt;
+      // from 30 s Bob builds a pillow dam over half of the net for 3 s, every ~8 s
+      if (this.damT > 0) { this.damT -= dt; if (this.damT <= 0) this.dam.setVisible(false); }
+      else if (this.elapsed >= this.nextDam) {
+        this.damSide = Math.random() < 0.5 ? -1 : 1; this.damT = 3; this.nextDam = this.elapsed + 8;
+        this.dam.setPosition(this.netX + this.damSide * this.netW / 4, this.netY - 40).setVisible(true); A.chomp();
+      }
+      const sec = Math.max(0, Math.ceil(this.left));
+      if (this.timeT.text !== String(sec)) {
+        this.timeT.setText(String(sec));
+        if (sec <= 5) { this.timeT.setColor('#ff6b5b'); A.tick(); this.tweens.add({ targets: this.timeT, scale: { from: 1.3, to: 1 }, duration: 250 }); }
+      }
+      if (this.left <= 0) { this.end(); return; }
+      if (!this.puck && this.waitT > 0) { this.waitT -= dt; if (this.waitT <= 0) this.newPuck(); }
+    }
+    end() {
+      this.running = false; this.timeT.setText('0');
+      const best = Save.data.bestHockey || 0, isBest = this.score > best;
+      const gain = Math.min(60, this.score * 2);
+      const before = levelOf(Save.data.xp);
+      Save.data.xp += gain; if (isBest) Save.data.bestHockey = this.score; Save.store();
+      emit('hockey', { score: this.score, streak: this.bestStreak }, this);
+      const after = levelOf(Save.data.xp);
+      A.win(); this.confetti.explode(100, W / 2, H);
+      const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(60).setInteractive();
+      this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 });
+      const pw = PORTRAIT ? 900 : 940, ph = PORTRAIT ? 1050 : 860, T0 = -ph / 2;
+      const p = this.add.container(W / 2, H / 2).setDepth(61).setScale(0);
+      p.add(panel(this, 0, 0, pw, ph, C.night2, 0));
+      p.add(txt(this, 0, T0 + 110, 'TIME\'S UP!', 90, '#ffd23f', { stroke: '#0f1240', st: 14 }));
+      p.add(this.add.image(-100, T0 + 260, 'puck').setScale(1.2));
+      p.add(txt(this, 10, T0 + 260, String(this.score), 130, '#fff3d2', { ox: 0, stroke: '#0f1240', st: 16 }));
+      p.add(txt(this, 0, T0 + 380, isBest && best > 0 ? 'NEW RECORD!' : 'Best: ' + Math.max(best, this.score), 44, isBest && best > 0 ? '#ff9ed8' : '#bcc0ee', { st: 7 }));
+      p.add(txt(this, 0, T0 + 470, '+' + gain + ' XP', 64, '#7fe39a', { stroke: '#0f1240', st: 10 }));
+      const notes = [];
+      if (after.l > before.l) notes.push('LEVEL UP! Level ' + after.l);
+      const newMoves = MOVES.filter(m => m.lvl > before.l && m.lvl <= after.l);
+      if (newMoves.length && heroDef(this).isJack) notes.push('Jack learned: ' + newMoves.map(m => m.title).join(', ') + '!');
+      if (this.bestStreak >= 3) notes.push('Hat trick! ' + this.bestStreak + ' goals in a row');
+      p.add(txt(this, 0, T0 + 560, notes.join('\n'), 36, '#ffd23f', { st: 6, wrap: pw - 100 }));
+      const by = T0 + (PORTRAIT ? 760 : 730);
+      p.add(button(this, PORTRAIT ? 0 : -210, by, 380, 120, 'AGAIN!', C.star, () => fade(this, 'hockey'), { size: 48 }));
+      p.add(button(this, PORTRAIT ? 0 : 210, PORTRAIT ? by + 150 : by, 380, 120, 'MAP', C.cream, () => fade(this, 'map', { world: CANADA }), { size: 48 }));
+      this.tweens.add({ targets: p, scale: 1, duration: 420, ease: 'Back.out' });
+      if (after.l > before.l) this.time.delayedCall(700, () => { A.levelUp(); this.confetti.explode(120, W / 2, H * 0.6); });
+    }
+  }
+
   // ---------- Capsule machine (gacha): turn the crank, get a surprise booster. Nothing to buy, ever.
   const CAP_COLORS = [0xff6b5b, 0xffd23f, 0x7fd6c2, 0x9aa2ff, 0xff9ed8, 0x7fe39a, 0xff8a3d];
   class GachaScene extends Phaser.Scene {
@@ -2722,7 +3387,7 @@
 
   // ---------- start
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
-  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE,
+  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA,
     txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, backButton, muteButton, capsuleButton, drawCapsule,
     addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
@@ -2745,15 +3410,15 @@
     dom: { createContainer: true },
     fps: { smoothStep: !DEBUG },
     input: { activePointers: 2 }, render: { antialias: true, powerPreference: 'high-performance' },
-    scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, GachaScene].concat(EXTRA_SCENES),
+    scene: [Boot, Title, MapScene, SquadScene, StudioScene, Battle, CatchScene, HockeyScene, ComicScene, GachaScene].concat(EXTRA_SCENES),
   });
   // every scene tells the plugins when it has been built (for popups, bedtime checks, inbox...)
   // ...and a rotation held back (duel turn, result celebration) is applied on the next screen if it is still waiting
   game.events.once('ready', () => game.scene.scenes.forEach(sc => {
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
-    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.R && sc.R.boss ? 'boss' : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
+    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.R && sc.R.boss ? 'boss' : sc.R && sc.R.world === CANADA ? 'north' : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
-  window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
+  window.__psJudgeSave = judgeSave; window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
   window.__psSnapshot = () => snapshot(game);
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)
@@ -2766,7 +3431,7 @@
   function rebuild(target) {
     const snap = target || (window.__psSnapshot && window.__psSnapshot());
     const old = window.__game;
-    try { Save.store(); } catch (e) {} // stats bumped in memory (blocks, naps...) survive the rebuild (QA B47)
+    try { window.__save && window.__save.store(); } catch (e) {} // stats bumped in memory (blocks, naps, saves...) survive the rebuild (QA B47; Save lives inside main())
     if (old) { try { old.destroy(true); } catch (e) {} }
     window.__game = null; window.__psToasts = 0;
     main(snap);

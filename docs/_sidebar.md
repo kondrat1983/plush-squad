@@ -1,0 +1,14 @@
+- [Home](README.md)
+- [Changelog](CHANGELOG.md)
+- Game design
+  - [GDD](gdd/Plush_Squad_GDD.md)
+  - [Decisions](gdd/decisions.md)
+  - [Ideas](gdd/ideas.md)
+  - [GDD vs code](gdd/findings.md)
+- v0.8
+  - [World pitch](gdd/0.8-world-pitch.md)
+  - [Canada](gdd/0.8-canada.md)
+  - [Space rework](gdd/0.8-space-rework.md)
+- QA reports
+  - [v0.7.8](qa/Plush_Squad_v0.7.8_QA_Report.md)
+  - [v0.7.6](qa/Plush_Squad_v0.7.6_QA_Report.md)
