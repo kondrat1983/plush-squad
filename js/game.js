@@ -661,6 +661,7 @@
     if (scene._leaving) return; scene._leaving = true;
     // the first trip to Canada starts with the comic (#31); the comic then goes on to where the player was heading
     if (key === 'battle' && data && RIVALS[data.rival] && RIVALS[data.rival].world === CANADA && comicDue()) { data = { world: 'canada', then: { key, data } }; key = 'comic'; }
+    scene._psTarget = { key, data: data || {} }; // a rotation during the fade rebuilds straight into it (QA B38 / #4)
     scene.cameras.main.fadeOut(320, 15, 18, 64);
     scene.cameras.main.once('camerafadeoutcomplete', () => {
       // the screen was rotated while we couldn't rebuild (e.g. in the toy studio): rebuild now, straight into the next scene
@@ -3394,6 +3395,8 @@
   function snapshot(game) {
     const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');
     if (!sc) return null;
+    // the player already tapped their way out (the screen is fading): keep that tap (QA B38 / #4)
+    if (sc._leaving && sc._psTarget) { const t = Object.assign({}, sc._psTarget.data); delete t.resume; return { key: sc._psTarget.key, data: t }; }
     const key = sc.scene.key, data = Object.assign({}, sc.sys.settings.data || {});
     delete data.resume;
     if (key === 'battle') {
