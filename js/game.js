@@ -324,6 +324,21 @@
     });
     return c;
   }
+  // press-down feedback for any tappable container (QA B27 / G30): shrink a little on touch, spring back on release
+  // (rest = the scale the thing normally has; cards that pop in from 0 pass 1)
+  // (an endless pulse on the same thing waits while it is pressed, so it can't undo the press)
+  function press(scene, c, k = 0.93, rest = c.scaleX) {
+    let down = false, own = null, held = [];
+    const go = (scale, duration, ease, onComplete) => { if (own) own.stop(); own = scene.tweens.add({ targets: c, scale, duration, ease, onComplete }); };
+    const back = d => { if (!down) return; down = false; go(rest, d, 'Back.out', () => { held.forEach(t => t.resume()); held = []; }); };
+    c.on('pointerdown', () => {
+      if (!down) { const loops = scene.tweens.getTweensOf(c).filter(t => t !== own && t.isPlaying() && (t.loop === -1 || (t.data || []).some(d => d.repeat === -1))); loops.forEach(t => t.pause()); held = held.concat(loops); }
+      down = true; go(rest * k, 70);
+    });
+    c.on('pointerup', () => back(220));
+    c.on('pointerout', () => back(120));
+    return c;
+  }
   function button(scene, x, y, w, h, label, color, cb, o = {}) {
     const c = scene.add.container(x, y);
     const g = scene.add.graphics();
@@ -661,6 +676,7 @@
     if (scene._leaving) return; scene._leaving = true;
     // the first trip to Canada starts with the comic (#31); the comic then goes on to where the player was heading
     if (key === 'battle' && data && RIVALS[data.rival] && RIVALS[data.rival].world === CANADA && comicDue()) { data = { world: 'canada', then: { key, data } }; key = 'comic'; }
+    scene._psTarget = { key, data: data || {} }; // a rotation during the fade rebuilds straight into it (QA B38 / #4)
     scene.cameras.main.fadeOut(320, 15, 18, 64);
     scene.cameras.main.once('camerafadeoutcomplete', () => {
       // the screen was rotated while we couldn't rebuild (e.g. in the toy studio): rebuild now, straight into the next scene
@@ -673,7 +689,7 @@
     const c = scene.add.container(80, 80).setDepth(50);
     const bg = scene.add.circle(0, 0, 46, C.night2).setStrokeStyle(4, C.seam);
     const g = scene.add.graphics(); g.lineStyle(9, 0xfff3d2); g.beginPath(); g.moveTo(10, -20); g.lineTo(-12, 0); g.lineTo(10, 20); g.strokePath();
-    c.add([bg, g]); c.setSize(100, 100).setInteractive({ useHandCursor: true });
+    c.add([bg, g]); c.setSize(100, 100).setInteractive({ useHandCursor: true }); press(scene, c, 0.88);
     c.on('pointerup', () => { A.init(); A.click(); cb(); });
     return c;
   }
@@ -717,7 +733,7 @@
       c.add(txt(scene, 32, -32, String(n), 26, C.ink, { st: 0, shadow: false }));
       scene.tweens.add({ targets: c, scale: 1.1, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
-    c.setSize(100, 100).setInteractive({ useHandCursor: true });
+    c.setSize(100, 100).setInteractive({ useHandCursor: true }); press(scene, c, 0.88);
     c.on('pointerup', () => { A.init(); A.click(); fade(scene, 'gacha', { world }); });
     return c;
   }
@@ -800,7 +816,7 @@
         c.add(txt(this, PORTRAIT ? 0 : 64, PORTRAIT ? 66 : 0, typeof it.label === 'function' ? it.label(PS) : it.label, 24, '#fff3d2', { st: 5, ox: PORTRAIT ? 0.5 : 0 }));
         const n = it.badge ? it.badge(PS) : 0;
         if (n) { c.add(this.add.circle(32, -32, 20, C.coral).setStrokeStyle(3, 0x0f1240)); c.add(txt(this, 32, -32, n > 9 ? '9+' : String(n), 22, '#ffffff', { st: 0, shadow: false })); }
-        c.setSize(100, 100).setInteractive({ useHandCursor: true });
+        c.setSize(100, 100).setInteractive({ useHandCursor: true }); press(this, c, 0.88);
         c.on('pointerup', () => { A.init(); A.click(); A.startMusic(); fade(this, it.key, it.data || {}); });
       });
       muteButton(this);
@@ -898,7 +914,9 @@
         const D = DIFFS[k], px = (i - 1) * bw;
         const g = this.add.graphics(), t = txt(this, px, 0, D.name, 30, '#fff3d2', { st: 0, shadow: false });
         const z = this.add.zone(px, 0, bw, bh).setInteractive({ useHandCursor: true });
-        z.on('pointerup', () => { A.init(); A.click(); Save.data.diff = k; Save.store(); draw(); this.tweens.add({ targets: c, scale: { from: 1.06, to: 1 }, duration: 200 }); });
+        z.on('pointerdown', () => this.tweens.add({ targets: c, scale: 0.95, duration: 70 }));
+        z.on('pointerout', () => this.tweens.add({ targets: c, scale: 1, duration: 120 }));
+        z.on('pointerup', () => { A.init(); A.click(); Save.data.diff = k; Save.store(); draw(); this.tweens.killTweensOf(c); this.tweens.add({ targets: c, scale: { from: 1.06, to: 1 }, duration: 200 }); });
         c.add([g, t, z]);
         return { k, g, t, px, D };
       });
@@ -920,7 +938,7 @@
       const ic = this.add.image(iconOnly ? 0 : -tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
       const t = fit(txt(this, 26, 0, open ? w.name : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140).setVisible(!iconOnly);
       c.add([g, ic, t]);
-      c.setSize(tw0, h).setInteractive({ useHandCursor: true });
+      c.setSize(tw0, h).setInteractive({ useHandCursor: true }); press(this, c);
       c.on('pointerup', () => {
         A.init();
         if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); const fi = RIVALS.findIndex(r => (r.world || 0) === i); this.hint(fi > 0 ? 'Beat ' + RIVALS[fi - 1].name + ' to open ' + w.name + '!' : 'Locked!'); return; }
@@ -953,7 +971,7 @@
         const ring = this.add.image(x, y, 'ring').setScale(R * ns / 52).setTint(C.star).setDepth(3).setAlpha(0.6);
         this.tweens.add({ targets: ring, scale: R * ns / 40, alpha: 0, duration: 1300, repeat: -1 });
       }
-      c.setSize(R * 2, R * 2 + 120).setInteractive({ useHandCursor: true });
+      c.setSize(R * 2, R * 2 + 120).setInteractive({ useHandCursor: true }); press(this, c);
       c.on('pointerup', () => {
         A.init();
         if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 14, duration: 60, yoyo: true, repeat: 3 }); if (i > 0) this.hint('Beat ' + RIVALS[i - 1].name + ' first!'); return; }
@@ -1006,7 +1024,7 @@
         if (isHero) c.add(chip(this, 0, -h / 2 + 4, 'PLAYING', C.star, 24));
       }
       c.setScale(0); this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 50, ease: 'Back.out' });
-      c.setSize(w, h).setInteractive({ useHandCursor: true });
+      c.setSize(w, h).setInteractive({ useHandCursor: true }); press(this, c, 0.93, 1);
       c.on('pointerup', () => { A.init(); A.click(); if (it.add) fade(this, 'studio'); else this.details(it); });
     }
     details(it) {
@@ -1065,7 +1083,7 @@
         p.add(del);
       }
       const x = txt(this, -pw / 2 + 70, -ph / 2 + 70, '✕', 50, '#bcc0ee', { st: 0 }).setInteractive({ useHandCursor: true });
-      x.on('pointerup', () => close()); p.add(x);
+      x.on('pointerup', () => close()); press(this, x, 0.85); p.add(x);
       layer.add(p); p.setScale(0.7); p.alpha = 0;
       this.tweens.add({ targets: p, scale: 1, alpha: 1, duration: 260, ease: 'Back.out' });
       const close = () => { this.tweens.add({ targets: layer, alpha: 0, duration: 150, onComplete: () => layer.destroy() }); };
@@ -1091,12 +1109,13 @@
   }
 
   // ---------- Studio: photo -> cut-out -> "who is it?" -> new hero
-  let toyWorker = null;
+  // one worker for the page, kept on window: a rotation rebuild runs main() again but keeps the worker and its loaded models (QA B22 / #21)
+  const TW = window.__psToyWorker || (window.__psToyWorker = { w: null });
   function getWorker() {
-    if (toyWorker) return toyWorker;
+    if (TW.w) return TW.w;
     const q = /[?&]localmodels/.test(location.search) ? '?local' : '';
-    toyWorker = new Worker('js/toyworker.js' + q, { type: 'module' });
-    return toyWorker;
+    TW.w = new Worker('js/toyworker.js' + q, { type: 'module' });
+    return TW.w;
   }
   function pickFile() {
     return new Promise((res) => {
@@ -1200,8 +1219,8 @@
     cancelJob() {
       const job = this.job; if (!job) return;
       this.job = null; this.busyState = false;
-      try { if (toyWorker) toyWorker.terminate(); } catch (e) {}
-      toyWorker = null;
+      try { if (TW.w) TW.w.terminate(); } catch (e) {}
+      TW.w = null;
       job.finish({ type: 'cancel' });
       A.click(); this.intro();
     }
@@ -1244,7 +1263,7 @@
         job.finish = res;
         // the magic can be very slow on an old phone: 90 s with no news uses the photo as it is.
         // Every progress message restarts the clock, so a slow first download is never cut off (code review)
-        const arm = () => { if (job.timer) job.timer.remove(false); job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (toyWorker === w) toyWorker = null; res({ type: 'error', message: 'timeout' }); }); };
+        const arm = () => { if (job.timer) job.timer.remove(false); job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (TW.w === w) TW.w = null; res({ type: 'error', message: 'timeout' }); }); };
         arm();
         w.onmessage = (ev) => {
           if (this.job !== job) return;
@@ -1325,7 +1344,7 @@
         const bg = this.add.circle(x, y, cell * 0.44, i < 3 && this.scores.length ? 0x3a3f9e : C.night2).setStrokeStyle(4, i < 3 && this.scores.length ? C.star : C.seam);
         const ic = img(this, x, y - 4, 'i:' + id).setScale(cell * 0.62 / 144);
         const lb = fit(txt(this, x, y + cell * 0.48, a.name, PORTRAIT ? 24 : 20, '#fff3d2', { st: 4, weight: '500' }), cell - 6);
-        bg.setInteractive({ useHandCursor: true });
+        bg.setInteractive({ useHandCursor: true }); press(this, bg, 0.9);
         bg.on('pointerup', () => { A.click(); layer.destroy(); this.makeHero(id); });
         layer.add([bg, ic, lb]);
       });
@@ -1373,9 +1392,18 @@
       this.nameEl.setAlpha(0); this.tweens.add({ targets: this.nameEl, alpha: 1, delay: 300, duration: 200 });
     }
     removeInput() { if (this.nameEl) { this.nameEl.destroy(); this.nameEl = null; } }
+    hintName(s) {
+      if (this._hint) this._hint.destroy();
+      const t = this._hint = txt(this, W / 2, H - (PORTRAIT ? 70 : 50), s, 36, '#ff9ed8', { st: 7 }).setDepth(90);
+      this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
+    }
     async save() {
-      const t = this.toy;
-      t.name = (t.name || '').trim() || TOYS.ARCH_BY_ID[t.arch].nicks[0];
+      const t = this.toy, nick = TOYS.ARCH_BY_ID[t.arch].nicks[0];
+      t.name = (t.name || '').trim() || nick;
+      if (TOYS.badName(t.name)) { // not a kind name: put a friendly one in the box and ask again (QA B13 / #16)
+        t.name = nick; if (this.nameEl) this.nameEl.node.value = nick;
+        A.block(); this.hintName('Let\'s pick a kinder name!'); return;
+      }
       try { await IDB.set(t.id, this.cut.url); } catch (e) { /* storage unavailable: keep for this session */ }
       await addTexture(this, 'toy_' + t.id, this.cut.url);
       Save.data.toys.push(t); Save.store();
@@ -1486,7 +1514,7 @@
           }
           c.add(chip(this, cw / 2 - 44, -ch / 2 + 6, '×' + Save.data.boosts[b.id], C.star, 26));
         } else c.add(txt(this, 0, 0, 'NO BOOSTER', 38, '#fff3d2', { st: 6 }));
-        c.setSize(cw, ch).setInteractive({ useHandCursor: true }).setScale(0);
+        c.setSize(cw, ch).setInteractive({ useHandCursor: true }).setScale(0); press(this, c, 0.93, 1);
         this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 50, ease: 'Back.out' });
         c.on('pointerup', () => { A.init(); A.click(); if (b) { A.levelUp(); } layer.list.forEach(o => o.disableInteractive && o.disableInteractive()); done(b); });
         layer.add(c);
@@ -3288,7 +3316,7 @@
           if (cnt) c.add(chip(this, cw / 2 - 24, -ch / 2 + 8, '×' + cnt, C.star, 22));
           else c.setAlpha(0.6);
         } else c.add(txt(this, 0, -10, '?', 90, '#6a72d6', { st: 0, shadow: false }));
-        c.setSize(cw, ch).setInteractive();
+        c.setSize(cw, ch).setInteractive(); if (known) press(this, c);
         c.on('pointerup', () => { if (known) { A.click(); this.hint2(b.name + ': ' + b.desc); } });
         this.grid.add(c);
       });
@@ -3389,12 +3417,14 @@
   // ---------- start
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
   PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA,
-    txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, backButton, muteButton, capsuleButton, drawCapsule,
+    txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, press, backButton, muteButton, capsuleButton, drawCapsule,
     addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
   function snapshot(game) {
     const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');
     if (!sc) return null;
+    // the player already tapped their way out (the screen is fading): keep that tap (QA B38 / #4)
+    if (sc._leaving && sc._psTarget) { const t = Object.assign({}, sc._psTarget.data); delete t.resume; return { key: sc._psTarget.key, data: t }; }
     const key = sc.scene.key, data = Object.assign({}, sc.sys.settings.data || {});
     delete data.resume;
     if (key === 'battle') {

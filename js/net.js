@@ -14,6 +14,11 @@
   ];
   const STK = {}; STICKERS.forEach(s => STK[s.id] = s);
   const BAD = /(fuck|shit|bitch|dick|cunt|nigg|fag|porn|sex|kill|nazi|hitler|xyu|hui|pizd|blya|suka)/i;
+  // names typed on other devices are shown here only through the kid-safe filter (QA B13 / #16)
+  const T = () => window.PSToys || {};
+  const okName = (n, fb) => T().badName && T().badName(n) ? fb : n;
+  const okUser = n => n != null && BAD.test(n) ? 'Player' : okName(n, 'Player'); // the sign-up rule, then the toy-name filter
+  const okToy = meta => { if (meta && meta.name != null) meta.name = okName(meta.name, ((T().ARCH_BY_ID || {})[meta.arch] || { nicks: ['Plushie'] }).nicks[0]); return meta; };
 
   const Net = {
     ready: false, sb: null, user: null, unread: 0, inboxCache: [], boss: null, _push: 0, _lastInbox: 0,
@@ -150,26 +155,30 @@
       } catch (e) { console.warn('toy upload', e); }
     },
     // ---- friends + inbox
-    async friends() { const { data } = await this.sb.rpc('my_friends'); return data || []; },
+    async friends() {
+      const { data } = await this.sb.rpc('my_friends');
+      return (data || []).map(f => Object.assign(f, { username: okUser(f.username), avatar: f.avatar && f.avatar.name ? Object.assign(f.avatar, { name: okName(f.avatar.name, 'Toy') }) : f.avatar }));
+    },
     async addFriend(code) { const { data, error } = await this.sb.rpc('add_friend', { p_code: code }); if (error) throw new Error(error.message); return data; },
     async removeFriend(id) { await this.sb.rpc('remove_friend', { p_id: id }); },
-    async squad(id) { const { data } = await this.sb.from('toys').select('id, meta, img').eq('owner', id).order('created_at'); return data || []; },
+    async squad(id) { const { data } = await this.sb.from('toys').select('id, meta, img').eq('owner', id).order('created_at'); return (data || []).map(t => (okToy(t.meta), t)); },
     async send(to, kind, payload) { const { data, error } = await this.sb.rpc('send_inbox', { p_to: to, p_kind: kind, p_payload: payload || {} }); if (error) throw new Error(error.message); return data; },
     async inbox() {
       if (!this.user) return [];
       const { data } = await this.sb.from('inbox').select('*').eq('done', false).order('created_at', { ascending: false }).limit(30);
-      this.inboxCache = data || []; this.unread = this.inboxCache.length; this._lastInbox = Date.now();
+      this.inboxCache = (data || []).map(m => { m.from_name = m.from_name && okUser(m.from_name); if (m.payload && m.payload.toy) m.payload.toy = okName(m.payload.toy, 'toy'); return m; });
+      this.unread = this.inboxCache.length; this._lastInbox = Date.now();
       return this.inboxCache;
     },
     async claim(id) { const { data } = await this.sb.rpc('claim_inbox', { p_id: id }); this.inboxCache = this.inboxCache.filter(m => m.id !== id); this.unread = this.inboxCache.length; return data; },
     // ---- co-op boss, scores, museum
-    async bossStatus() { const { data } = await this.sb.rpc('boss_status'); this.boss = data; return data; },
+    async bossStatus() { const { data, error } = await this.sb.rpc('boss_status'); if (error || !data) throw error || new Error('no boss'); this.boss = data; return data; }, // (QA B23)
     async bossStart() { const { data } = await this.sb.rpc('boss_start'); return !!data; },
     async bossHit(d) { const { data } = await this.sb.rpc('boss_hit', { p_dmg: d }); this.boss = data; return data; },
     async bossClaim() { const { data } = await this.sb.rpc('boss_claim'); return !!data; },
     async submitCatch(n) { try { await this.sb.rpc('submit_catch', { p_score: n }); } catch (e) {} },
-    async board() { const { data } = await this.sb.rpc('catch_board'); return data || []; },
-    async museum() { const { data } = await this.sb.rpc('museum'); return data || []; },
+    async board() { const { data } = await this.sb.rpc('catch_board'); return (data || []).map(r => Object.assign(r, { username: okUser(r.username) })); },
+    async museum() { const { data } = await this.sb.rpc('museum'); return (data || []).map(t => (okToy(t.meta), Object.assign(t, { username: okUser(t.username) }))); },
     async like(id) { const { data } = await this.sb.rpc('toggle_like', { p_toy: id }); return data || 0; },
   };
   const lvl = x => { let l = 1, r = x; while (r >= 100 + (l - 1) * 50) { r -= 100 + (l - 1) * 50; l++; } return l; };
@@ -280,7 +289,7 @@
     // ---------- FRIENDS hub: friends, mail, museum, top catch
     class FriendsScene extends Phaser.Scene {
       constructor() { super('friends'); }
-      init(data) { this.tab = (data && data.tab) || 'friends'; }
+      init(data) { this.tab = (data && data.tab) || 'friends'; this.mailPage = (data && data.mailPage) || 0; }
       create() {
         X().header(this, PS, 'FRIENDS');
         if (!Net.ready) { txt(this, W / 2, H / 2, 'Online play is not set up yet', 44, '#fff3d2', { st: 7 }); return; }
@@ -298,7 +307,7 @@
           const im = img(this, -tw / 2 + 38, 0, ic); im.setScale(iconScale(ic, 50)); b.add(im);
           b.add(fit(txt(this, 18, 0, l, 26, on ? C.ink : '#fff3d2', { st: 0, shadow: false }), tw - 80));
           if (k === 'mail' && Net.unread) { b.add(this.add.circle(tw / 2 - 8, -34, 18, C.coral)); b.add(txt(this, tw / 2 - 8, -34, String(Net.unread), 20, '#fff', { st: 0, shadow: false })); }
-          b.setSize(tw, 80).setInteractive({ useHandCursor: true });
+          b.setSize(tw, 80).setInteractive({ useHandCursor: true }); PS.press(this, b);
           b.on('pointerup', () => { if (!on) { A.click(); this.scene.restart({ tab: k }); } });
         });
         this.top = ty + 80;
@@ -373,7 +382,7 @@
           if (it.t) { key = 'ftoy_' + it.t.meta.id; name = it.t.meta.name; if (!this.textures.exists(key)) await PS.addTexture(this, key, it.t.img); }
           if (this.textures.exists(key)) c.add(avatarImg(this, PS, 0, -30, key, 180));
           c.add(fit(txt(this, 0, ch / 2 - 40, name, 28, '#fff3d2', { st: 5 }), cw - 20));
-          c.setSize(cw, ch).setInteractive({ useHandCursor: true });
+          c.setSize(cw, ch).setInteractive({ useHandCursor: true }); PS.press(this, c);
           c.on('pointerup', () => {
             A.click();
             if (it.t) fade(this, 'battle', { ftoy: Object.assign({}, it.t.meta, { url: it.t.img, owner: f.id, dbid: it.t.id }), ownerName: f.username, ownerId: f.id });
@@ -397,7 +406,7 @@
           const ic = img(this, 0, -30, b.icon); ic.setScale(iconScale(b.icon, 100)); c.add(ic);
           c.add(fit(txt(this, 0, 60, b.name, 24, C.ink, { st: 0, shadow: false }), 190));
           c.add(chip(this, 80, -90, '×' + d.boosts[b.id], C.star, 20));
-          c.setSize(210, 210).setInteractive({ useHandCursor: true });
+          c.setSize(210, 210).setInteractive({ useHandCursor: true }); PS.press(this, c);
           c.on('pointerup', async () => {
             try {
               const r = await Net.send(f.id, 'gift_boost', { boost: b.id }); if (!r.ok) throw new Error(r.error);
@@ -415,7 +424,7 @@
           c.add(X().card(this, PS, 0, 0, 210, 210, C.cream, C.star));
           const ic = img(this, 0, -25, s.icon); ic.setScale(iconScale(s.icon, 110)); c.add(ic);
           c.add(fit(txt(this, 0, 70, s.label, 28, C.ink, { st: 0, shadow: false }), 190));
-          c.setSize(210, 210).setInteractive({ useHandCursor: true });
+          c.setSize(210, 210).setInteractive({ useHandCursor: true }); PS.press(this, c);
           c.on('pointerup', async () => {
             try { const r = await Net.send(f.id, 'sticker', { s: s.id }); if (!r.ok) throw new Error(r.error); A.levelUp(); lay.destroy(true); X().toast(this, PS, s.icon, 'Sticker sent!', s.label + ' to ' + f.username); }
             catch (e) { A.block(); err(this, PS, e.message, H / 2); }
@@ -426,8 +435,17 @@
       async showMail() {
         const list = await Net.inbox(); this.clearLoading();
         if (!list.length) { txt(this, W / 2, H / 2, 'No new mail', 44, '#fff3d2', { st: 7 }); return; }
+        // the 30 newest messages, a page at a time (QA B28 / #26)
         const w = Math.min(W - 80, 1100), h = 150, top = this.top + 40;
-        list.slice(0, PORTRAIT ? 8 : 5).forEach((m, i) => {
+        const per = Math.max(1, Math.floor((H - top - 110) / (h + 14))), pages = Math.ceil(list.length / per);
+        this.mailPage = Math.max(0, Math.min(this.mailPage || 0, pages - 1));
+        if (pages > 1) {
+          const py = top + per * (h + 14) + 40;
+          txt(this, W / 2, py, (this.mailPage + 1) + ' / ' + pages, 30, '#bcc0ee', { st: 5 });
+          if (this.mailPage > 0) button(this, W / 2 - 160, py, 120, 64, '◀', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage - 1 }), { size: 30 });
+          if (this.mailPage < pages - 1) button(this, W / 2 + 160, py, 120, 64, '▶', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage + 1 }), { size: 30 });
+        }
+        list.slice(this.mailPage * per, this.mailPage * per + per).forEach((m, i) => {
           const y = top + h / 2 + i * (h + 14), from = m.from_name || 'A friend';
           this.add.existing(X().card(this, PS, W / 2, y, w, h));
           let icon = 'j:letter', text = '', act = null, actLabel = 'OK';
@@ -441,9 +459,9 @@
           const ic = img(this, W / 2 - w / 2 + 80, y, icon); ic.setScale(iconScale(icon, 100));
           fit(txt(this, W / 2 - w / 2 + 150, y, text, 32, '#fff3d2', { st: 5, ox: 0 }), w - 470);
           button(this, W / 2 + w / 2 - 140, y, 230, 90, actLabel, act ? C.star : C.cream, async () => {
-            const r = await Net.claim(m.id); if (!r) return this.scene.restart({ tab: 'mail' });
+            const r = await Net.claim(m.id); if (!r) return this.scene.restart({ tab: 'mail', mailPage: this.mailPage });
             A.win(); if (act) act();
-            if (m.kind !== 'beat') this.scene.restart({ tab: 'mail' });
+            if (m.kind !== 'beat') this.scene.restart({ tab: 'mail', mailPage: this.mailPage });
           }, { size: 30 });
         });
       }
@@ -475,7 +493,7 @@
           const heart = img(this, cw / 2 - 50, ch / 2 - 30, 'j:heart2'); heart.setScale(iconScale('j:heart2', 40)); if (!t.liked) heart.setAlpha(0.35);
           const cnt = txt(this, cw / 2 - 22, ch / 2 - 30, String(t.likes), 24, '#fff3d2', { st: 4, ox: 0 });
           c.add([heart, cnt]);
-          c.setSize(cw, ch).setInteractive({ useHandCursor: true });
+          c.setSize(cw, ch).setInteractive({ useHandCursor: true }); PS.press(this, c, 0.96);
           c.on('pointerup', async () => { A.click(); t.liked = !t.liked; heart.setAlpha(t.liked ? 1 : 0.35); this.tweens.add({ targets: heart, scale: heart.scale * 1.4, duration: 120, yoyo: true }); cnt.setText(String(await Net.like(t.id))); });
         });
       }
@@ -504,10 +522,18 @@
         const k = this.add.image(W / 2, PORTRAIT ? 620 : 380, 'kraken').setScale(PORTRAIT ? 1.6 : 1.3);
         this.tweens.add({ targets: k, y: k.y - 24, angle: { from: -4, to: 4 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         this.info = txt(this, W / 2, PORTRAIT ? 900 : 620, 'Loading...', 36, '#fff3d2', { st: 6 });
-        Net.bossStatus().then(b => this.show(b)).catch(() => this.info.setText('Could not connect. Check the internet!'));
+        // a late answer from before a RETRY (or from a destroyed game) must not draw on this screen
+        const tok = this._tok = {}, live = () => this._tok === tok && this.sys.isActive();
+        Net.bossStatus().then(b => live() && this.show(b), e => { console.warn('boss', e); if (live()) this.fail(); });
+      }
+      // the server call failed (offline or an RPC error): say so, with RETRY and BACK (QA B23 / #22)
+      fail() {
+        const y = PORTRAIT ? 900 : 620;
+        this.info.setText('The Kraken is hiding! Could not reach the server.').setWordWrapWidth(Math.min(W - 120, 900));
+        button(this, W / 2 - 220, y + 150, 380, 120, 'RETRY', C.star, () => this.scene.restart(), { size: 44 });
+        button(this, W / 2 + 220, y + 150, 380, 120, 'BACK', C.cream, () => fade(this, 'map'), { size: 44 });
       }
       show(b) {
-        if (!b) return;
         this.info.destroy();
         const y = PORTRAIT ? 880 : 600, bw = Math.min(W - 160, 900), left = Math.max(0, b.max_hp - b.dmg);
         txt(this, W / 2, y - 70, b.name + ': ' + left + ' / ' + b.max_hp + ' pep left', 40, '#fff3d2', { st: 6 });
@@ -537,7 +563,7 @@
     const k = scene.add.image(0, 0, 'kraken').setScale(70 / 235); c.add(k);
     c.add(txt(scene, 0, 60, 'BOSS', 22, '#fff3d2', { st: 5 }));
     scene.tweens.add({ targets: k, angle: { from: -10, to: 10 }, duration: 700, yoyo: true, repeat: -1 });
-    c.setSize(100, 100).setInteractive({ useHandCursor: true });
+    c.setSize(100, 100).setInteractive({ useHandCursor: true }); PS.press(scene, c, 0.88);
     c.on('pointerup', () => { A.init(); A.click(); fade(scene, 'boss'); });
   }
   async function mailPopup(scene, PS) {
@@ -546,7 +572,7 @@
       const list = await Net.inbox();
       if (list.length && scene.sys.isActive() && window.PSExtra) {
         const c = window.PSExtra.toast(scene, PS, 'j:mail', 'You have ' + list.length + ' new message' + (list.length > 1 ? 's' : '') + '!', 'Tap here to open MAIL');
-        c.setSize(820, 150).setInteractive({ useHandCursor: true });
+        c.setSize(820, 150).setInteractive({ useHandCursor: true }); PS.press(scene, c, 0.96);
         c.on('pointerup', () => PS.fade(scene, 'friends', { tab: 'mail' }));
       }
     } catch (e) {}
