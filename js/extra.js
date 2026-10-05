@@ -368,7 +368,7 @@
         c.on('pointerout', () => this.tweens.add({ targets: c, scale: 1, duration: 120 }));
         c.on('pointerup', () => {
           this.tweens.add({ targets: c, scale: 1, duration: 120 });
-          if (!has) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); return; }
+          if (!has) { A.block(); this.tweens.killTweensOf(c); c.x = x; c.setScale(1); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); return; }
           A.click(); PS.fade(this, 'comic', { world: cm.id, then: { key: 'album', data: { tab: 'comics' } } });
         });
       });
