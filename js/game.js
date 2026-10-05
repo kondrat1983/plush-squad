@@ -3068,11 +3068,74 @@
       s.tweens.add({ targets: o, x: o.x + (s.peekDX || 0), duration: 500, ease: 'Back.out', onComplete: () => s.tweens.add({ targets: o, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 }) });
     },
   };
+  COMIC_SCRIPTS.spooky = {
+    world: SPOOKY, title: 'SPOOKY!', len: [2700, 2900, 3500],
+    confetti: { key: 'candy', speedY: { min: 120, max: 220 }, scale: { min: 0.12, max: 0.22 }, lifespan: Math.round(H / 120 * 1000) + 1000 },
+    panels: [
+      // Halloween night: pumpkins, an orange moon, a bat flaps by; Jack wonders about the hats
+      (s, c, instant) => {
+        s.bg(c, 'sky3');
+        if (PORTRAIT) s.actor(c, 'moon', 0.88, 0.5, 0.4, 0.16).setTint(0xffa64d); else s.actor(c, 'moon', 0.8, 0.3, 0.16, 0.3).setTint(0xffa64d);
+        s.actor(c, 'pumpkin', 0.1, 0.98, PORTRAIT ? 0.24 : 0.1, PORTRAIT ? 0.1 : 0.2);
+        s.actor(c, 'pumpkin', PORTRAIT ? 0.52 : 0.86, 0.98, PORTRAIT ? 0.18 : 0.08, PORTRAIT ? 0.08 : 0.16);
+        s.actor(c, 'jack_front', PORTRAIT ? 0.3 : 0.42, 0.98, PORTRAIT ? 0.55 : 0.3, PORTRAIT ? 0.45 : 0.5);
+        const bx = PORTRAIT ? 0.62 : 0.25, by = PORTRAIT ? 0.3 : 0.4;
+        const bat = s.actor(c, 'bat', instant ? bx : bx - 0.8, by, PORTRAIT ? 0.24 : 0.1, 0.18);
+        s.anim({ targets: bat, scaleY: bat.scaleY * 0.6, duration: 140, yoyo: true, repeat: -1 });
+        if (!instant) { s.anim({ targets: bat, x: (bx - 0.5) * c.r.w, duration: 1600, ease: 'Sine.out' }); A.whoosh(); }
+        s.caption(c, 'MEANWHILE, ON HALLOWEEN NIGHT...', instant);
+        const say = inst => s.bubble(c, PORTRAIT ? 0.68 : 0.5, PORTRAIT ? 0.64 : 0.52, 'Why does everyone have a cool hat?', -1, inst);
+        instant ? say(true) : s.at(1000, say);
+      },
+      // EEEK! Batty and Jack hang upside down side by side
+      (s, c, instant) => {
+        s.bg(c, 'sky3');
+        s.actor(c, 'web', 0.12, PORTRAIT ? 0.42 : 0.24, PORTRAIT ? 0.4 : 0.2, PORTRAIT ? 0.14 : 0.3).setAlpha(0.8);
+        const line = s.add.graphics(); line.lineStyle(4, 0xe8e0ff, 0.8); c.add(line);
+        // hanging from a line: the top of the picture is the pivot, so it sways like a pendulum
+        const hang = (key, fx, fy, hf, wf, flip) => {
+          const a = s.actor(c, key, fx, 0.5, hf, wf).setOrigin(0.5, 0).setFlipY(!!flip); a.y = (fy - 0.5) * c.r.h;
+          line.lineBetween(a.x, -c.r.h / 2 + 5, a.x, a.y + 12);
+          s.anim({ targets: a, angle: { from: -5, to: 5 }, duration: 900 + fx * 400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+          return a;
+        };
+        hang('jack_upside', PORTRAIT ? 0.34 : 0.3, 0.16, PORTRAIT ? 0.62 : 0.36, PORTRAIT ? 0.26 : 0.4);
+        hang('bat', PORTRAIT ? 0.54 : 0.72, 0.16, PORTRAIT ? 0.38 : 0.2, PORTRAIT ? 0.16 : 0.3, true);
+        const eek = inst => { s.burst(c, PORTRAIT ? 0.82 : 0.5, PORTRAIT ? 0.3 : 0.66, 'EEEK!', PORTRAIT ? 72 : 60, inst); if (!inst) A.tickle(); };
+        const say = inst => s.bubble(c, PORTRAIT ? 0.76 : 0.5, PORTRAIT ? 0.72 : 0.86, 'Hey Jack, you nap like me!', -1, inst);
+        if (instant) { eek(true); say(true); } else { s.at(200, eek); s.at(1200, say); }
+      },
+      // Pumpkin Pete with candy, Webster dangling, Count Fang hiding at the bottom
+      (s, c, instant) => {
+        s.bg(c, 'sky3');
+        s.peekObj = s.actor(c, 'vampire', PORTRAIT ? 0.45 : 0.5, 0.98, PORTRAIT ? 0.32 : 0.18, PORTRAIT ? 0.14 : 0.3).setVisible(false);
+        const line = s.add.graphics(); line.lineStyle(3, 0xe8e0ff, 0.8); c.add(line);
+        const sp = s.actor(c, 'spider', PORTRAIT ? 0.95 : 0.86, 0.5, PORTRAIT ? 0.22 : 0.08, PORTRAIT ? 0.07 : 0.18).setOrigin(0.5, 0); sp.y = (0.04 - 0.5) * c.r.h;
+        line.lineBetween(sp.x, -c.r.h / 2 + 5, sp.x, sp.y + 10);
+        s.anim({ targets: sp, y: sp.y + c.r.h * 0.04, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        s.actor(c, 'pumpkin', 0.74, 0.98, 0.4);
+        s.actor(c, 'lollipop', 0.58, 0.9, PORTRAIT ? 0.22 : 0.12, 0.1).setAngle(-15);
+        s.actor(c, 'candy', 0.92, 0.98, PORTRAIT ? 0.16 : 0.07, 0.1);
+        s.actor(c, 'jack_front', 0.24, 0.98, 0.5);
+        const s1 = inst => s.bubble(c, PORTRAIT ? 0.58 : 0.62, PORTRAIT ? 0.2 : 0.27, 'Trick or treat... or PILLOW FIGHT!', 0.2, inst);
+        const s2 = inst => s.bubble(c, 0.34, PORTRAIT ? 0.42 : 0.5, 'Can I pick ALL of them?', -1, inst);
+        if (instant) { s1(true); s2(true); } else { s.at(200, s1); s.at(1400, s2); }
+      },
+    ],
+    // Count Fang peeks up from the bottom of panel 3 and waves
+    peek: s => {
+      const o = s.peekObj; if (!o) return;
+      const y = o.y; o.setVisible(true); o.y = y + o.displayHeight * 0.6; o.setAlpha(0);
+      s.tweens.add({ targets: o, y, alpha: 1, duration: 600, ease: 'Back.out', onComplete: () => s.tweens.add({ targets: o, angle: { from: -10, to: 10 }, duration: 350, yoyo: true, repeat: -1 }) });
+    },
+    sting: s => s.time.delayedCall(1300, () => A.boo()),
+  };
   const comicSeen = id => !!(Save.data.comics && Save.data.comics[id]);
   const COMIC_DUE = {
     hills: () => !(Save.data.xp || 0) && !(Save.data.wins || 0) && !Object.keys(Save.data.stars).some(k => Save.data.stars[k] > 0), // new players only
     space: () => worldOpen(SPACE), // everyone, once (also players already past Space)
     canada: () => worldOpen(CANADA),
+    spooky: () => EVENT_ON && worldOpen(SPOOKY), // during the event only
   };
   // a comic plays once, the first time its world opens (docs/gdd/0.9-world-comics.md section 4)
   const comicDue = id => !!(id && COMIC_SCRIPTS[id] && COMIC_DUE[id] && !comicSeen(id) && COMIC_DUE[id]());
