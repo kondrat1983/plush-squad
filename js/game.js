@@ -2953,8 +2953,69 @@
       peek: s => { const o = s.peekObj; if (o) { o.setVisible(true); s.tweens.add({ targets: o, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 }); } },
     },
   };
+  COMIC_SCRIPTS.space = {
+    world: SPACE, title: 'SPACE!', len: [2900, 2900, 3500],
+    confetti: { key: 'star', speedY: { min: 250, max: 450 }, scale: { min: 0.08, max: 0.16 }, lifespan: 4500 },
+    panels: [
+      // Jack rides a rocket in from the left; the Moon is somewhere
+      (s, c, instant) => {
+        s.bg(c, 'sky2');
+        if (PORTRAIT) s.actor(c, 'planet', 0.58, 0.36, 0.26, 0.14).setTint(0xc9b6ff).setAlpha(0.85);
+        else s.actor(c, 'planet', 0.12, 0.98, 0.34, 0.18).setTint(0xc9b6ff).setAlpha(0.85);
+        const rx = PORTRAIT ? 0.24 : 0.42, rocket = s.actor(c, 'rocket', instant ? rx : rx - 0.6, 0.94, 0.3, 0.3).setAngle(25);
+        const jack = s.actor(c, 'jack_side', instant ? rx : rx - 0.6, 0.5, 0.42, 0.34); jack.y = rocket.y - rocket.displayHeight * 0.55;
+        s.anim({ targets: [rocket, jack], angle: { from: 22, to: 28 }, duration: 90, yoyo: true, repeat: -1 });
+        if (!instant) {
+          s.anim({ targets: [rocket, jack], x: (rx - 0.5) * c.r.w, duration: 800, ease: 'Quad.out' });
+          const tr = s.add.particles(0, 0, 'dot', { follow: rocket, followOffset: { x: -rocket.displayWidth * 0.3, y: -rocket.displayHeight * 0.2 }, frequency: 40, lifespan: 500, scale: { start: 0.3, end: 0 }, alpha: { start: 0.8, end: 0 }, tint: [0xffd23f, 0xff8a3d, 0xffffff], speed: 20 });
+          c.addAt(tr, c.list.indexOf(rocket));
+          A.whoosh();
+        }
+        s.caption(c, 'MEANWHILE, IN SPACE...', instant);
+        const say = inst => s.bubble(c, PORTRAIT ? 0.68 : 0.5, PORTRAIT ? 0.62 : 0.46, 'Next stop: the Moon! Which way is up?', -1, inst);
+        instant ? say(true) : s.at(1000, say);
+      },
+      // a UFO beams Jack up (a soft teaser for the Mothership's beam)
+      (s, c, instant) => {
+        s.bg(c, 'sky2');
+        const ufo = s.actor(c, 'ufo', 0.5, 0.3, 0.26, 0.34);
+        const beam = s.add.graphics(), bt = ufo.y - ufo.displayHeight * 0.2, bb = c.r.h * 0.46, uw = ufo.displayWidth * 0.3, lw = Math.min(c.r.w * 0.42, ufo.displayWidth * 1.4);
+        beam.fillStyle(0xc8ff3d, 0.28); beam.fillPoints([{ x: -uw, y: bt }, { x: uw, y: bt }, { x: lw, y: bb }, { x: -lw, y: bb }], true);
+        beam.fillStyle(0xffffff, 0.18); beam.fillPoints([{ x: -uw * 0.4, y: bt }, { x: uw * 0.4, y: bt }, { x: lw * 0.4, y: bb }, { x: -lw * 0.4, y: bb }], true);
+        c.addAt(beam, c.list.indexOf(ufo));
+        s.anim({ targets: beam, alpha: { from: 1, to: 0.6 }, duration: 400, yoyo: true, repeat: -1 });
+        const j = s.actor(c, 'jack_upside', 0.5, 0.97, 0.42, 0.34), up = j.y - c.r.h * 0.12;
+        s.anim({ targets: j, angle: { from: -8, to: 8 }, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        if (instant) j.y = up; else s.anim({ targets: j, y: up, duration: 2200, ease: 'Sine.inOut' });
+        const blip = inst => { s.burst(c, PORTRAIT ? 0.2 : 0.3, PORTRAIT ? 0.3 : 0.14, 'BLIP!', PORTRAIT ? 72 : 60, inst); if (!inst) A.beam(); };
+        const say = inst => s.bubble(c, PORTRAIT ? 0.78 : 0.5, PORTRAIT ? 0.5 : 0.48, 'Put me DOWN! ...Okay, this is fun.', -1, inst);
+        if (instant) { blip(true); say(true); } else { s.at(200, blip); s.at(1300, say); }
+      },
+      // The Blips (and Robo-Bop behind them) come in peace, with pillows
+      (s, c, instant) => {
+        s.bg(c, 'sky2');
+        s.strip(c, 0xa99ad8, 0.78, 1);
+        s.actor(c, 'robot', 0.88, 0.86, 0.4, 0.22).setAlpha(0.95);
+        s.actor(c, 'aliens', 0.7, 0.98, 0.42);
+        s.actor(c, 'pillow', 0.52, 0.98, 0.14, 0.14).setAngle(-10);
+        s.actor(c, 'jack_front', 0.24, 0.98, 0.5);
+        const s1 = inst => { s.bubble(c, 0.62, 0.2, 'We come in peace! And with PILLOWS!', 0.2, inst); if (!inst) A.blip(); };
+        const s2 = inst => s.bubble(c, 0.34, 0.42, 'Phew. I brought pillows too!', -1, inst);
+        if (instant) { s1(true); s2(true); } else { s.at(200, s1); s.at(1500, s2); }
+      },
+    ],
+    // the Mothership slides in at the top of panel 1 and hovers
+    peek: s => {
+      const c = s.panels[0]; if (!c) return;
+      const m = s.actor(c, 'mothership', PORTRAIT ? 0.78 : 0.5, PORTRAIT ? 0.38 : 0.31, PORTRAIT ? 0.3 : 0.14, PORTRAIT ? 0.3 : 0.5), y = m.y;
+      c.moveDown(m); // under the panel border
+      m.y = y - c.r.h * 0.15; m.setAlpha(0);
+      s.tweens.add({ targets: m, y, alpha: 1, duration: 700, ease: 'Back.out', onComplete: () => s.tweens.add({ targets: m, y: y - 14, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' }) });
+    },
+  };
   const comicSeen = id => !!(Save.data.comics && Save.data.comics[id]);
   const COMIC_DUE = {
+    space: () => worldOpen(SPACE), // everyone, once (also players already past Space)
     canada: () => worldOpen(CANADA),
   };
   // a comic plays once, the first time its world opens (docs/gdd/0.9-world-comics.md section 4)
@@ -3005,6 +3066,7 @@
     caption(c, full, instant) {
       const cap = txt(this, -c.r.w / 2 + 30, -c.r.h / 2 + 30, '', PORTRAIT ? 34 : 30, '#1d2163', { ox: 0, oy: 0, st: 0, shadow: false });
       const capBg = this.add.graphics(); c.add([capBg, cap]);
+      cap.setText(full); if (cap.width > c.r.w - 70) cap.setWordWrapWidth(c.r.w - 70).setAlign('left'); cap.setText('');
       const drawCap = () => { capBg.clear(); capBg.fillStyle(0xffd23f); capBg.lineStyle(5, 0x1d2163); capBg.fillRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); capBg.strokeRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); };
       if (instant) { cap.setText(full); drawCap(); }
       else { let n = 0; const ev = this.time.addEvent({ delay: 30, repeat: full.length - 1, callback: () => { cap.setText(full.slice(0, ++n)); drawCap(); } }); this.steps.push(ev); this.later.push({ fn: () => { cap.setText(full); drawCap(); }, ran: false }); }
