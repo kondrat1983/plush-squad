@@ -4,6 +4,9 @@ Newest on top. ✅ = shipped (with version). Source: Kondrat, the chief tester, 
 
 | Date | Idea | Source | Status |
 |---|---|---|---|
+| 5 Oct 2026 | Veggie world: the yuckiest vegetables as rivals, Broccoli boss (#63). | Kondrat | idea, needs a design doc |
+| 5 Oct 2026 | Pillow Week: 7-day daily streak with a Sleepy Pillow, golden capsule on day 7 (#32). | GDD roadmap | approved, design: `0.9-daily-streak.md` |
+| 5 Oct 2026 | Comics for every world (Pillow Hills, Space, Spooky), 4 covers in Album > COMICS (#62). | Kondrat | approved, design: `0.9-world-comics.md` |
 | 4 Oct 2026 | Toys "go on an adventure" instead of being deleted (#47). | Kondrat | planned v0.9 (decisions.md) |
 | 4 Oct 2026 | Retro comics for Space (everyone, once) and Pillow Hills (new players). | `0.8-canada.md` §7b | later, v0.8.x (decisions.md) |
 | 4 Oct 2026 | Pond Hockey friends' weekly board (needs a schema change). | `0.8-canada.md` §4b | later (decisions.md) |
