@@ -1092,12 +1092,13 @@
   }
 
   // ---------- Studio: photo -> cut-out -> "who is it?" -> new hero
-  let toyWorker = null;
+  // one worker for the page, kept on window: a rotation rebuild runs main() again but keeps the worker and its loaded models (QA B22 / #21)
+  const TW = window.__psToyWorker || (window.__psToyWorker = { w: null });
   function getWorker() {
-    if (toyWorker) return toyWorker;
+    if (TW.w) return TW.w;
     const q = /[?&]localmodels/.test(location.search) ? '?local' : '';
-    toyWorker = new Worker('js/toyworker.js' + q, { type: 'module' });
-    return toyWorker;
+    TW.w = new Worker('js/toyworker.js' + q, { type: 'module' });
+    return TW.w;
   }
   function pickFile() {
     return new Promise((res) => {
@@ -1201,8 +1202,8 @@
     cancelJob() {
       const job = this.job; if (!job) return;
       this.job = null; this.busyState = false;
-      try { if (toyWorker) toyWorker.terminate(); } catch (e) {}
-      toyWorker = null;
+      try { if (TW.w) TW.w.terminate(); } catch (e) {}
+      TW.w = null;
       job.finish({ type: 'cancel' });
       A.click(); this.intro();
     }
@@ -1245,7 +1246,7 @@
         job.finish = res;
         // the magic can be very slow on an old phone: 90 s with no news uses the photo as it is.
         // Every progress message restarts the clock, so a slow first download is never cut off (code review)
-        const arm = () => { if (job.timer) job.timer.remove(false); job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (toyWorker === w) toyWorker = null; res({ type: 'error', message: 'timeout' }); }); };
+        const arm = () => { if (job.timer) job.timer.remove(false); job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (TW.w === w) TW.w = null; res({ type: 'error', message: 'timeout' }); }); };
         arm();
         w.onmessage = (ev) => {
           if (this.job !== job) return;
