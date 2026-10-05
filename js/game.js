@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.8.1';
+  const VERSION = '0.8.2';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -3514,6 +3514,11 @@
     clearTimeout(rotT);
     rotT = setTimeout(() => window.__psTryRebuild(), 300);
   });
+  // a freshly added Home Screen web app on iOS can settle its size and safe-area insets after launch without any
+  // resize event: the top buttons then sit under the status bar, where iOS eats the taps. Check again a few times.
+  window.addEventListener('orientationchange', () => setTimeout(() => window.__psTryRebuild(), 400));
+  window.addEventListener('pageshow', () => setTimeout(() => window.__psTryRebuild(), 400));
+  [700, 2000, 4000].forEach(t => setTimeout(() => window.__psTryRebuild && window.__psTryRebuild(), t));
   document.addEventListener('visibilitychange', () => { const A = window.PSAudio; if (!A.ctx) return; document.hidden ? A.ctx.suspend() : A.ctx.resume(); });
   const fontsReady = (document.fonts && document.fonts.load) ? Promise.all([document.fonts.load('700 40px Poppins'), document.fonts.load('500 40px Poppins')]).catch(() => {}) : Promise.resolve();
   // wait for fonts and (if online play is set up) the saved login, but never more than ~3 s
