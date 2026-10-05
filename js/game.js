@@ -3041,7 +3041,7 @@
         if (instant) pillow.x = px - c.r.w * 0.06; else { pillow.x = -c.r.w * 0.6; s.anim({ targets: pillow, x: px, angle: 25, duration: 450, ease: 'Quad.in' }); A.whoosh(); }
         const hit = inst => {
           s.burst(c, PORTRAIT ? 0.2 : 0.3, PORTRAIT ? 0.3 : 0.2, 'BONK!', PORTRAIT ? 72 : 60, inst);
-          if (inst) { jack.angle = 22; jack.x += c.r.w * 0.04; pillow.angle = -20; return; }
+          if (inst) { jack.angle = 22; jack.x += c.r.w * 0.04; pillow.angle = -20; pillow.x = px - c.r.w * 0.06; return; }
           s.anim({ targets: jack, angle: 22, x: jack.x + c.r.w * 0.04, duration: 260, ease: 'Back.out' });
           s.anim({ targets: pillow, angle: -20, x: px - c.r.w * 0.06, duration: 320, ease: 'Quad.out' });
           const fe = s.add.particles(px, py, 'feather', { speed: { min: 150, max: 380 }, angle: { min: 0, max: 360 }, rotate: { min: 0, max: 360 }, scale: { min: 0.3, max: 0.55 }, lifespan: 1000, gravityY: 300, emitting: false });
@@ -3132,7 +3132,7 @@
   };
   const comicSeen = id => !!(Save.data.comics && Save.data.comics[id]);
   const COMIC_DUE = {
-    hills: () => !(Save.data.xp || 0) && !(Save.data.wins || 0) && !Object.keys(Save.data.stars).some(k => Save.data.stars[k] > 0), // new players only
+    hills: () => !Object.keys(Save.data.stars).some(k => Save.data.stars[k] > 0), // new players only: saves that played before v0.9 are marked seen by mig09; XP from a toy duel or a quest does not count (QA B65)
     space: () => worldOpen(SPACE), // everyone, once (also players already past Space)
     canada: () => worldOpen(CANADA),
     spooky: () => EVENT_ON && worldOpen(SPOOKY), // during the event only

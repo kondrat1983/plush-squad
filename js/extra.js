@@ -196,7 +196,7 @@
   // ---------- "What's new" popup: shows once per version (CLOSE = see it again next time, DON'T SHOW AGAIN = hide until the next update)
   const WHATS_NEW = {
     '0.9': [
-      { icon: 'j:album', title: 'Comics', text: 'Jack lands in every world! Watch all 4 comics in the Album.' },
+      { icon: 'j:album', title: 'Comics', text: 'Jack lands in every world! Watch the comics again in the Album.' },
     ],
     '0.8': [
       { icon: 'mapleleaf', title: 'CANADA', text: 'A new snowy world! Meet Max the Moose, Beaver Bob, Mountie Bear and Sasquatch.' },
@@ -312,10 +312,10 @@
     // ---------- ALBUM: stickers, and the comics to watch again (switch at the bottom, #54)
     // world order; cover = the comic's sky, Jack in his pose and the world's peeking character (docs/gdd/0.9-world-comics.md 4)
     const COMICS = [
-      { id: 'hills', title: 'Pillows at Dawn', icon: 'owl', bg: 'sky', jack: 'jack_upside', hint: 'Play to unlock' },
+      { id: 'hills', title: 'Pillows at Dawn', icon: 'owl', bg: 'sky', jack: 'jack_upside', hint: 'Open the map to unlock' },
       { id: 'space', title: 'Beam Me Up... Oops', icon: 'mothership', bg: 'sky2', jack: 'jack_side', hint: 'Reach Space to unlock' },
       { id: 'canada', title: 'Welcome to Canada!', icon: 'mapleleaf', bg: 'sky4', aurora: true, jack: 'jack_side', hint: 'Reach Canada to unlock' },
-      { id: 'spooky', title: 'Hats for Everyone', icon: 'pumpkin', bg: 'sky3', jack: 'jack_upside', hint: 'Comes back on Halloween' },
+      { id: 'spooky', title: 'Hats for Everyone', icon: 'pumpkin', bg: 'sky3', jack: 'jack_upside', hint: 'Visit Spooky to unlock' },
     ];
     class AlbumScene extends Phaser.Scene {
       constructor() { super('album'); }
@@ -383,7 +383,7 @@
           const lk = img(this, 0, -ch * 0.1, 'lock'); lk.setScale(iconScale('lock', ch * 0.3)); c.add(lk);
         }
         c.add(fit(txt(this, 0, ch * 0.3, has ? cm.title : '???', 40, has ? C.ink : '#8a8fd6', { st: 0, shadow: false }), cw - 40));
-        if (!has) c.add(fit(txt(this, 0, ch * 0.42, cm.id === 'spooky' && PS.EVENT_ON ? 'Visit Spooky to unlock' : cm.hint, 26, '#6a72d6', { st: 0, shadow: false, weight: '500' }), cw - 40));
+        if (!has) c.add(fit(txt(this, 0, ch * 0.42, cm.hint, 26, '#6a72d6', { st: 0, shadow: false, weight: '500' }), cw - 40));
         c.setSize(cw, ch).setInteractive({ useHandCursor: true });
         c.on('pointerdown', () => this.tweens.add({ targets: c, scale: 0.96, duration: 70 }));
         c.on('pointerout', () => this.tweens.add({ targets: c, scale: 1, duration: 120 }));

@@ -82,6 +82,15 @@ test('new save: TAP TO PLAY plays the Pillow Hills comic once, then the Pillow H
   noErrors(page);
 });
 
+test('QA B65: a new player with XP from a toy duel or a quest (no campaign stars) still gets the Hills comic', async ({ page }) => {
+  await boot(page, { muted: true, xp: 200, mig09: 1 });
+  await go(page, 'title');
+  await page.evaluate(() => __game.scene.getScene('title').go());
+  await until(page, () => scenes(page), ['comic']);
+  expect(await page.evaluate(() => __game.scene.getScene('comic').id)).toBe('hills');
+  noErrors(page);
+});
+
 test('old save after the update: no Hills comic, its cover is unlocked in the Album; Space is not', async ({ page }) => {
   const old = save({ comics: { canada: true, spooky: true } }); delete old.mig09;
   await boot(page, old);
