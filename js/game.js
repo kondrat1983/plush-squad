@@ -674,8 +674,12 @@
   }
   function fade(scene, key, data) {
     if (scene._leaving) return; scene._leaving = true;
-    // the first trip to Canada starts with the comic (#31); the comic then goes on to where the player was heading
-    if (key === 'battle' && data && RIVALS[data.rival] && RIVALS[data.rival].world === CANADA && comicDue()) { data = { world: 'canada', then: { key, data } }; key = 'comic'; }
+    // the first duel in a world whose comic is due starts with the comic (#31, #62); the comic then goes on to where the
+    // player was heading. Never on REMATCH (the same duel again) and never for toy, friend or Kraken duels (no RIVALS entry)
+    if (key === 'battle' && data && RIVALS[data.rival] && !(scene.scene.key === 'battle' && data === scene.data0)) {
+      const cid = COMIC_OF_WORLD[RIVALS[data.rival].world || 0];
+      if (comicDue(cid)) { data = { world: cid, then: { key, data } }; key = 'comic'; }
+    }
     scene._psTarget = { key, data: data || {} }; // a rotation during the fade rebuilds straight into it (QA B38 / #4)
     scene.cameras.main.fadeOut(320, 15, 18, 64);
     scene.cameras.main.once('camerafadeoutcomplete', () => {
@@ -837,7 +841,9 @@
     }
     create() {
       this._leaving = false;
-      if (this.world === CANADA && comicDue()) { this.scene.start('comic', { world: 'canada', then: { key: 'map', data: { world: CANADA } } }); return; }
+      // a world opens for the first time: its comic first (also for a restored save or the last world looked at)
+      const cid = COMIC_OF_WORLD[this.world];
+      if (comicDue(cid)) { this.scene.start('comic', { world: cid, then: { key: 'map', data: { world: this.world } } }); return; }
       if (Save.data.lastWorld !== this.world) { Save.data.lastWorld = this.world; Save.store(); }
       const wd = this.world;
       this.cameras.main.fadeIn(350, 15, 18, 64);
@@ -943,7 +949,7 @@
       c.on('pointerup', () => {
         A.init();
         if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); const fi = RIVALS.findIndex(r => (r.world || 0) === i); this.hint(fi > 0 ? 'Beat ' + RIVALS[fi - 1].name + ' to open ' + w.name + '!' : 'Locked!'); return; }
-        if (on) { if (i === CANADA) fade(this, 'comic', { world: 'canada', then: { key: 'map', data: { world: CANADA } } }); return; } // replay the comic
+        if (on) return; // the open tab does nothing (comics play again from the Album, #62)
         A.click(); A.whoosh(); fade(this, 'map', { world: i });
       });
     }
@@ -2890,13 +2896,71 @@
     }
   }
 
-  // ---------- Comic: a short animated comic page the first time the player arrives in a new world (#31, docs/gdd/0.8-canada.md 7b)
-  const comicDue = () => !(Save.data.comics && Save.data.comics.canada) && worldOpen(CANADA);
+  // ---------- Comics: a short animated comic page the first time the player arrives in a world (#31, #62; docs/gdd/0.9-world-comics.md)
+  // One script per comic: 3 panels (functions (scene, panel, instant) drawn with the scene helpers) + the title page.
+  // Each panel function must also work with instant = true (fast taps, coming back after a rotation).
+  const COMIC_OF_WORLD = ['hills', 'space', 'canada', 'spooky'];
+  const COMIC_SCRIPTS = {
+    canada: {
+      world: CANADA, title: 'CANADA!', len: [2700, 2500, 3500],
+      confetti: { key: 'mapleleaf', speedY: { min: 250, max: 500 }, scale: { min: 0.15, max: 0.3 }, lifespan: 4000 },
+      panels: [
+        (s, c, instant) => {
+          s.bg(c, 'sky4'); const au = s.bg(c, 'aurora'); au.setAlpha(0.8);
+          for (let k = 0; k < 4; k++) { const p = s.actor(c, 'pine', 0.14 + k * 0.24, 0.98, 0.4, 0.2); p.setAlpha(0.8).setTint(0x9fb6d8); }
+          const jack = s.actor(c, 'jack_side', instant ? 0.3 : -0.3, 0.95, 0.5);
+          s.anim({ targets: jack, angle: { from: -3, to: 3 }, duration: 70, yoyo: true, repeat: -1 });
+          if (!instant) s.anim({ targets: jack, x: (0.3 - 0.5) * c.r.w, duration: 700, ease: 'Quad.out' });
+          s.caption(c, 'MEANWHILE, IN CANADA...', instant);
+          const say = inst => s.bubble(c, 0.68, 0.36, 'Brrr! Why is the sky made of ice cream?', -1, inst);
+          instant ? say(true) : s.at(900, say);
+          if (!instant) { const sn = s.add.particles(0, 0, 'dot', { x: { min: -c.r.w / 2, max: c.r.w / 2 }, y: -c.r.h / 2, speedY: { min: 80, max: 160 }, lifespan: c.r.h / 160 * 1000, scale: { min: 0.1, max: 0.22 }, frequency: 120 }); c.add(sn); }
+        },
+        (s, c, instant) => {
+          s.bg(c, 'sky4');
+          const g = s.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.2, c.r.w - 10, c.r.h * 0.3 - 5); c.add(g);
+          // head first in the snowbank: the upside-down Jack, the head half hidden by a snow mound, tail wagging
+          const j = s.actor(c, 'jack_upside', 0.55, 0.88, 0.7);
+          // the mound is sized from Jack, so his tail always sticks out (QA B57)
+          const mh = Math.min(j.displayHeight * 0.55, 2 * (c.r.h * 0.48 - j.y));
+          const snow = s.add.graphics(); snow.fillStyle(0xffffff); snow.fillEllipse(j.x, j.y, Math.max(j.displayWidth * 1.4, c.r.w * 0.4), mh); c.add(snow);
+          s.anim({ targets: j, angle: { from: -6, to: 6 }, duration: 260, yoyo: true, repeat: -1 });
+          const fw = inst => { s.burst(c, 0.22, 0.28, 'FWUMP!', PORTRAIT ? 72 : 60, inst); if (!inst) { A.stomp(); A.whoosh(); } };
+          instant ? fw(true) : s.at(200, fw);
+        },
+        (s, c, instant) => {
+          s.bg(c, 'sky4');
+          const g = s.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.15, c.r.w - 10, c.r.h * 0.35 - 5); c.add(g);
+          s.actor(c, 'pine', 0.88, 0.72, 0.5).setAlpha(0.9);
+          s.peekObj = s.actor(c, 'sasquatch', 0.88, 0.7, 0.3).setVisible(false);
+          s.actor(c, 'moose', 0.7, 0.98, 0.42);
+          s.actor(c, 'pancakes', 0.5, 0.8, 0.18);
+          s.actor(c, 'jack_front', 0.24, 0.98, 0.5);
+          // B58: narrow pines stay inside panel 1, snow melts before its bottom edge, Max's bubble points at Max
+          const s1 = inst => s.bubble(c, 0.62, 0.2, 'Sorry, eh! Welcome to Canada!', 0.2, inst);
+          const s2 = inst => s.bubble(c, 0.34, 0.42, 'Why are YOU sorry? I fell on YOUR snow!', -1, inst);
+          if (instant) { s1(true); s2(true); } else { s.at(200, s1); s.at(1400, s2); }
+        },
+      ],
+      // Sasquatch shows behind the pine and wobbles
+      peek: s => { const o = s.peekObj; if (o) { o.setVisible(true); s.tweens.add({ targets: o, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 }); } },
+    },
+  };
+  const comicSeen = id => !!(Save.data.comics && Save.data.comics[id]);
+  const COMIC_DUE = {
+    canada: () => worldOpen(CANADA),
+  };
+  // a comic plays once, the first time its world opens (docs/gdd/0.9-world-comics.md section 4)
+  const comicDue = id => !!(id && COMIC_SCRIPTS[id] && COMIC_DUE[id] && !comicSeen(id) && COMIC_DUE[id]());
   class ComicScene extends Phaser.Scene {
     constructor() { super('comic'); }
-    init(data) { this.d = data || {}; this.then = this.d.then || { key: 'map', data: { world: CANADA } }; this.start0 = this.d.panel || 0; }
+    init(data) {
+      this.d = data || {}; this.S = COMIC_SCRIPTS[this.d.world] || null; this.id = this.S ? this.d.world : null;
+      this.then = this.d.then || { key: 'map', data: { world: this.S ? this.S.world : 0 } }; this.start0 = this.d.panel || 0;
+    }
     create() {
       this._leaving = false;
+      if (!this.S) { this.scene.start('map'); return; } // an unknown comic: back to the map
       this.cameras.main.fadeIn(300, 15, 18, 64);
       // paper with halftone dots
       this.add.rectangle(W / 2, H / 2, W, H, 0xfff3d2);
@@ -2907,7 +2971,8 @@
         if (PORTRAIT) { const ph = (H - top - bot - gut * 2) / 3; rects.push({ x: W / 2, y: top + ph / 2 + i * (ph + gut), w: W - 80, h: ph }); }
         else { const pw = (W - 80 - gut * 2) / 3, ph = H - top - bot; rects.push({ x: 40 + pw / 2 + i * (pw + gut), y: top + ph / 2, w: pw, h: ph }); }
       }
-      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = []; this.titled = false; this.nextEv = null; // the scene object is reused (replay)
+      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = []; this.titled = false; this.nextEv = null; this.peekObj = null; // the scene object is reused (replay)
+      // SKIP (top right, inside the play area): straight to the title page, which counts as seen
       const skip = button(this, W - 150, PORTRAIT ? 80 : 70, 220, 90, 'SKIP', C.cream, () => this.toTitle(), { size: 40 }).setDepth(90);
       this.skipBtn = skip;
       this.hint = txt(this, W / 2, H - 100, 'Tap to go on', 34, '#4a4f8c', { st: 0, shadow: false, weight: '500' }).setDepth(90);
@@ -2927,6 +2992,16 @@
     // inner picture fitted to the panel (no masks: the pictures are sized to the panel)
     bg(c, key, tint) { const r = c.r, b = this.add.image(0, 0, key).setDisplaySize(r.w - 10, r.h - 10); if (tint) b.setTint(tint); c.add(b); return b; }
     actor(c, key, fx, fy, hFrac, wFrac = 0.45) { const r = c.r, a = this.add.image((fx - 0.5) * r.w, (fy - 0.5) * r.h, key).setOrigin(0.5, 1); a.setScale(Math.min(hFrac * r.h / a.height, wFrac * r.w / a.width)); c.add(a); return a; }
+    // a flat strip across the panel (ground, snow, moon dust): from fy0 to fy1 of the panel height
+    strip(c, col, fy0, fy1) { const r = c.r, g = this.add.graphics(); g.fillStyle(col); g.fillRect(-r.w / 2 + 5, (fy0 - 0.5) * r.h, r.w - 10, (fy1 - fy0) * r.h - 5); c.add(g); return g; }
+    // the yellow caption box in the top left corner; the text types in
+    caption(c, full, instant) {
+      const cap = txt(this, -c.r.w / 2 + 30, -c.r.h / 2 + 30, '', PORTRAIT ? 34 : 30, '#1d2163', { ox: 0, oy: 0, st: 0, shadow: false });
+      const capBg = this.add.graphics(); c.add([capBg, cap]);
+      const drawCap = () => { capBg.clear(); capBg.fillStyle(0xffd23f); capBg.lineStyle(5, 0x1d2163); capBg.fillRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); capBg.strokeRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); };
+      if (instant) { cap.setText(full); drawCap(); }
+      else { let n = 0; const ev = this.time.addEvent({ delay: 30, repeat: full.length - 1, callback: () => { cap.setText(full.slice(0, ++n)); drawCap(); } }); this.steps.push(ev); this.later.push({ fn: () => { cap.setText(full); drawCap(); }, ran: false }); }
+    }
     bubble(c, fx, fy, text, tailX, instant) {
       const r = c.r, x = (fx - 0.5) * r.w, y = (fy - 0.5) * r.h;
       const t = txt(this, 0, 0, text, PORTRAIT ? 32 : 30, '#1d2163', { st: 0, shadow: false, wrap: Math.min(r.w * 0.8, 560) });
@@ -2941,14 +3016,16 @@
       if (!instant) { b.setScale(0); this.anim({ targets: b, scale: 1, duration: 260, ease: 'Back.out' }); A.babble && A.babble(text.length); }
       return b;
     }
-    burst(c, fx, fy, word, size, instant) {
+    // maxW: the word is scaled down to fit (long world names on the title page)
+    burst(c, fx, fy, word, size, instant, maxW) {
       const r = c ? c.r : null, x = c ? (fx - 0.5) * r.w : fx, y = c ? (fy - 0.5) * r.h : fy, R = size * 1.6, g = this.add.graphics();
       const star = (rad, col) => { const pts = []; for (let k = 0; k < 28; k++) { const a = k * Math.PI / 14, rr = k % 2 ? rad * 0.62 : rad; pts.push(new Phaser.Geom.Point(Math.cos(a) * rr * 1.25, Math.sin(a) * rr)); } g.fillStyle(col); g.fillPoints(pts, true); g.lineStyle(6, 0x1d2163); g.strokePoints(pts, true); };
       star(R, 0xffd23f); star(R * 0.72, 0xff6b5b);
       const t = txt(this, 0, 0, word, size, '#fff3d2', { stroke: '#1d2163', st: Math.round(size / 6) });
-      const b = this.add.container(x, y, [g, t]).setAngle(-6);
+      const k = maxW && t.width > maxW ? maxW / t.width : 1;
+      const b = this.add.container(x, y, [g, t]).setAngle(-6).setScale(k);
       if (c) c.add(b);
-      if (!instant) { b.setScale(0); this.anim({ targets: b, scale: 1, duration: 300, ease: 'Back.out' }); }
+      if (!instant) { b.setScale(0); this.anim({ targets: b, scale: k, duration: 300, ease: 'Back.out' }); }
       return b;
     }
     // finite tweens are kept so a tap can jump them to their end; endless wobbles keep running
@@ -2960,51 +3037,11 @@
       this.cur = i; this.d.panel = i; this.sys.settings.data = Object.assign({}, this.d, { panel: i });
       this.steps = []; this.later = []; this.live = []; this.done = false;
       const c = this.frame(i); this.panels.push(c);
-      if (i === 0) {
-        this.bg(c, 'sky4'); const au = this.bg(c, 'aurora'); au.setAlpha(0.8);
-        for (let k = 0; k < 4; k++) { const p = this.actor(c, 'pine', 0.14 + k * 0.24, 0.98, 0.4, 0.2); p.setAlpha(0.8).setTint(0x9fb6d8); }
-        const jack = this.actor(c, 'jack_side', instant ? 0.3 : -0.3, 0.95, 0.5);
-        this.anim({ targets: jack, angle: { from: -3, to: 3 }, duration: 70, yoyo: true, repeat: -1 });
-        if (!instant) this.anim({ targets: jack, x: (0.3 - 0.5) * c.r.w, duration: 700, ease: 'Quad.out' });
-        // caption types in
-        const cap = txt(this, -c.r.w / 2 + 30, -c.r.h / 2 + 30, '', PORTRAIT ? 34 : 30, '#1d2163', { ox: 0, oy: 0, st: 0, shadow: false });
-        const capBg = this.add.graphics(); c.add([capBg, cap]);
-        const full = 'MEANWHILE, IN CANADA...';
-        const drawCap = () => { capBg.clear(); capBg.fillStyle(0xffd23f); capBg.lineStyle(5, 0x1d2163); capBg.fillRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); capBg.strokeRect(-c.r.w / 2 + 14, -c.r.h / 2 + 16, cap.width + 32, cap.height + 28); };
-        if (instant) { cap.setText(full); drawCap(); }
-        else { let n = 0; const ev = this.time.addEvent({ delay: 30, repeat: full.length - 1, callback: () => { cap.setText(full.slice(0, ++n)); drawCap(); } }); this.steps.push(ev); this.later.push({ fn: () => { cap.setText(full); drawCap(); }, ran: false }); }
-        const say = inst => this.bubble(c, 0.68, 0.36, 'Brrr! Why is the sky made of ice cream?', -1, inst);
-        instant ? say(true) : this.at(900, say);
-        if (!instant) { const sn = this.add.particles(0, 0, 'dot', { x: { min: -c.r.w / 2, max: c.r.w / 2 }, y: -c.r.h / 2, speedY: { min: 80, max: 160 }, lifespan: c.r.h / 160 * 1000, scale: { min: 0.1, max: 0.22 }, frequency: 120 }); c.add(sn); }
-      } else if (i === 1) {
-        this.bg(c, 'sky4');
-        const g = this.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.2, c.r.w - 10, c.r.h * 0.3 - 5); c.add(g);
-        // head first in the snowbank: the upside-down Jack, the head half hidden by a snow mound, tail wagging
-        const j = this.actor(c, 'jack_upside', 0.55, 0.88, 0.7);
-        // the mound is sized from Jack, so his tail always sticks out (QA B57)
-        const mh = Math.min(j.displayHeight * 0.55, 2 * (c.r.h * 0.48 - j.y));
-        const snow = this.add.graphics(); snow.fillStyle(0xffffff); snow.fillEllipse(j.x, j.y, Math.max(j.displayWidth * 1.4, c.r.w * 0.4), mh); c.add(snow);
-        this.anim({ targets: j, angle: { from: -6, to: 6 }, duration: 260, yoyo: true, repeat: -1 });
-        const fw = inst => { this.burst(c, 0.22, 0.28, 'FWUMP!', PORTRAIT ? 72 : 60, inst); if (!inst) { A.stomp(); A.whoosh(); } };
-        instant ? fw(true) : this.at(200, fw);
-      } else {
-        this.bg(c, 'sky4');
-        const g = this.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.15, c.r.w - 10, c.r.h * 0.35 - 5); c.add(g);
-        this.actor(c, 'pine', 0.88, 0.72, 0.5).setAlpha(0.9);
-        this.sasq = this.actor(c, 'sasquatch', 0.88, 0.7, 0.3).setVisible(false);
-        this.actor(c, 'moose', 0.7, 0.98, 0.42);
-        this.actor(c, 'pancakes', 0.5, 0.8, 0.18);
-        this.actor(c, 'jack_front', 0.24, 0.98, 0.5);
-        // B58: narrow pines stay inside panel 1, snow melts before its bottom edge, Max's bubble points at Max
-        const s1 = inst => this.bubble(c, 0.62, 0.2, 'Sorry, eh! Welcome to Canada!', 0.2, inst);
-        const s2 = inst => this.bubble(c, 0.34, 0.42, 'Why are YOU sorry? I fell on YOUR snow!', -1, inst);
-        if (instant) { s1(true); s2(true); } else { this.at(200, s1); this.at(1400, s2); }
-      }
+      this.S.panels[i](this, c, instant);
       this.border(c);
       if (!instant) {
         c.y += 60; c.setAlpha(0); this.anim({ targets: c, y: c.r.y, alpha: 1, duration: 300, ease: 'Back.out' });
-        const len = [2700, 2500, 3500][i];
-        this.at(len, () => this.finishPanel(true), true);
+        this.at(this.S.len[i], () => this.finishPanel(true), true);
       } else this.done = true;
     }
     // jump to the end state of the current panel
@@ -3029,22 +3066,26 @@
       if (this.nextEv) { this.nextEv.remove(false); this.nextEv = null; } // a tap in the short pause after an auto-finish: one step only (code review)
       if (!this.done) this.finishPanel(false); else this.next();
     }
+    seen() { Save.data.comics = Object.assign({}, Save.data.comics, { [this.id]: true }); Save.store(); }
     toTitle() {
       if (this.titled) return; this.titled = true;
-      Save.data.comics = Object.assign({}, Save.data.comics, { canada: true }); Save.store(); // seen once the title page shows (SKIP or the end)
+      this.seen(); // seen once the title page shows (SKIP or the end)
       if (this.nextEv) { this.nextEv.remove(false); this.nextEv = null; }
       while (this.cur < 2) { this.finishPanel(false); this.play(this.cur + 1, true); }
       if (!this.done) this.finishPanel(false);
       this.d.panel = 3; this.sys.settings.data = Object.assign({}, this.d, { panel: 3 });
       this.skipBtn.setVisible(false); this.hint.setVisible(false);
-      if (this.sasq) { this.sasq.setVisible(true); this.tweens.add({ targets: this.sasq, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 }); }
+      const S = this.S;
+      if (S.peek) S.peek(this);
       const r0 = this.rects[0], r1 = this.rects[1];
-      const b = this.burst(null, PORTRAIT ? W / 2 : (r0.x + r1.x) / 2, PORTRAIT ? (r0.y + r0.h / 2 + r1.y - r1.h / 2) / 2 : H * 0.42, 'CANADA!', PORTRAIT ? 120 : 110, false); b.setDepth(50);
+      const b = this.burst(null, PORTRAIT ? W / 2 : (r0.x + r1.x) / 2, PORTRAIT ? (r0.y + r0.h / 2 + r1.y - r1.h / 2) / 2 : H * 0.42, S.title, PORTRAIT ? 120 : 110, false, W - 120); b.setDepth(50);
       A.comicSting && A.comicSting(); this.time.delayedCall(400, () => A.levelUp());
-      const leaves = this.add.particles(0, 0, 'mapleleaf', { x: { min: 0, max: W }, y: -60, speedY: { min: 250, max: 500 }, speedX: { min: -120, max: 120 }, rotate: { min: 0, max: 360 }, lifespan: 4000, scale: { min: 0.15, max: 0.3 }, quantity: 2, frequency: 120 }).setDepth(49);
-      this.time.delayedCall(2500, () => leaves.stop());
+      if (S.sting) S.sting(this);
+      const cf = S.confetti;
+      const conf = this.add.particles(0, 0, cf.key, { x: { min: 0, max: W }, y: -60, speedY: cf.speedY, speedX: { min: -120, max: 120 }, rotate: { min: 0, max: 360 }, lifespan: cf.lifespan, scale: cf.scale, quantity: 2, frequency: 120 }).setDepth(49);
+      this.time.delayedCall(2500, () => conf.stop());
       const go = button(this, W / 2, H - 110, 460, 130, this.then.key === 'album' ? 'DONE!' : 'LET\'S GO!', C.star, () => {
-        Save.data.comics = Object.assign({}, Save.data.comics, { canada: true }); Save.store();
+        this.seen();
         fade(this, this.then.key, this.then.data);
       }, { size: 56 }).setDepth(60);
       this.tweens.add({ targets: go, scale: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
