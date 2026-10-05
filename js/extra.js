@@ -297,18 +297,27 @@
       }
     }
 
-    // ---------- ALBUM: stickers
+    // ---------- ALBUM: stickers, and the comics to watch again (switch at the bottom, #54)
+    const COMICS = [{ id: 'canada', title: 'Welcome to Canada!', icon: 'mapleleaf', hint: 'Reach Canada to unlock' }];
     class AlbumScene extends Phaser.Scene {
       constructor() { super('album'); }
       create() {
-        header(this, PS, 'STICKER ALBUM');
+        const sd = this.sys.settings.data || {}, tab = sd.tab === 'comics' ? 'comics' : 'stickers';
+        header(this, PS, tab === 'comics' ? 'COMICS' : 'STICKER ALBUM');
+        // the STICKERS / COMICS switch
+        const sy = H - (PORTRAIT ? 90 : 70);
+        [['STICKERS', 'stickers', -1], ['COMICS', 'comics', 1]].forEach(([label, id, side]) => {
+          const on = tab === id;
+          PS.button(this, W / 2 + side * 170, sy, 320, 100, label, on ? C.star : C.night2, () => { if (!on) this.scene.restart({ tab: id }); }, { size: 40, color: on ? C.ink : '#fff3d2' });
+        });
+        if (tab === 'comics') { this.comics(); return; }
         const d = Save.data, got = Object.keys(d.ach || {}).length;
         txt(this, W / 2, PORTRAIT ? 270 : 150, got + ' / ' + ACH.length + ' stickers  ·  each one = +1 capsule', 32, '#ffd23f', { st: 6 });
         const cols = PORTRAIT ? 3 : 7, cw = PORTRAIT ? 310 : Math.min(200, (W - 120) / 7 - 14), ch = PORTRAIT ? 230 : 250;
         const top = PORTRAIT ? 330 : 200;
         const all = ACH.filter(a => a.id !== 'fang' || PS.EVENT_ON || d.ach[a.id]);
         // pages when the stickers do not fit (QA B06; v0.8 has 22+): as many rows as fit above the page buttons
-        const rows = Math.max(1, Math.floor((H - top - 150) / (ch + 14))), per = rows * cols, pages = Math.ceil(all.length / per);
+        const rows = Math.max(1, Math.floor((H - top - 150 - (PORTRAIT ? 120 : 110)) / (ch + 14))), per = rows * cols, pages = Math.ceil(all.length / per);
         const pg = Math.min(pages - 1, Math.max(0, (this.sys.settings.data && this.sys.settings.data.page) || 0));
         const shown = all.slice(pg * per, pg * per + per);
         if (pages > 1) {
@@ -332,6 +341,38 @@
         });
       }
     }
+
+    // the COMICS tab: a cover per comic; seen ones play again, the others are locked with a hint
+    AlbumScene.prototype.comics = function () {
+      const d = Save.data, seen = d.comics || {};
+      txt(this, W / 2, PORTRAIT ? 270 : 150, 'Tap a comic to watch it again', 32, '#ffd23f', { st: 6 });
+      const cw = PORTRAIT ? 620 : 560, ch = PORTRAIT ? 440 : 400, top = PORTRAIT ? 340 : 210;
+      COMICS.forEach((cm, i) => {
+        const has = !!seen[cm.id], x = W / 2 + (i - (COMICS.length - 1) / 2) * (cw + 30), y = top + ch / 2;
+        const c = this.add.container(x, y);
+        c.add(card(this, PS, 0, 0, cw, ch, has ? C.cream : 0x161946, has ? C.star : C.seam));
+        if (has) {
+          // a little cover: the Canada sky, Jack flying in, the title burst
+          const sky = this.add.image(0, -ch * 0.1, 'sky4').setDisplaySize(cw - 60, ch * 0.6); c.add(sky);
+          const au = this.add.image(0, -ch * 0.16, 'aurora').setDisplaySize(cw - 60, ch * 0.4).setAlpha(0.8); c.add(au);
+          const j = this.add.image(-cw * 0.18, -ch * 0.02, 'jack_side'); j.setScale(ch * 0.4 / j.height).setAngle(-10); c.add(j);
+          const leaf = img(this, cw * 0.22, -ch * 0.18, cm.icon); leaf.setScale(iconScale(cm.icon, ch * 0.24)); c.add(leaf);
+          this.tweens.add({ targets: leaf, angle: { from: -10, to: 10 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        } else {
+          const lk = img(this, 0, -ch * 0.1, 'lock'); lk.setScale(iconScale('lock', ch * 0.3)); c.add(lk);
+        }
+        c.add(fit(txt(this, 0, ch * 0.3, has ? cm.title : '???', 40, has ? C.ink : '#8a8fd6', { st: 0, shadow: false }), cw - 40));
+        if (!has) c.add(txt(this, 0, ch * 0.4, cm.hint, 26, '#6a72d6', { st: 0, shadow: false, weight: '500' }));
+        c.setSize(cw, ch).setInteractive({ useHandCursor: true });
+        c.on('pointerdown', () => this.tweens.add({ targets: c, scale: 0.96, duration: 70 }));
+        c.on('pointerout', () => this.tweens.add({ targets: c, scale: 1, duration: 120 }));
+        c.on('pointerup', () => {
+          this.tweens.add({ targets: c, scale: 1, duration: 120 });
+          if (!has) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); return; }
+          A.click(); PS.fade(this, 'comic', { world: cm.id, then: { key: 'album', data: { tab: 'comics' } } });
+        });
+      });
+    };
 
     // ---------- QUESTS: today's 3 real-life quests
     class QuestsScene extends Phaser.Scene {
