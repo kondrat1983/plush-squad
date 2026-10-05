@@ -4,15 +4,16 @@ const { expect } = require('@playwright/test');
 
 const URL = '/index.html?debug';
 
-// a mid-game save: level ~5, Pillow Hills cleared, sound muted (music state is still tracked)
-const BASE_SAVE = { xp: 1500, wins: 12, muted: true, stars: { timmy: 3, moo: 2, sly: 2, hoot: 1 }, toys: [], hero: 'jack', diff: 'normal', caps: 0, daily: 'x', seenVersion: '0.7', costumes: {} };
+// a mid-game save: level ~5, Pillow Hills cleared, sound muted (music state is still tracked); mig08: already on v0.8 (no migration gift toasts)
+const BASE_SAVE = { mig08: 1, comics: { canada: true }, xp: 1500, wins: 12, muted: true, stars: { timmy: 3, moo: 2, sly: 2, hoot: 1 }, toys: [], hero: 'jack', diff: 'normal', caps: 0, daily: 'x', seenVersion: '0.8', costumes: {} };
 
 // Opens the game with a given save. Collects page errors in page._errors. Blocks the online backend (tests are offline).
 async function boot(page, save = BASE_SAVE, query = '') {
   page._errors = [];
   page.on('pageerror', e => page._errors.push(String(e && e.stack || e)));
   await page.route(/supabase\.co/, r => r.abort());
-  await page.goto(URL + query);
+  // seed the save on a page of the same origin that does not start the game: a booting game could save over it (QA T29)
+  await page.goto('/manifest.json');
   await page.evaluate(s => localStorage.setItem('plushsquad_v1', s), JSON.stringify(save));
   await page.goto(URL + query);
   await page.waitForFunction(() => window.__game && __game.scene.getScenes(true).length > 0, null, { timeout: 60000 });

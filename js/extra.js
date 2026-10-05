@@ -12,11 +12,13 @@
     { id: 'first_win', name: 'First Win!', desc: 'Win your first duel', icon: 'j:trophy', title: 'Pillow Rookie', ok: d => (d.wins || 0) >= 1 },
     { id: 'wins25', name: 'Pillow Pro', desc: 'Win 25 duels', icon: 'pillow', title: 'Pillow Pro', ok: d => (d.wins || 0) >= 25 },
     { id: 'hoot', name: 'Class Dismissed', desc: 'Beat Professor Hoot', icon: 'owl', title: 'Top Student', ok: d => (d.stars.hoot || 0) > 0 },
-    { id: 'polandball', name: 'Into Space!', desc: 'Beat Polandball', icon: 'polandball', title: 'Space Cadet', ok: d => (d.stars.polandball || 0) > 0 },
-    { id: 'dragon', name: 'Dragon vs Dragon', desc: 'Beat the Giant Dragon Boss', icon: 'dragonboss', title: 'Dragon Champion', ok: d => (d.stars.dragonboss || 0) > 0 },
+    { id: 'polandball', name: 'Into Space!', desc: 'Beat The Blips', icon: 'aliens', title: 'Space Cadet', ok: d => (d.stars.polandball || 0) > 0 },
+    // v0.8: the Dragon Boss is gone; Jack vs a friend's Jack is the new dragon vs dragon (earned stickers stay earned)
+    { id: 'dragon', name: 'Dragon vs Dragon', desc: "Beat a friend's Jack", icon: 'dragonboss', title: 'Dragon Champion', ok: d => (d.stats.fjackWins || 0) > 0 },
+    { id: 'ufo', name: 'Saucer Champ', desc: 'Beat The Mothership', icon: 'ufo', title: 'Space Champion', ok: d => (d.stats.motherWins || 0) > 0 },
     { id: 'fang', name: 'King of Halloween', desc: 'Beat Count Fang', icon: 'vampire', title: 'Pumpkin King', ok: d => (d.stars.fang || 0) > 0 },
     { id: 'hardboss', name: 'Hard as Pillows', desc: 'Beat a boss on HARD', icon: 'j:hundred', title: 'Hard Mode Hero', ok: d => (d.stats.hardBossWins || 0) >= 1 },
-    { id: 'allstars', name: 'Superstar', desc: 'Get all 24 stars in Pillow Hills + Space', icon: 'j:glowstar', title: 'Superstar',
+    { id: 'allstars', name: 'Superstar', desc: 'All 24 stars in Hills + Space', icon: 'j:glowstar', title: 'Superstar',
       ok: d => ['timmy', 'moo', 'sly', 'hoot', 'robot', 'polandball', 'ghost', 'dragonboss'].every(k => (d.stars[k] || 0) >= 3) },
     { id: 'block5', name: 'Firefighter', desc: 'Block Inferno Rain 5 times', icon: 'extinguisher', title: 'Firefighter', ok: d => (d.stats.blocks || 0) >= 5 },
     { id: 'caps10', name: 'Capsule Hunter', desc: 'Open 10 capsules', icon: 'gift', title: 'Capsule Hunter', ok: d => (d.stats.capsOpened || 0) >= 10 },
@@ -30,6 +32,12 @@
     { id: 'friend1', name: 'Best Buddies', desc: 'Add a friend', icon: 'j:friends', title: 'Best Buddy', ok: d => (d.stats.friends || 0) >= 1 },
     { id: 'gift1', name: 'Kind Heart', desc: 'Send a gift to a friend', icon: 'j:gift', title: 'Kind Heart', ok: d => (d.stats.gifts || 0) >= 1 },
     { id: 'friendwin', name: 'Friendly Rival', desc: 'Beat a friend\'s toy', icon: 'j:thumbs', title: 'Friendly Rival', ok: d => (d.stats.friendWins || 0) >= 1 },
+    // v0.8: Canada and the Mothership's beam
+    { id: 'sasquatch', name: 'Big Friend', desc: 'Beat Sasquatch', icon: 'sasquatch', title: "Sasquatch's Buddy", ok: d => (d.stars.sasquatch || 0) > 0 },
+    { id: 'goalie', name: 'Goalie', desc: 'Make 10 perfect saves', icon: 'glove', title: 'Goalie', ok: d => (d.stats.perfectSaves || 0) >= 10 },
+    { id: 'hattrick', name: 'Hat Trick', desc: '3 goals in a row in Pond Hockey', icon: 'puck', title: 'Hat Trick Hero', ok: d => (d.stats.hockeyStreak || 0) >= 3 },
+    { id: 'slapshot', name: 'Slapshot Star', desc: 'Score 20 in Pond Hockey', icon: 'hockey', title: 'Slapshot Star', ok: d => (d.bestHockey || 0) >= 20 },
+    { id: 'umbrella5', name: 'Umbrella Hero', desc: 'Block the Tractor Beam 5 times', icon: 'umbrella', title: 'Umbrella Hero', ok: d => (d.stats.beamBlocks || 0) >= 5 },
     { id: 'kraken', name: 'Kraken Fighter', desc: 'Fight the weekly Pillow Kraken', icon: 'kraken', title: 'Kraken Fighter', ok: d => (d.stats.krakenHits || 0) >= 1 },
   ];
   const ACH_BY_ID = {}; ACH.forEach(a => ACH_BY_ID[a.id] = a);
@@ -37,7 +45,7 @@
   let pending = [];
   function checkAch() {
     const d = S(); if (!d.ach) return;
-    ACH.forEach(a => { try { if (!d.ach[a.id] && a.ok(d)) { d.ach[a.id] = Date.now(); d.caps = (d.caps || 0) + 1; pending.push(a); } } catch (e) {} });
+    ACH.forEach(a => { try { if (!d.ach[a.id] && a.ok(d)) { d.ach[a.id] = Date.now(); d.caps = (d.caps || 0) + 1; pending.push(a); if (a.id === 'allstars' && d.costumes) d.costumes.crown = true; } } catch (e) {} });
     if (pending.length) store();
   }
   function bump(k, n = 1) { const d = S(); if (!d.stats) return; d.stats[k] = (d.stats[k] || 0) + n; }
@@ -53,6 +61,10 @@
     { id: 'pet', text: 'Help with a pet (or a plush pet!)', icon: 'j:dog' }, { id: 'song', text: 'Sing or play a song', icon: 'j:music' },
     { id: 'jacks', text: 'Do 20 jumping jacks', icon: 'j:run' }, { id: 'homework', text: 'Finish your homework', icon: 'j:album' },
     { id: 'wash', text: 'Wash your hands before dinner', icon: 'j:soap' }, { id: 'sweep', text: 'Help sweep or vacuum a room', icon: 'j:broom' },
+    // v0.8 (Canada)
+    { id: 'fort', text: 'Build a pillow fort', icon: 'shield' }, { id: 'pancakes', text: 'Make pancakes (or breakfast) with a grown-up', icon: 'j:plate' },
+    { id: 'leaf', text: 'Go outside and find a cool leaf or pinecone', icon: 'i:leaf' }, { id: 'polite', text: 'Say "please", "thank you" and "sorry" today', icon: 'j:hug' },
+    { id: 'animal', text: 'Learn 3 facts about a moose, beaver or bear', icon: 'books' }, { id: 'birds', text: 'Feed the birds with a grown-up', icon: 'i:bird' },
   ];
   const QBY = {}; QUESTS.forEach(q => QBY[q.id] = q);
   function todaysQuests() {
@@ -127,7 +139,7 @@
     list.forEach((a, i) => {
       queued.set(a, tk);
       scene.time.delayedCall(400 + i * 3300, () => {
-        toast(scene, PS, a.icon, 'NEW STICKER: ' + a.name, a.desc + '  ·  +1 capsule');
+        toast(scene, PS, a.icon, a.head || 'NEW STICKER: ' + a.name, a.sub || (a.desc + '  ·  +1 capsule'));
         scene.time.delayedCall(450, () => { pending = pending.filter(x => x !== a); queued.delete(a); }); // seen
       });
     });
@@ -176,6 +188,16 @@
 
   // ---------- "What's new" popup: shows once per version (CLOSE = see it again next time, DON'T SHOW AGAIN = hide until the next update)
   const WHATS_NEW = {
+    '0.8': [
+      { icon: 'mapleleaf', title: 'CANADA', text: 'A new snowy world! Meet Max the Moose, Beaver Bob, Mountie Bear and Sasquatch.' },
+      { icon: 'glove', title: 'SAVE IT!', text: 'Sasquatch shoots hockey pucks. Tap at the right moment for a super save!' },
+      { icon: 'puck', title: 'Pond Hockey', text: 'New mini-game: shoot pucks past Beaver Bob!' },
+      { icon: 'aliens', title: 'New Space rivals', text: 'Three silly aliens wobble into Space. They come in peace... with pillows!' },
+      { icon: 'ufo', title: 'The Mothership', text: 'The new Space boss beams up pillows. Fire or beam? Grab the right tool!' },
+      { icon: 'toque', title: 'Boss hats', text: 'Every boss gives a hat: Owl Hat, UFO Hat, Bat Hat and a Canada Toque!' },
+      { icon: 'j:album', title: 'Comic', text: 'See how Jack crash-lands in Canada. FWUMP!' },
+      { icon: 'j:quests', title: 'New quests', text: 'Pillow forts, pancakes, leaf hunts and more.' },
+    ],
     '0.7': [
       { icon: 'pumpkin', title: 'SPOOKY world', text: 'Halloween rivals: Pumpkin Pete, Batty, Webster and Count Fang. Win hats!' },
       { icon: 'j:friends', title: 'Friends', text: 'Log in, add friends with a code, duel their toys, send gifts and stickers.' },
@@ -229,7 +251,7 @@
         const av = this.add.image(ax, ay + 110, hero.isJack ? 'jack_front' : hero.tex).setOrigin(0.5, 1);
         av.setScale(Math.min(250 / av.height, 260 / av.width));
         const hc = COSTUMES.find(c => c.id === d.costume);
-        if (hc && hc.tex) { const h = this.add.image(ax, ay + 110 - av.displayHeight * 0.96, hc.tex).setOrigin(0.5, 0.85); h.setScale(av.displayWidth * hc.w / h.width).setAngle(-6); }
+        if (hc && hc.tex) { const h = PS.hatImage(this, ax, ay + 110 - av.displayHeight * 0.96, hc).setOrigin(0.5, 0.85); h.setScale(av.displayWidth * hc.w / h.width).setAngle(-6); }
         const tx = PORTRAIT ? cx : cx - cw / 2 + 400, ox = PORTRAIT ? 0.5 : 0, ty = PORTRAIT ? cy + 30 : cy - 170;
         const name = Net && Net.user ? Net.user.name : 'Guest';
         txt(this, tx, ty, name, 64, '#fff3d2', { st: 9, ox });
@@ -242,19 +264,25 @@
         fit(txt(this, tx, ty + 150, stats, 30, '#bcc0ee', { st: 5, ox, weight: '500' }), PORTRAIT ? cw - 60 : cw - 440);
         txt(this, tx, ty + 205, 'Wins ' + (d.wins || 0) + '   ·   Toys ' + (d.toys || []).length, 30, '#bcc0ee', { st: 5, ox, weight: '500' });
         // costumes
-        const owned = COSTUMES.filter(c => c.id === 'none' || (d.costumes || {})[c.id] || (c.id === 'crown' && (d.stars.dragonboss || 0) > 0));
+        const owned = COSTUMES.filter(c => c.id === 'none' || (d.costumes || {})[c.id]);
         const yC = cy + chh / 2 + 90;
         txt(this, cx, yC, 'COSTUME', 40, '#ffd23f', { st: 7 });
+        // more hats than fit in one row (v0.8: up to 8 + none): tall portrait screens wrap into two rows, others shrink the cards
+        // (a second row must stay above the account box, which starts about H - 340 in portrait; iPad portrait has no room)
+        const wrap = PORTRAIT && owned.length * 170 > W - 80 && yC + 110 + 170 + 75 < H - 340;
+        const step = wrap ? 170 : Math.min(170, (W - 80) / owned.length), cs = step - 20;
+        const perRow = wrap ? Math.floor((W - 80) / 170) : owned.length;
         owned.forEach((c, i) => {
-          const x = cx + (i - (owned.length - 1) / 2) * 170, y = yC + 110, on = d.costume === c.id;
+          const row = Math.floor(i / perRow), inRow = Math.min(perRow, owned.length - row * perRow), col = i % perRow;
+          const x = cx + (col - (inRow - 1) / 2) * step, y = yC + 110 + row * 170, on = d.costume === c.id;
           const b = this.add.container(x, y);
-          b.add(card(this, PS, 0, 0, 150, 150, on ? C.star : C.night2, on ? 0xffffff : C.seam));
-          if (c.tex) { const im = this.add.image(0, -8, c.tex); im.setScale(100 / Math.max(im.width, im.height)); b.add(im); }
-          else b.add(txt(this, 0, -8, 'NONE', 30, on ? C.ink : '#bcc0ee', { st: 0, shadow: false }));
-          b.setSize(150, 150).setInteractive({ useHandCursor: true });
+          b.add(card(this, PS, 0, 0, cs, cs, on ? C.star : C.night2, on ? 0xffffff : C.seam));
+          if (c.tex) { const im = PS.hatImage(this, 0, -8, c); im.setScale(cs * 0.66 / Math.max(im.width, im.height)); b.add(im); }
+          else b.add(txt(this, 0, -8, 'NONE', Math.round(cs * 0.2), on ? C.ink : '#bcc0ee', { st: 0, shadow: false }));
+          b.setSize(cs, cs).setInteractive({ useHandCursor: true });
           b.on('pointerup', () => { d.costume = c.id; Save.store(); A.click(); this.scene.restart(); });
         });
-        if (owned.length === 1) txt(this, cx, yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat the Dragon Boss to win the Royal Crown!', 28, '#bcc0ee', { st: 5, weight: '500' });
+        if (owned.length === 1) txt(this, cx, yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat Professor Hoot to win the Owl Hat!', 28, '#bcc0ee', { st: 5, weight: '500' });
         // account
         const yA = PORTRAIT ? H - 260 : H - 55;
         if (Net && Net.ready) {
@@ -278,7 +306,17 @@
         txt(this, W / 2, PORTRAIT ? 270 : 150, got + ' / ' + ACH.length + ' stickers  ·  each one = +1 capsule', 32, '#ffd23f', { st: 6 });
         const cols = PORTRAIT ? 3 : 7, cw = PORTRAIT ? 310 : Math.min(200, (W - 120) / 7 - 14), ch = PORTRAIT ? 230 : 250;
         const top = PORTRAIT ? 330 : 200;
-        const shown = ACH.filter(a => a.id !== 'fang' || PS.EVENT_ON || d.ach[a.id]);
+        const all = ACH.filter(a => a.id !== 'fang' || PS.EVENT_ON || d.ach[a.id]);
+        // pages when the stickers do not fit (QA B06; v0.8 has 22+): as many rows as fit above the page buttons
+        const rows = Math.max(1, Math.floor((H - top - 150) / (ch + 14))), per = rows * cols, pages = Math.ceil(all.length / per);
+        const pg = Math.min(pages - 1, Math.max(0, (this.sys.settings.data && this.sys.settings.data.page) || 0));
+        const shown = all.slice(pg * per, pg * per + per);
+        if (pages > 1) {
+          const by = top + rows * (ch + 14) + 60;
+          if (pg > 0) PS.button(this, W / 2 - 260, by, 200, 100, '◀', C.cream, () => this.scene.restart({ page: pg - 1 }), { size: 48 });
+          txt(this, W / 2, by, (pg + 1) + ' / ' + pages, 40, '#fff3d2', { st: 6 });
+          if (pg < pages - 1) PS.button(this, W / 2 + 260, by, 200, 100, '▶', C.star, () => this.scene.restart({ page: pg + 1 }), { size: 48 });
+        }
         shown.forEach((a, i) => {
           const x = W / 2 + ((i % cols) - (cols - 1) / 2) * (cw + 14), y = top + ch / 2 + Math.floor(i / cols) * (ch + 14);
           const has = !!(d.ach || {})[a.id];
@@ -417,20 +455,32 @@
       if (d.won && d.boss && d.diff === 'hard') bump('hardBossWins');
       if (d.won && d.mode === 'friend') bump('friendWins');
       if (d.mode === 'boss') bump('krakenHits');
+      if (d.won && d.rival && d.rival.id === 'fjack') bump('fjackWins');
+      if (d.won && d.rival && d.rival.id === 'dragonboss') bump('motherWins');
     }
-    if (name === 'block') bump('blocks');
+    // Firefighter counts extinguisher blocks only; umbrella blocks of the Tractor Beam count apart (v0.8)
+    // Umbrella Hero counts full Tractor Beams only, not the Blips' Mini Beam (G38)
+    if (name === 'block' && !(d && d.mini)) bump(d && d.tool === 'umbrella' ? 'beamBlocks' : 'blocks');
     if (name === 'move' && d.type === 'nap') bump('naps');
+    if (name === 'save' && d.result === 'perfect') bump('perfectSaves');
+    if (name === 'hockey') { const st = S().stats; st.hockeyStreak = Math.max(st.hockeyStreak || 0, d.streak || 0); }
     if (name === 'capsule') { bump('capsOpened'); if (d.boost && d.boost.r === 3) bump('superRares'); }
     if (name === 'friendAdded') bump('friends');
     if (name === 'giftSent') bump('gifts');
-    if (['duel', 'block', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene'].includes(name)) checkAch();
+    if (['duel', 'block', 'save', 'hockey', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene'].includes(name)) checkAch();
     if (name === 'scene') {
       // bedtime / daily limit: checked whenever a menu screen opens (never in the middle of a duel)
       // a new duel counts too (REMATCH / NEXT RIVAL), a duel restored after rotating does not (QA B03)
       const newDuel = d.key === 'battle' && !scene.res;
-      if ((newDuel || ['title', 'map', 'squad', 'catch', 'gacha', 'me', 'album', 'quests', 'friends', 'boss'].includes(d.key)) && blockedReason()) { scene.time.delayedCall(50, () => PS.fade(scene, 'bedtime')); return; }
+      if ((newDuel || ['title', 'map', 'squad', 'catch', 'hockey', 'comic', 'gacha', 'me', 'album', 'quests', 'friends', 'boss'].includes(d.key)) && blockedReason()) { scene.time.delayedCall(50, () => PS.fade(scene, 'bedtime')); return; }
       // not on the boot scene of a rebuilt game (it stops at once and the toasts were lost, QA B37);
       // a result panel restored after a rotation shows them like a menu does
+      // v0.8: hats given to old saves by the migration in game.js, announced once like stickers (QA B43)
+      const g = S().gifts08;
+      if (g && d.key !== 'boot' && d.key !== 'battle') {
+        g.forEach(id => { const c = PS.COSTUMES.find(x => x.id === id); if (c) pending.push({ icon: c.tex, head: 'A GIFT: ' + c.name + '!', sub: 'Thank you for playing! Put it on in Me' }); });
+        delete S().gifts08; store();
+      }
       if (d.key !== 'boot' && (d.key !== 'battle' || scene.shown)) flushToasts(scene, PS);
       if (d.key === 'title') scene.time.delayedCall(900, () => whatsNew(scene, PS));
     } else if (name === 'duel') scene.time.delayedCall(2500, () => flushToasts(scene, PS));

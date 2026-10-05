@@ -90,10 +90,25 @@
     fire() { this.noise(1.1, { type: 'lowpass', f: 900, vol: 0.45, attack: 0.25, slide: 0.4 }); this.tone(80, 1.0, { type: 'sawtooth', vol: 0.1, slide: 0.6, attack: 0.2 }); },
     steam() { this.noise(0.9, { type: 'highpass', f: 2500, vol: 0.4, attack: 0.02, slide: 1.5 }); },
     bounce() { this.tone(300, 0.18, { vol: 0.3, slide: 2.4 }); },
+    // v0.8 Canada: Max's honk (a moo a fifth lower, shorter), Bob's chewing
+    honk() { this.tone(120, 0.6, { type: 'sawtooth', vol: 0.14, slide: 0.7, attack: 0.08 }); this.tone(121, 0.6, { type: 'triangle', vol: 0.2, slide: 0.68, attack: 0.08 }); },
+    chomp() { for (let i = 0; i < 4; i++) { this.noise(0.05, { f: 2400, q: 2, vol: 0.25, delay: i * 0.09 }); this.tone(300, 0.05, { type: 'square', vol: 0.05, delay: i * 0.09 }); } },
+    // v0.8 comic: speech babble (one blip per syllable) and a short brass-like sting for the title
+    babble(n = 12) { for (let i = 0; i < Math.min(8, Math.ceil(n / 5)); i++) this.tone(500 + Math.random() * 500, 0.06, { type: 'triangle', vol: 0.08, delay: i * 0.08 }); },
+    comicSting() { [392, 523, 659, 784].forEach((f, i) => this.tone(f, i === 3 ? 0.5 : 0.14, { type: 'square', vol: 0.07, delay: i * 0.12 })); },
+    // v0.8 SAVE IT!: stick on puck, puck on ice, glove THWACK, a friendly hockey horn
+    slap() { this.noise(0.08, { type: 'highpass', f: 3000, vol: 0.5, attack: 0.002 }); this.tone(110, 0.2, { vol: 0.4, slide: 0.5 }); },
+    slide() { this.noise(0.5, { f: 900, q: 3, vol: 0.18, attack: 0.05, slide: 2.2 }); },
+    glove() { this.tone(95, 0.22, { vol: 0.5, slide: 0.6 }); this.noise(0.06, { f: 2600, q: 1.5, vol: 0.3, delay: 0.01 }); },
+    goalHorn() { [0, 0.42].forEach(d => { this.tone(392, 0.38, { type: 'square', vol: 0.07, delay: d }); this.tone(587, 0.38, { type: 'square', vol: 0.05, delay: d }); }); },
+    // v0.8 Space: three rising chirps (the Blips), a wobbly rising hum (tractor beam), umbrella pop + flap
+    blip() { [880, 1175, 1568].forEach((f, i) => this.tone(f, 0.09, { type: 'square', vol: 0.06, slide: 1.3, delay: i * 0.08 })); },
+    beam() { for (let i = 0; i < 6; i++) this.tone(330 + i * 70, 0.24, { type: 'sine', vol: 0.12, slide: 1.12, delay: i * 0.18 }); this.tone(165, 1.2, { type: 'triangle', vol: 0.08, slide: 1.6, attack: 0.3 }); },
+    umbrella() { this.tone(520, 0.08, { type: 'square', vol: 0.12, slide: 1.8 }); this.noise(0.25, { type: 'bandpass', f: 1200, q: 1, vol: 0.3, attack: 0.01, delay: 0.06 }); },
     catchStar() { this.tone(1319 + Math.random() * 300, 0.18, { type: 'triangle', vol: 0.16 }); this.tone(1760, 0.2, { type: 'sine', vol: 0.08, delay: 0.05 }); },
     levelUp() { [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.2, delay: i * 0.09 })); },
 
-    // ---- music: three procedural tracks (calm lullaby for menus, 'battle' for duels, 'boss' for boss duels)
+    // ---- music: four procedural tracks (calm lullaby for menus, 'battle' for duels, 'boss' for boss duels, 'north' for Canada duels)
     // music(name) picks the track (crossfade); startMusic() starts the scheduler after the first tap.
     _timer: null, _next: 0, _step: 0, _track: null, _want: 'calm', _bus: null,
     mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); },
@@ -206,6 +221,28 @@
         } else if (s === 0 && b8 % 2 === 0) {
           A.voice(root + 24 + 7, t, sp * 30, { type: 'triangle', vol: 0.03, a: 0.6, r: 0.5 }); // a lone horn-ish note in the intro
         }
+      } },
+      // v0.8 Canada: G major jig in 6/8 (2 beats of 3 eighths per bar), 16 bars. Square "fiddle", oom-pah bass, claps, bells in part B
+      north: { bpm: 126, div: 3, len: 96, gain: 0.7, play(A, n, t, sp) {
+        const bar = Math.floor(n / 6), s = n % 6, partB = bar >= 8;
+        const roots = [43, 43, 36, 38, 43, 40, 36, 38, 43, 43, 36, 38, 40, 36, 38, 43]; // G G C D G Em C D | G G C D Em C D G
+        const minor = [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], root = roots[bar], third = minor[bar] ? 3 : 4;
+        // oom-pah: low root on 1, fifth on 2; chord "pah" on the off-eighths
+        if (s === 0) A.voice(root, t, sp * 1.6, { type: 'triangle', vol: 0.13, r: 0.05 });
+        if (s === 3) A.voice(root + 7, t, sp * 1.6, { type: 'triangle', vol: 0.11, r: 0.05 });
+        if (s === 2 || s === 5) [12, 12 + third, 19].forEach(iv => A.voice(root + 12 + iv, t, sp * 0.5, { type: 'square', vol: 0.012, lp: 1800, r: 0.03 }));
+        // hand claps on beats 1 and 2, a little hat on the rest
+        if (s === 0 || s === 3) A.hit(t, 0.09, { f: 1500, q: 0.9, vol: 0.13 }); else A.drum('hat', t, 0.5);
+        if (n === 0 || n === 48) A.drum('crash', t, 0.5);
+        const MEL = [
+          [67, 71, 74, 79, 74, 71], [72, 71, 69, 71, 74, 0], [72, 76, 79, 76, 72, 76], [74, 78, 81, 78, 74, 72],
+          [71, 74, 79, 74, 71, 67], [71, 67, 64, 67, 71, 74], [76, 74, 72, 74, 76, 79], [78, 74, 72, 74, 0, 0],
+          [79, 78, 76, 74, 76, 78], [79, 74, 71, 74, 79, 83], [81, 79, 76, 79, 81, 84], [83, 81, 78, 81, 78, 74],
+          [76, 79, 83, 79, 76, 71], [72, 76, 79, 76, 72, 76], [74, 78, 81, 78, 74, 66], [67, 71, 74, 79, 0, 0],
+        ];
+        const m = MEL[bar][s];
+        if (m) { A.voice(m, t, sp * 0.8, { type: 'square', vol: 0.03, lp: 2800, r: 0.05, det: 6 }); A.voice(m, t, sp * 0.8, { type: 'sawtooth', vol: 0.012, lp: 2200, r: 0.05, det: -8 }); }
+        if (partB && s === 0) A.voice(root + 48 + (bar % 2 ? 7 : 0), t, 0.001, { type: 'sine', vol: 0.05, r: sp * 4 }); // bells
       } },
     },
     music(name) {
