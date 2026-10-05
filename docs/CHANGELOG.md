@@ -4,6 +4,11 @@ What happened in Plush Squad, newest on top: game releases (what changed for the
 
 
 ## 5 Oct 2026
+**Game: v0.8.2 (hotfix)**
+- Home Screen web app: top buttons work on the first start.
+- Login on a new device (or the re-added web app) now brings the cloud progress; before, it was overwritten by the empty save.
+- Cloud save: progress goes up when the app is switched away or opened again, not only after 15 s in the game.
+
 **Game: v0.8.1 (hotfix)**
 - New Home Screen icon: a close-up of Jack's face (re-add the app to see it on iPhone).
 - Sticker Album: STICKERS / COMICS switch to watch the Canada comic again.

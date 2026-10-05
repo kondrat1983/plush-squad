@@ -6,6 +6,9 @@
   const CFG = window.PS_CONFIG || {};
   const KEY = 'plushsquad_v1';
   const S = () => (window.__save && window.__save.data) || {};
+  // replace the save in memory too: the rebuild after login / logout stores the in-memory save, which would
+  // otherwise write the old (empty) progress over the one just pulled from the cloud
+  const setMem = data => { const d = window.__save && window.__save.data; if (d) { Object.keys(d).forEach(k => delete d[k]); Object.assign(d, data); } };
   const STICKERS = [
     { id: 'gg', label: 'GG!', icon: 'j:thumbs' }, { id: 'rematch', label: 'REMATCH?', icon: 'j:game' },
     { id: 'lol', label: 'LOL', icon: 'j:joy' }, { id: 'cool', label: 'COOL', icon: 'j:cool' },
@@ -28,7 +31,7 @@
         this.sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'plushsquad-auth' } });
         this.ready = true;
         const { data } = await this.sb.auth.getSession();
-        if (data && data.session) await this.loadProfile(data.session.user);
+        if (data && data.session) { await this.loadProfile(data.session.user); setTimeout(() => this.catchUp(), 5000); } // after the game has loaded the save
       } catch (e) { console.warn('net init', e); }
     },
     email: name => name.toLowerCase() + '@' + (CFG.userDomain || 'players.plushsquad.app'),
@@ -77,6 +80,7 @@
       this.user = null;
       // the progress is safe in the cloud; this device goes back to a fresh guest
       try { localStorage.removeItem(KEY); } catch (e) {}
+      setMem({});
       try { const db = await window.__IDB.open(); await new Promise(r => { const tx = db.transaction('img', 'readwrite'); tx.objectStore('img').clear(); tx.oncomplete = r; tx.onerror = r; }); } catch (e) {}
     },
     async resetPassword(name, code, pass) {
@@ -103,6 +107,15 @@
       this._conflict = row.data;
       return { cloud: this.summary(row.data), local: this.summary(local) };
     },
+    // on start with a kept login: progress made here that never reached the cloud (the app was closed before the
+    // 15 s push) goes up now, unless the cloud already holds something newer
+    async catchUp() {
+      try {
+        const d = S(); if (!this.user || d.owner !== this.user.id) return;
+        const { data: row } = await this.sb.from('saves').select('data').eq('user_id', this.user.id).maybeSingle();
+        if (!row || (d.savedAt || 0) > ((row.data && row.data.savedAt) || 0)) await this.pushNow();
+      } catch (e) {}
+    },
     async resolve(which) { if (which === 'cloud') await this.applyCloud(this._conflict); else await this.adoptLocal(); this._conflict = null; },
     async adoptLocal() {
       const d = S(); d.owner = this.user.id; d.savedAt = Date.now();
@@ -113,6 +126,7 @@
     async applyCloud(data) {
       data.owner = this.user.id;
       try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
+      setMem(data);
       // bring the toy pictures to this device
       const ids = (data.toys || []).map(t => this.user.id + ':' + t.id);
       if (ids.length) {
@@ -184,7 +198,10 @@
   const lvl = x => { let l = 1, r = x; while (r >= 100 + (l - 1) * 50) { r -= 100 + (l - 1) * 50; l++; } return l; };
   window.PSNet = Net;
   window.PSOnSave = d => { d.savedAt = Date.now(); if (Net.user && d.owner === Net.user.id) Net.schedulePush(); };
-  window.addEventListener('pagehide', () => { if (Net._push) { clearTimeout(Net._push); Net.pushNow(); } });
+  const flush = () => { if (Net._push) { clearTimeout(Net._push); Net._push = 0; Net.pushNow(); } };
+  window.addEventListener('pagehide', flush);
+  // iOS does not send pagehide when the player switches apps or locks the phone: push then too
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
 
   // ---------- UI helpers
   function input(scene, PS, x, y, w, ph, type) {
