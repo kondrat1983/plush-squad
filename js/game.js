@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '0.8.0';
+  const VERSION = '0.8.1';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -322,6 +322,21 @@
       A.init(); A.setMuted(!A.muted); Save.data.muted = A.muted; Save.store(); draw(); if (!A.muted) { A.startMusic(); A.click(); }
       scene.tweens.add({ targets: c, scale: { from: 0.85, to: 1 }, duration: 250, ease: 'Back.out' });
     });
+    return c;
+  }
+  // press-down feedback for any tappable container (QA B27 / G30): shrink a little on touch, spring back on release
+  // (rest = the scale the thing normally has; cards that pop in from 0 pass 1)
+  // (an endless pulse on the same thing waits while it is pressed, so it can't undo the press)
+  function press(scene, c, k = 0.93, rest = c.scaleX) {
+    let down = false, own = null, held = [];
+    const go = (scale, duration, ease, onComplete) => { if (own) own.stop(); own = scene.tweens.add({ targets: c, scale, duration, ease, onComplete }); };
+    const back = d => { if (!down) return; down = false; go(rest, d, 'Back.out', () => { held.forEach(t => t.resume()); held = []; }); };
+    c.on('pointerdown', () => {
+      if (!down) { const loops = scene.tweens.getTweensOf(c).filter(t => t !== own && t.isPlaying() && (t.loop === -1 || (t.data || []).some(d => d.repeat === -1))); loops.forEach(t => t.pause()); held = held.concat(loops); }
+      down = true; go(rest * k, 70);
+    });
+    c.on('pointerup', () => back(220));
+    c.on('pointerout', () => back(120));
     return c;
   }
   function button(scene, x, y, w, h, label, color, cb, o = {}) {
@@ -661,6 +676,7 @@
     if (scene._leaving) return; scene._leaving = true;
     // the first trip to Canada starts with the comic (#31); the comic then goes on to where the player was heading
     if (key === 'battle' && data && RIVALS[data.rival] && RIVALS[data.rival].world === CANADA && comicDue()) { data = { world: 'canada', then: { key, data } }; key = 'comic'; }
+    scene._psTarget = { key, data: data || {} }; // a rotation during the fade rebuilds straight into it (QA B38 / #4)
     scene.cameras.main.fadeOut(320, 15, 18, 64);
     scene.cameras.main.once('camerafadeoutcomplete', () => {
       // the screen was rotated while we couldn't rebuild (e.g. in the toy studio): rebuild now, straight into the next scene
@@ -673,7 +689,7 @@
     const c = scene.add.container(80, 80).setDepth(50);
     const bg = scene.add.circle(0, 0, 46, C.night2).setStrokeStyle(4, C.seam);
     const g = scene.add.graphics(); g.lineStyle(9, 0xfff3d2); g.beginPath(); g.moveTo(10, -20); g.lineTo(-12, 0); g.lineTo(10, 20); g.strokePath();
-    c.add([bg, g]); c.setSize(100, 100).setInteractive({ useHandCursor: true });
+    c.add([bg, g]); c.setSize(100, 100).setInteractive({ useHandCursor: true }); press(scene, c, 0.88);
     c.on('pointerup', () => { A.init(); A.click(); cb(); });
     return c;
   }
@@ -717,7 +733,7 @@
       c.add(txt(scene, 32, -32, String(n), 26, C.ink, { st: 0, shadow: false }));
       scene.tweens.add({ targets: c, scale: 1.1, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
-    c.setSize(100, 100).setInteractive({ useHandCursor: true });
+    c.setSize(100, 100).setInteractive({ useHandCursor: true }); press(scene, c, 0.88);
     c.on('pointerup', () => { A.init(); A.click(); fade(scene, 'gacha', { world }); });
     return c;
   }
@@ -777,7 +793,8 @@
       const lv = levelOf(Save.data.xp);
       // the hat sticks up above Jack's head and he bobs 34 px: keep both clear of the panel (code review)
       const gap = Math.max(24, (avail - 190 - jack.displayHeight - (hat ? hat.displayHeight * 0.85 : 0) - 34) / 2);
-      const px = PORTRAIT ? W / 2 : 420, py = PORTRAIT ? logoBot + gap + 95 : H * 0.7;
+      // landscape: the panel stays left of Jack's wing, also on 4:3 iPads (QA B18 / #19)
+      const px = PORTRAIT ? W / 2 : clamp(W / 2 - jack.displayWidth / 2 - 240, 230, 420), py = PORTRAIT ? logoBot + gap + 95 : H * 0.7;
       const pg = this.add.graphics(); pg.fillStyle(C.night2, 0.9); pg.fillRoundedRect(px - 210, py - 95, 420, 190, 40); pg.lineStyle(4, C.seam); pg.strokeRoundedRect(px - 210, py - 95, 420, 190, 40);
       txt(this, px, py - 46, 'LEVEL ' + lv.l, 50, '#ffd23f', { st: 0 });
       this.add.rectangle(px, py + 10, 320, 26, C.night3).setStrokeStyle(3, C.seam);
@@ -800,7 +817,7 @@
         c.add(txt(this, PORTRAIT ? 0 : 64, PORTRAIT ? 66 : 0, typeof it.label === 'function' ? it.label(PS) : it.label, 24, '#fff3d2', { st: 5, ox: PORTRAIT ? 0.5 : 0 }));
         const n = it.badge ? it.badge(PS) : 0;
         if (n) { c.add(this.add.circle(32, -32, 20, C.coral).setStrokeStyle(3, 0x0f1240)); c.add(txt(this, 32, -32, n > 9 ? '9+' : String(n), 22, '#ffffff', { st: 0, shadow: false })); }
-        c.setSize(100, 100).setInteractive({ useHandCursor: true });
+        c.setSize(100, 100).setInteractive({ useHandCursor: true }); press(this, c, 0.88);
         c.on('pointerup', () => { A.init(); A.click(); A.startMusic(); fade(this, it.key, it.data || {}); });
       });
       muteButton(this);
@@ -898,7 +915,9 @@
         const D = DIFFS[k], px = (i - 1) * bw;
         const g = this.add.graphics(), t = txt(this, px, 0, D.name, 30, '#fff3d2', { st: 0, shadow: false });
         const z = this.add.zone(px, 0, bw, bh).setInteractive({ useHandCursor: true });
-        z.on('pointerup', () => { A.init(); A.click(); Save.data.diff = k; Save.store(); draw(); this.tweens.add({ targets: c, scale: { from: 1.06, to: 1 }, duration: 200 }); });
+        z.on('pointerdown', () => this.tweens.add({ targets: c, scale: 0.95, duration: 70 }));
+        z.on('pointerout', () => this.tweens.add({ targets: c, scale: 1, duration: 120 }));
+        z.on('pointerup', () => { A.init(); A.click(); Save.data.diff = k; Save.store(); draw(); this.tweens.killTweensOf(c); this.tweens.add({ targets: c, scale: { from: 1.06, to: 1 }, duration: 200 }); });
         c.add([g, t, z]);
         return { k, g, t, px, D };
       });
@@ -920,7 +939,7 @@
       const ic = this.add.image(iconOnly ? 0 : -tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
       const t = fit(txt(this, 26, 0, open ? w.name : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140).setVisible(!iconOnly);
       c.add([g, ic, t]);
-      c.setSize(tw0, h).setInteractive({ useHandCursor: true });
+      c.setSize(tw0, h).setInteractive({ useHandCursor: true }); press(this, c);
       c.on('pointerup', () => {
         A.init();
         if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); const fi = RIVALS.findIndex(r => (r.world || 0) === i); this.hint(fi > 0 ? 'Beat ' + RIVALS[fi - 1].name + ' to open ' + w.name + '!' : 'Locked!'); return; }
@@ -953,7 +972,7 @@
         const ring = this.add.image(x, y, 'ring').setScale(R * ns / 52).setTint(C.star).setDepth(3).setAlpha(0.6);
         this.tweens.add({ targets: ring, scale: R * ns / 40, alpha: 0, duration: 1300, repeat: -1 });
       }
-      c.setSize(R * 2, R * 2 + 120).setInteractive({ useHandCursor: true });
+      c.setSize(R * 2, R * 2 + 120).setInteractive({ useHandCursor: true }); press(this, c);
       c.on('pointerup', () => {
         A.init();
         if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 14, duration: 60, yoyo: true, repeat: 3 }); if (i > 0) this.hint('Beat ' + RIVALS[i - 1].name + ' first!'); return; }
@@ -965,7 +984,7 @@
   // ---------- Squad: your toys
   class SquadScene extends Phaser.Scene {
     constructor() { super('squad'); }
-    init(data) { this.focus = data && data.focus; }
+    init(data) { this.focus = data && data.focus; this.page = (data && data.page) || 0; }
     create() {
       this._leaving = false;
       this.cameras.main.fadeIn(350, 15, 18, 64);
@@ -974,12 +993,27 @@
       txt(this, W / 2, PORTRAIT ? 270 : 165, 'Tap a toy to play as it or to duel it', 32, '#bcc0ee', { st: 5, weight: '500' });
       const items = [{ jack: true }].concat(Save.data.toys.map(t => ({ toy: t }))).concat(Save.data.toys.length < 14 ? [{ add: true }] : []);
       const cols = PORTRAIT ? 3 : Math.min(5, Math.max(4, Math.floor((W - 120) / 300)));
-      const cw = PORTRAIT ? 310 : Math.min(290, (W - 160) / cols - 20), ch = PORTRAIT ? 330 : 270;
-      const top = PORTRAIT ? 360 : 225;
-      items.forEach((it, i) => {
+      const cw = PORTRAIT ? 310 : Math.min(290, (W - 160) / cols - 20), top = PORTRAIT ? 360 : 225;
+      // pages when the squad does not fit (QA B05): the cards get a little shorter first, then ◀ n/m ▶ like the Sticker Album
+      let ch = PORTRAIT ? 330 : 270, rows = Math.ceil(items.length / cols), pages = 1;
+      if (top + rows * (ch + 22) > H - 30) {
+        const room = H - top - 150 + 22, minCh = PORTRAIT ? 280 : 230;
+        rows = Math.max(1, Math.floor(room / (minCh + 22)));
+        ch = Math.min(ch, Math.floor(room / rows) - 22);
+        pages = Math.ceil(items.length / (rows * cols));
+      }
+      const per = rows * cols, fi = this.focus ? items.findIndex(it => it.toy && it.toy.id === this.focus) : -1;
+      const pg = this.page = Math.min(pages - 1, Math.max(0, fi >= 0 ? Math.floor(fi / per) : this.page || 0));
+      items.slice(pg * per, pg * per + per).forEach((it, i) => {
         const x = W / 2 + ((i % cols) - (cols - 1) / 2) * (cw + 22), y = top + ch / 2 + Math.floor(i / cols) * (ch + 22);
         this.card(it, x, y, cw, ch, i);
       });
+      if (pages > 1) {
+        const by = top + rows * (ch + 22) + 50;
+        if (pg > 0) button(this, W / 2 - 260, by, 200, 100, '◀', C.cream, () => this.scene.restart({ page: pg - 1 }), { size: 48 });
+        txt(this, W / 2, by, (pg + 1) + ' / ' + pages, 40, '#fff3d2', { st: 6 });
+        if (pg < pages - 1) button(this, W / 2 + 260, by, 200, 100, '▶', C.star, () => this.scene.restart({ page: pg + 1 }), { size: 48 });
+      }
       backButton(this, () => fade(this, 'map'));
       muteButton(this);
       if (this.focus) { const t = toyById(this.focus); if (t) this.time.delayedCall(450, () => this.details({ toy: t })); }
@@ -1006,7 +1040,7 @@
         if (isHero) c.add(chip(this, 0, -h / 2 + 4, 'PLAYING', C.star, 24));
       }
       c.setScale(0); this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 50, ease: 'Back.out' });
-      c.setSize(w, h).setInteractive({ useHandCursor: true });
+      c.setSize(w, h).setInteractive({ useHandCursor: true }); press(this, c, 0.93, 1);
       c.on('pointerup', () => { A.init(); A.click(); if (it.add) fade(this, 'studio'); else this.details(it); });
     }
     details(it) {
@@ -1049,7 +1083,7 @@
       if (more) p.add(txt(this, tx, my0 + ml.length * step, 'More moves unlock as you level up!', ss, '#ffd23f', { st: 4, weight: '500' }));
       const bxs = PORTRAIT ? [0, 0] : [tx - 170, tx + 170];
       const b1 = button(this, bxs[0], by, 320, 110, isHero ? 'PLAYING ✓' : 'PLAY AS', isHero ? 0x9fe3c0 : C.star, () => {
-        if (isHero) return; Save.data.hero = it.jack ? 'jack' : it.toy.id; Save.store(); A.levelUp(); close(); this.scene.restart();
+        if (isHero) return; Save.data.hero = it.jack ? 'jack' : it.toy.id; Save.store(); A.levelUp(); close(); this.scene.restart({ page: this.page });
       }, { size: 42 });
       p.add(b1);
       if (!it.jack) {
@@ -1065,7 +1099,7 @@
         p.add(del);
       }
       const x = txt(this, -pw / 2 + 70, -ph / 2 + 70, '✕', 50, '#bcc0ee', { st: 0 }).setInteractive({ useHandCursor: true });
-      x.on('pointerup', () => close()); p.add(x);
+      x.on('pointerup', () => close()); press(this, x, 0.85); p.add(x);
       layer.add(p); p.setScale(0.7); p.alpha = 0;
       this.tweens.add({ targets: p, scale: 1, alpha: 1, duration: 260, ease: 'Back.out' });
       const close = () => { this.tweens.add({ targets: layer, alpha: 0, duration: 150, onComplete: () => layer.destroy() }); };
@@ -1081,7 +1115,7 @@
         Save.data.toys = Save.data.toys.filter(x => x.id !== t.id);
         if (Save.data.hero === t.id) Save.data.hero = 'jack';
         Save.store(); IDB.del(t.id).catch(() => {});
-        layer.destroy(); closeDetails(); this.scene.restart();
+        layer.destroy(); closeDetails(); this.scene.restart({ page: this.page });
       }, { size: 40, color: '#fff3d2' }));
     }
     toast(s) {
@@ -1091,12 +1125,13 @@
   }
 
   // ---------- Studio: photo -> cut-out -> "who is it?" -> new hero
-  let toyWorker = null;
+  // one worker for the page, kept on window: a rotation rebuild runs main() again but keeps the worker and its loaded models (QA B22 / #21)
+  const TW = window.__psToyWorker || (window.__psToyWorker = { w: null });
   function getWorker() {
-    if (toyWorker) return toyWorker;
+    if (TW.w) return TW.w;
     const q = /[?&]localmodels/.test(location.search) ? '?local' : '';
-    toyWorker = new Worker('js/toyworker.js' + q, { type: 'module' });
-    return toyWorker;
+    TW.w = new Worker('js/toyworker.js' + q, { type: 'module' });
+    return TW.w;
   }
   function pickFile() {
     return new Promise((res) => {
@@ -1200,8 +1235,8 @@
     cancelJob() {
       const job = this.job; if (!job) return;
       this.job = null; this.busyState = false;
-      try { if (toyWorker) toyWorker.terminate(); } catch (e) {}
-      toyWorker = null;
+      try { if (TW.w) TW.w.terminate(); } catch (e) {}
+      TW.w = null;
       job.finish({ type: 'cancel' });
       A.click(); this.intro();
     }
@@ -1244,7 +1279,7 @@
         job.finish = res;
         // the magic can be very slow on an old phone: 90 s with no news uses the photo as it is.
         // Every progress message restarts the clock, so a slow first download is never cut off (code review)
-        const arm = () => { if (job.timer) job.timer.remove(false); job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (toyWorker === w) toyWorker = null; res({ type: 'error', message: 'timeout' }); }); };
+        const arm = () => { if (job.timer) job.timer.remove(false); job.timer = this.time.delayedCall(90000, () => { try { w.terminate(); } catch (e) {} if (TW.w === w) TW.w = null; res({ type: 'error', message: 'timeout' }); }); };
         arm();
         w.onmessage = (ev) => {
           if (this.job !== job) return;
@@ -1325,7 +1360,7 @@
         const bg = this.add.circle(x, y, cell * 0.44, i < 3 && this.scores.length ? 0x3a3f9e : C.night2).setStrokeStyle(4, i < 3 && this.scores.length ? C.star : C.seam);
         const ic = img(this, x, y - 4, 'i:' + id).setScale(cell * 0.62 / 144);
         const lb = fit(txt(this, x, y + cell * 0.48, a.name, PORTRAIT ? 24 : 20, '#fff3d2', { st: 4, weight: '500' }), cell - 6);
-        bg.setInteractive({ useHandCursor: true });
+        bg.setInteractive({ useHandCursor: true }); press(this, bg, 0.9);
         bg.on('pointerup', () => { A.click(); layer.destroy(); this.makeHero(id); });
         layer.add([bg, ic, lb]);
       });
@@ -1373,9 +1408,18 @@
       this.nameEl.setAlpha(0); this.tweens.add({ targets: this.nameEl, alpha: 1, delay: 300, duration: 200 });
     }
     removeInput() { if (this.nameEl) { this.nameEl.destroy(); this.nameEl = null; } }
+    hintName(s) {
+      if (this._hint) this._hint.destroy();
+      const t = this._hint = txt(this, W / 2, H - (PORTRAIT ? 70 : 50), s, 36, '#ff9ed8', { st: 7 }).setDepth(90);
+      this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
+    }
     async save() {
-      const t = this.toy;
-      t.name = (t.name || '').trim() || TOYS.ARCH_BY_ID[t.arch].nicks[0];
+      const t = this.toy, nick = TOYS.ARCH_BY_ID[t.arch].nicks[0];
+      t.name = (t.name || '').trim() || nick;
+      if (TOYS.badName(t.name)) { // not a kind name: put a friendly one in the box and ask again (QA B13 / #16)
+        t.name = nick; if (this.nameEl) this.nameEl.node.value = nick;
+        A.block(); this.hintName('Let\'s pick a kinder name!'); return;
+      }
       try { await IDB.set(t.id, this.cut.url); } catch (e) { /* storage unavailable: keep for this session */ }
       await addTexture(this, 'toy_' + t.id, this.cut.url);
       Save.data.toys.push(t); Save.store();
@@ -1486,7 +1530,7 @@
           }
           c.add(chip(this, cw / 2 - 44, -ch / 2 + 6, '×' + Save.data.boosts[b.id], C.star, 26));
         } else c.add(txt(this, 0, 0, 'NO BOOSTER', 38, '#fff3d2', { st: 6 }));
-        c.setSize(cw, ch).setInteractive({ useHandCursor: true }).setScale(0);
+        c.setSize(cw, ch).setInteractive({ useHandCursor: true }).setScale(0); press(this, c, 0.93, 1);
         this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 50, ease: 'Back.out' });
         c.on('pointerup', () => { A.init(); A.click(); if (b) { A.levelUp(); } layer.list.forEach(o => o.disableInteractive && o.disableInteractive()); done(b); });
         layer.add(c);
@@ -2624,28 +2668,38 @@
       if (!fresh) A.music('calm');
       const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(60).setInteractive();
       if (fresh) this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 }); else dim.fillAlpha = 0.6;
-      const pw = PORTRAIT ? 920 : 1000, ph = PORTRAIT ? 1230 : 1020, T0 = -ph / 2;
+      // notes keep a readable size (QA B32 / #28): the panel makes room for them first. Portrait: it grows taller.
+      // Landscape (no height to spare): it grows wider, the icon moves beside the title and the rest moves up.
+      const NFS = 34, nTop = 700, ph0 = PORTRAIT ? 1230 : 1020, by0 = PORTRAIT ? 940 : 925;
+      const measure = w => { if (!notes.length) return 0; const pr = txt(this, 0, 0, notes.join('\n'), NFS, '#ffd23f', { st: 6, wrap: w - 100 }), h = pr.height; pr.destroy(); return h; };
+      // landscape: the panel widens whenever the notes do not fit, so the icon never moves beside a narrow title (code review)
+      let pw = PORTRAIT ? 920 : 1000, need = measure(pw);
+      if (!PORTRAIT && need > by0 - 70 - nTop) { pw = Math.min(W - 120, 1300); need = measure(pw); }
+      let extra = Math.max(0, need - (by0 - 70 - nTop));
+      const grow = Math.max(0, Math.min(extra, H - 60 - ph0)); extra -= grow;
+      const lift = PORTRAIT ? 0 : Math.min(extra, 150);
+      const ph = ph0 + grow, T0 = -ph / 2, Y = v => T0 + v - lift;
       const p = this.add.container(W / 2, H / 2).setDepth(61).setScale(fresh ? 0 : 1);
       p.add(panel(this, 0, 0, pw, ph, C.night2, 0));
-      const icon = this.add.image(0, T0 + 120, won ? 'trophy' : 'zzz').setScale(0.7);
+      const icon = lift ? this.add.image(-pw / 2 + 150, Y(265), won ? 'trophy' : 'zzz').setScale(0.55) : this.add.image(0, T0 + 120, won ? 'trophy' : 'zzz').setScale(0.7);
       this.tweens.add({ targets: icon, y: icon.y - 12, angle: { from: -5, to: 5 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      const title = txt(this, 0, T0 + 265, won ? 'YOU WIN!' : 'SO SLEEPY...', 100, won ? '#ffd23f' : '#bcc0ee', { stroke: '#0f1240', st: 14 });
-      const sub = txt(this, 0, T0 + 345, won ? (R.laugh || '') : this.hero.name + ' needs a nap. Next time for sure!', 34, '#fff3d2', { st: 0, weight: '500', wrap: pw - 120 });
+      const title = txt(this, 0, Y(265), won ? 'YOU WIN!' : 'SO SLEEPY...', 100, won ? '#ffd23f' : '#bcc0ee', { stroke: '#0f1240', st: 14 });
+      const sub = txt(this, 0, Y(345), won ? (R.laugh || '') : this.hero.name + ' needs a nap. Next time for sure!', 34, '#fff3d2', { st: 0, weight: '500', wrap: pw - 120 });
       p.add([icon, title, sub]);
       const sr = [];
-      if (isCampaign) for (let i = 0; i < 3; i++) { const s = this.add.image((i - 1) * 120, T0 + 445 - (i === 1 ? 14 : 0), 'star').setScale(0.42).setTint(0x3a3f7a); p.add(s); sr.push(s); }
-      const xpT = txt(this, 0, T0 + 545, '+0 XP', 60, '#7fe39a', { stroke: '#0f1240', st: 10 });
-      const bw = pw - 220;
-      const lvT = txt(this, -bw / 2, T0 + 610, 'LEVEL ' + before.l, 34, '#fff3d2', { ox: 0, st: 0 });
-      const barBg = this.add.rectangle(0, T0 + 660, bw, 34, C.night3).setStrokeStyle(4, C.seam);
-      const bar = this.add.rectangle(-bw / 2, T0 + 660, Math.max(4, bw * before.r / before.n), 26, C.star).setOrigin(0, 0.5);
-      const note = txt(this, 0, T0 + 700, '', 34, '#ffd23f', { st: 6, wrap: pw - 100, oy: 0 });
+      if (isCampaign) for (let i = 0; i < 3; i++) { const s = this.add.image((i - 1) * 120, Y(445) - (i === 1 ? 14 : 0), 'star').setScale(0.42).setTint(0x3a3f7a); p.add(s); sr.push(s); }
+      const xpT = txt(this, 0, Y(545), '+0 XP', 60, '#7fe39a', { stroke: '#0f1240', st: 10 });
+      const bw = Math.min(pw, 1000) - 220;
+      const lvT = txt(this, -bw / 2, Y(610), 'LEVEL ' + before.l, 34, '#fff3d2', { ox: 0, st: 0 });
+      const barBg = this.add.rectangle(0, Y(660), bw, 34, C.night3).setStrokeStyle(4, C.seam);
+      const bar = this.add.rectangle(-bw / 2, Y(660), Math.max(4, bw * before.r / before.n), 26, C.star).setOrigin(0, 0.5);
+      const note = txt(this, 0, Y(nTop), '', NFS, '#ffd23f', { st: 6, wrap: pw - 100, oy: 0 });
       p.add([xpT, lvT, barBg, bar, note]);
-      const by = T0 + (PORTRAIT ? 940 : 925);
-      // all notes stay above the buttons (QA B09)
-      let nfs = notes.length > 2 ? 27 : notes.length > 1 ? 30 : 34;
-      note.setText(notes.join('\n')).setFontSize(nfs);
-      while (note.height > by - 70 - (T0 + 700) && nfs > 18) { nfs -= 2; note.setFontSize(nfs); }
+      const by = T0 + by0 + grow;
+      // all notes stay above the buttons (QA B09); only the rare 6-note landscape case still shrinks a little
+      let nfs = NFS;
+      note.setText(notes.join('\n'));
+      while (note.height > by - 70 - Y(nTop) && nfs > 24) { nfs -= 2; note.setFontSize(nfs); }
       const primary = info.primary === 'next' ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: info.nextIdx })]
         // Kraken fights only through the Weekly Boss screen: it counts the daily tries (QA B33)
         : info.primary === 'boss' ? ['BOSS', () => fade(this, 'boss')]
@@ -2662,7 +2716,7 @@
         this.time.delayedCall(600 + i * 280, () => {
           sr[i].clearTint(); A.starDing(i);
           this.tweens.add({ targets: sr[i], scale: { from: 0.8, to: 0.42 }, angle: { from: -30, to: 0 }, duration: 320, ease: 'Back.out' });
-          this.sparks.explode(10, W / 2 + (i - 1) * 120, H / 2 + T0 + 445);
+          this.sparks.explode(10, W / 2 + (i - 1) * 120, H / 2 + Y(445));
         });
       }
       const st = sr.length ? stars : 0;
@@ -2872,7 +2926,7 @@
     border(c) { const r = c.r, g = this.add.graphics(); g.lineStyle(10, 0x1d2163); g.strokeRoundedRect(-r.w / 2, -r.h / 2, r.w, r.h, 18); c.add(g); }
     // inner picture fitted to the panel (no masks: the pictures are sized to the panel)
     bg(c, key, tint) { const r = c.r, b = this.add.image(0, 0, key).setDisplaySize(r.w - 10, r.h - 10); if (tint) b.setTint(tint); c.add(b); return b; }
-    actor(c, key, fx, fy, hFrac) { const r = c.r, a = this.add.image((fx - 0.5) * r.w, (fy - 0.5) * r.h, key).setOrigin(0.5, 1); a.setScale(Math.min(hFrac * r.h / a.height, 0.45 * r.w / a.width)); c.add(a); return a; }
+    actor(c, key, fx, fy, hFrac, wFrac = 0.45) { const r = c.r, a = this.add.image((fx - 0.5) * r.w, (fy - 0.5) * r.h, key).setOrigin(0.5, 1); a.setScale(Math.min(hFrac * r.h / a.height, wFrac * r.w / a.width)); c.add(a); return a; }
     bubble(c, fx, fy, text, tailX, instant) {
       const r = c.r, x = (fx - 0.5) * r.w, y = (fy - 0.5) * r.h;
       const t = txt(this, 0, 0, text, PORTRAIT ? 32 : 30, '#1d2163', { st: 0, shadow: false, wrap: Math.min(r.w * 0.8, 560) });
@@ -2908,7 +2962,7 @@
       const c = this.frame(i); this.panels.push(c);
       if (i === 0) {
         this.bg(c, 'sky4'); const au = this.bg(c, 'aurora'); au.setAlpha(0.8);
-        for (let k = 0; k < 4; k++) { const p = this.actor(c, 'pine', 0.12 + k * 0.26, 1, 0.4); p.setAlpha(0.8).setTint(0x9fb6d8); }
+        for (let k = 0; k < 4; k++) { const p = this.actor(c, 'pine', 0.14 + k * 0.24, 0.98, 0.4, 0.2); p.setAlpha(0.8).setTint(0x9fb6d8); }
         const jack = this.actor(c, 'jack_side', instant ? 0.3 : -0.3, 0.95, 0.5);
         this.anim({ targets: jack, angle: { from: -3, to: 3 }, duration: 70, yoyo: true, repeat: -1 });
         if (!instant) this.anim({ targets: jack, x: (0.3 - 0.5) * c.r.w, duration: 700, ease: 'Quad.out' });
@@ -2921,7 +2975,7 @@
         else { let n = 0; const ev = this.time.addEvent({ delay: 30, repeat: full.length - 1, callback: () => { cap.setText(full.slice(0, ++n)); drawCap(); } }); this.steps.push(ev); this.later.push({ fn: () => { cap.setText(full); drawCap(); }, ran: false }); }
         const say = inst => this.bubble(c, 0.68, 0.36, 'Brrr! Why is the sky made of ice cream?', -1, inst);
         instant ? say(true) : this.at(900, say);
-        if (!instant) { const sn = this.add.particles(0, 0, 'dot', { x: { min: -c.r.w / 2, max: c.r.w / 2 }, y: -c.r.h / 2, speedY: { min: 80, max: 160 }, lifespan: c.r.h / 120 * 1000, scale: { min: 0.1, max: 0.22 }, frequency: 120 }); c.add(sn); }
+        if (!instant) { const sn = this.add.particles(0, 0, 'dot', { x: { min: -c.r.w / 2, max: c.r.w / 2 }, y: -c.r.h / 2, speedY: { min: 80, max: 160 }, lifespan: c.r.h / 160 * 1000, scale: { min: 0.1, max: 0.22 }, frequency: 120 }); c.add(sn); }
       } else if (i === 1) {
         this.bg(c, 'sky4');
         const g = this.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.2, c.r.w - 10, c.r.h * 0.3 - 5); c.add(g);
@@ -2941,7 +2995,8 @@
         this.actor(c, 'moose', 0.7, 0.98, 0.42);
         this.actor(c, 'pancakes', 0.5, 0.8, 0.18);
         this.actor(c, 'jack_front', 0.24, 0.98, 0.5);
-        const s1 = inst => this.bubble(c, 0.66, 0.2, 'Sorry, eh! Welcome to Canada!', 1, inst);
+        // B58: narrow pines stay inside panel 1, snow melts before its bottom edge, Max's bubble points at Max
+        const s1 = inst => this.bubble(c, 0.62, 0.2, 'Sorry, eh! Welcome to Canada!', 0.2, inst);
         const s2 = inst => this.bubble(c, 0.34, 0.42, 'Why are YOU sorry? I fell on YOUR snow!', -1, inst);
         if (instant) { s1(true); s2(true); } else { this.at(200, s1); this.at(1400, s2); }
       }
@@ -2988,7 +3043,7 @@
       A.comicSting && A.comicSting(); this.time.delayedCall(400, () => A.levelUp());
       const leaves = this.add.particles(0, 0, 'mapleleaf', { x: { min: 0, max: W }, y: -60, speedY: { min: 250, max: 500 }, speedX: { min: -120, max: 120 }, rotate: { min: 0, max: 360 }, lifespan: 4000, scale: { min: 0.15, max: 0.3 }, quantity: 2, frequency: 120 }).setDepth(49);
       this.time.delayedCall(2500, () => leaves.stop());
-      const go = button(this, W / 2, H - 110, 460, 130, 'LET\'S GO!', C.star, () => {
+      const go = button(this, W / 2, H - 110, 460, 130, this.then.key === 'album' ? 'DONE!' : 'LET\'S GO!', C.star, () => {
         Save.data.comics = Object.assign({}, Save.data.comics, { canada: true }); Save.store();
         fade(this, this.then.key, this.then.data);
       }, { size: 56 }).setDepth(60);
@@ -3207,13 +3262,15 @@
       txt(this, W / 2, PORTRAIT ? 190 : 80, 'CAPSULE MACHINE', PORTRAIT ? 76 : 70, '#fff3d2', { stroke: '#0f1240', st: 12 });
       this.countT = txt(this, W / 2, PORTRAIT ? 275 : 155, '', 36, '#ffd23f', { st: 6 });
       const short = PORTRAIT && H < 1900;
-      this.mx = PORTRAIT ? W / 2 : W * 0.3; this.my = PORTRAIT ? (short ? 620 : 760) : 560; this.ms = short ? 0.8 : 1;
+      // iPad portrait (short and wide): TURN! sits beside a smaller machine, so both booster rows fit below it (QA B07)
+      const side = this.side = PORTRAIT && H < 1700;
+      this.mx = PORTRAIT && !side ? W / 2 : W * 0.3; this.my = side ? 640 : PORTRAIT ? (short ? 620 : 760) : 560; this.ms = side ? 0.75 : short ? 0.8 : 1;
       this.machine();
-      const by = this.my + (PORTRAIT ? 330 * this.ms + 90 : 390);
-      this.turnBtn = button(this, this.mx, by, 380, 120, 'TURN!', C.star, () => this.turn(), { size: 56 });
+      const bx = side ? W * 0.75 : this.mx, by = side ? this.my + 40 : this.my + (PORTRAIT ? 330 * this.ms + 90 : 390);
+      this.turnBtn = button(this, bx, by, side ? 340 : 380, 120, 'TURN!', C.star, () => this.turn(), { size: 56 });
       this.tweens.add({ targets: this.turnBtn, scale: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      this.noneT = txt(this, this.mx, by, 'Win duels to get capsules.\nOne more is free every day!', 32, '#bcc0ee', { st: 5, weight: '500' });
-      this.gridTop = PORTRAIT ? by + 140 : 250;
+      this.noneT = txt(this, bx, by, 'Win duels to get capsules.\nOne more is free every day!', 32, '#bcc0ee', { st: 5, weight: '500' });
+      this.gridTop = side ? this.my + 330 * this.ms + 50 : PORTRAIT ? by + 140 : 250;
       this.grid = this.add.container(0, 0);
       this.refresh();
       backButton(this, () => fade(this, 'map', { world: this.world }));
@@ -3287,14 +3344,15 @@
           if (cnt) c.add(chip(this, cw / 2 - 24, -ch / 2 + 8, '×' + cnt, C.star, 22));
           else c.setAlpha(0.6);
         } else c.add(txt(this, 0, -10, '?', 90, '#6a72d6', { st: 0, shadow: false }));
-        c.setSize(cw, ch).setInteractive();
+        c.setSize(cw, ch).setInteractive(); if (known) press(this, c);
         c.on('pointerup', () => { if (known) { A.click(); this.hint2(b.name + ': ' + b.desc); } });
         this.grid.add(c);
       });
     }
     hint2(s) {
       if (this._h) this._h.destroy();
-      const t = this._h = fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
+      // iPad portrait: the booster rows reach the bottom, so the hint goes under TURN! (QA B07)
+      const t = this._h = this.side ? txt(this, W * 0.72, this.my + 170, s, 32, '#ffd23f', { st: 6, wrap: 540 }).setDepth(70) : fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
       this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
     }
     async turn() {
@@ -3388,12 +3446,14 @@
   // ---------- start
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
   PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA,
-    txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, backButton, muteButton, capsuleButton, drawCapsule,
+    txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, press, backButton, muteButton, capsuleButton, drawCapsule,
     addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
   function snapshot(game) {
     const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');
     if (!sc) return null;
+    // the player already tapped their way out (the screen is fading): keep that tap (QA B38 / #4)
+    if (sc._leaving && sc._psTarget) { const t = Object.assign({}, sc._psTarget.data); delete t.resume; return { key: sc._psTarget.key, data: t }; }
     const key = sc.scene.key, data = Object.assign({}, sc.sys.settings.data || {});
     delete data.resume;
     if (key === 'battle') {

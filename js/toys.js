@@ -155,5 +155,24 @@
     const el = ELEMENTS[element] ? ELEMENTS[element].name : '';
     return a.nicks.concat([el + ' ' + a.name, 'Captain ' + a.nicks[0]]);
   }
-  window.PSToys = { ARCH, ARCH_BY_ID, ELEMENTS, QUIRKS, makeKit, createToy, elementFromPixels, seedFromPixels, nameIdeas, subFor };
+  // kid-safe names (QA B13 / #16): a short built-in list, any case, also with simple leetspeak (sh1t, @ss) and spacing (f u c k)
+  const BAD_ANY = ['fuck', 'fuk', 'fck', 'shit', 'bitch', 'cunt', 'nigg', 'whore', 'slut', 'porn', 'penis', 'vagina', 'nazi', 'hitler',
+    'wank', 'twat', 'bastard', 'dildo', 'asshole', 'retard', 'faggot', 'xyu', 'pizd', 'blyat', 'mudak'];
+  const BAD_WORD = ['ass', 'arse', 'dick', 'cock', 'tit', 'tits', 'boob', 'boobs', 'sex', 'sexy', 'kill', 'die', 'damn', 'crap', 'piss',
+    'fag', 'rape', 'suka', 'hui', 'idiot', 'stupid', 'dumb', 'moron', 'loser', 'poopface'];
+  const LEET = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b', '@': 'a', $: 's', '!': 'i', '|': 'i', '+': 't' };
+  function badName(name) {
+    const s = String(name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[0-9@$!|+]/g, ch => LEET[ch] || ch);
+    const words = s.split(/[^a-z]+/).filter(Boolean);
+    // letters spelled out one by one ("f u c k") are glued back into one word; real words are checked one at a time,
+    // so two harmless words never make a bad one where they meet ("Sushi Tiger", "Kung Fu Kitty": code review)
+    const toks = []; let run = '';
+    words.forEach(w => { if (w.length === 1) run += w; else { if (run) toks.push(run); run = ''; toks.push(w); } });
+    if (run) toks.push(run);
+    const once = w => w.replace(/(.)\1+/g, '$1'); // "fuuuck" -> "fuck"
+    // long words count anywhere inside a word; short ones only as a whole word, so Cassie, Grape or Skills stay fine
+    return toks.some(w => BAD_ANY.some(b => w.includes(b) || once(w).includes(b)) || BAD_WORD.includes(w) || BAD_WORD.includes(once(w)));
+  }
+  const safeName = (name, fallback) => badName(name) ? fallback : name;
+  window.PSToys = { ARCH, ARCH_BY_ID, ELEMENTS, QUIRKS, makeKit, createToy, elementFromPixels, seedFromPixels, nameIdeas, subFor, badName, safeName };
 })();
