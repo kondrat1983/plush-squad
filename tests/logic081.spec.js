@@ -28,7 +28,7 @@ test('B13: the name filter blocks rude words, leetspeak and spacing, and keeps n
     T.ARCH.forEach(a => { all.push(a.name, ...a.nicks); Object.keys(T.ELEMENTS).forEach(e => all.push(...T.nameIdeas(a.id, e))); });
     return {
       bad: ['Fuck', 'f u c k', 'SH1T', 'B!tch', '@ss', 'a s s', 'Mr Ass', 'fuuuck', 'Idi0t', 'stupid'].filter(n => !T.badName(n)),
-      ok: ['Cassie', 'Grape', 'Skills', 'Dickens', 'Classy', 'Pussycat', 'Mr Snuggles', 'Ted 2'].filter(n => T.badName(n)),
+      ok: ['Cassie', 'Grape', 'Skills', 'Dickens', 'Classy', 'Pussycat', 'Mr Snuggles', 'Ted 2', 'Sushi Tiger', 'Kung Fu Kitty', 'Tofu Kat', 'Magic Untamed'].filter(n => T.badName(n)),
       nicks: all.filter(n => T.badName(n)),
     };
   });

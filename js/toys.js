@@ -164,11 +164,14 @@
   function badName(name) {
     const s = String(name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[0-9@$!|+]/g, ch => LEET[ch] || ch);
     const words = s.split(/[^a-z]+/).filter(Boolean);
-    const all = words.join(''), once = all.replace(/(.)\1+/g, '$1'); // "fuuuck" -> "fuck"
-    if (BAD_ANY.some(w => all.includes(w) || once.includes(w))) return true;
-    // whole words only for short ones, so Cassie, Grape or Skills stay fine; "a s s" counts as one word
-    const spaced = words.length > 1 && words.every(w => w.length === 1) ? [all] : [];
-    return words.concat(spaced).some(w => BAD_WORD.includes(w) || BAD_WORD.includes(w.replace(/(.)\1+/g, '$1')));
+    // letters spelled out one by one ("f u c k") are glued back into one word; real words are checked one at a time,
+    // so two harmless words never make a bad one where they meet ("Sushi Tiger", "Kung Fu Kitty": code review)
+    const toks = []; let run = '';
+    words.forEach(w => { if (w.length === 1) run += w; else { if (run) toks.push(run); run = ''; toks.push(w); } });
+    if (run) toks.push(run);
+    const once = w => w.replace(/(.)\1+/g, '$1'); // "fuuuck" -> "fuck"
+    // long words count anywhere inside a word; short ones only as a whole word, so Cassie, Grape or Skills stay fine
+    return toks.some(w => BAD_ANY.some(b => w.includes(b) || once(w).includes(b)) || BAD_WORD.includes(w) || BAD_WORD.includes(once(w)));
   }
   const safeName = (name, fallback) => badName(name) ? fallback : name;
   window.PSToys = { ARCH, ARCH_BY_ID, ELEMENTS, QUIRKS, makeKit, createToy, elementFromPixels, seedFromPixels, nameIdeas, subFor, badName, safeName };
