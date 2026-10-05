@@ -376,8 +376,10 @@
         header(this, PS, 'PARENTS');
         if (!this.ok) { parentGate(this, PS, () => this.scene.restart({ ok: true })); return; }
         const d = Save.data; if (!d.parent) d.parent = { bedtime: 'off', limit: 0 };
-        const P = d.parent, colW = PORTRAIT ? W - 80 : (W - 120) / 2;
-        const lx = PORTRAIT ? W / 2 : 40 + colW / 2, rx = PORTRAIT ? W / 2 : W - 40 - colW / 2;
+        // landscape: the quest column gets more room than the settings column, so the quest texts stay readable (QA B59)
+        const P = d.parent, colW = PORTRAIT ? W - 80 : Math.round((W - 120) * 0.58), colR = this.colR = PORTRAIT ? W - 80 : W - 120 - colW;
+        const lx = PORTRAIT ? W / 2 : 40 + colW / 2, rx = PORTRAIT ? W / 2 : W - 40 - colR / 2;
+        const short = PORTRAIT && H < 1700; // iPad portrait: the play-time chart is squeezed in (QA B15)
         let y = PORTRAIT ? 300 : 170;
         // quests to approve
         txt(this, lx, y, 'Quests to check', 40, '#ffd23f', { st: 6 });
@@ -387,9 +389,10 @@
           const Q = QBY[it.id], yy = y + 90 + i * 110;
           this.add.existing(card(this, PS, lx, yy, colW, 96));
           const ic = img(this, lx - colW / 2 + 60, yy, Q.icon); ic.setScale(iconScale(Q.icon, 70));
-          fit(txt(this, lx - colW / 2 + 110, yy, Q.text, 28, '#fff3d2', { st: 5, ox: 0 }), colW - 420);
-          button(this, lx + colW / 2 - 200, yy, 170, 74, 'YES', 0x7fe39a, () => this.approve(it, true), { size: 30 });
-          button(this, lx + colW / 2 - 70, yy, 110, 74, 'NO', C.cream, () => this.approve(it, false), { size: 30 });
+          // YES and NO side by side with a clear gap (QA B19); the text wraps to two lines next to them (QA B59)
+          wrap2(txt(this, lx - colW / 2 + 110, yy, Q.text, 28, '#fff3d2', { st: 5, ox: 0, align: 'left' }), colW - 430, 22);
+          button(this, lx + colW / 2 - 222, yy, 150, 74, 'YES', 0x7fe39a, () => this.approve(it, true), { size: 30 });
+          button(this, lx + colW / 2 - 72, yy, 110, 74, 'NO', C.cream, () => this.approve(it, false), { size: 30 });
         });
         if (PORTRAIT) y += 120 + Math.max(1, Math.min(4, list.length)) * 110;
         // bedtime + limit
@@ -399,19 +402,19 @@
         txt(this, rx, ry0 + 180, 'Daily play limit', 40, '#ffd23f', { st: 6 });
         this.pills(rx, ry0 + 260, [0, 30, 45, 60, 90], P.limit || 0, v => { P.limit = v; }, v => v ? v + ' min' : 'off');
         // play time chart (7 days)
-        const cy = ry0 + 380, play = d.play || {};
+        const cy = ry0 + (short ? 350 : 380), play = d.play || {};
         txt(this, rx, cy, 'Play time', 40, '#ffd23f', { st: 6 });
         const days = []; for (let i = 6; i >= 0; i--) { const t = new Date(Date.now() - i * 86400000); days.push([todayKey(t), 'SMTWTFS'[t.getDay()]]); }
-        const max = Math.max(1800, ...days.map(([k]) => play[k] || 0)), bw = Math.min(90, (colW - 60) / 7 - 14), bh = 180;
+        const max = Math.max(1800, ...days.map(([k]) => play[k] || 0)), bw = Math.min(90, (colR - 60) / 7 - 14), bh = short ? 150 : 180;
         days.forEach(([k, l], i) => {
-          const x = rx + (i - 3) * (bw + 14), v = play[k] || 0, hh = Math.max(4, bh * v / max), base = cy + 60 + bh;
+          const x = rx + (i - 3) * (bw + 14), v = play[k] || 0, hh = Math.max(4, bh * v / max), base = cy + (short ? 55 : 60) + bh;
           this.add.rectangle(x, base, bw, hh, i === 6 ? C.star : C.mint).setOrigin(0.5, 1);
           txt(this, x, base + 26, l, 24, '#bcc0ee', { st: 0, shadow: false });
           txt(this, x, base - hh - 18, Math.round(v / 60) + 'm', 20, '#fff3d2', { st: 0, shadow: false });
         });
       }
       pills(x, y, vals, cur, set, label = v => v) {
-        const bw = Math.min(170, (PORTRAIT ? W - 100 : (W - 160) / 2) / vals.length - 8);
+        const bw = Math.min(170, (PORTRAIT ? W - 100 : this.colR - 40) / vals.length - 8);
         vals.forEach((v, i) => {
           const px = x + (i - (vals.length - 1) / 2) * (bw + 8), on = v === cur;
           const b = this.add.container(px, y);
