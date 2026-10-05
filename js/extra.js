@@ -414,7 +414,7 @@
         });
       }
       pills(x, y, vals, cur, set, label = v => v) {
-        const bw = Math.min(170, (PORTRAIT ? W - 100 : this.colR - 40) / vals.length - 8);
+        const bw = Math.max(104, Math.min(170, (PORTRAIT ? W - 100 : this.colR - 40) / vals.length - 8)); // touch targets stay over 90 px (B26)
         vals.forEach((v, i) => {
           const px = x + (i - (vals.length - 1) / 2) * (bw + 8), on = v === cur;
           const b = this.add.container(px, y);

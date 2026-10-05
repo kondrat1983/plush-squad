@@ -2642,10 +2642,11 @@
       if (fresh) this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 }); else dim.fillAlpha = 0.6;
       // notes keep a readable size (QA B32 / #28): the panel makes room for them first. Portrait: it grows taller.
       // Landscape (no height to spare): it grows wider, the icon moves beside the title and the rest moves up.
-      const pw = PORTRAIT ? 920 : (notes.length > 2 ? Math.min(W - 120, 1300) : 1000);
-      const NFS = 34, nTop = 700, probe = txt(this, 0, 0, notes.join('\n'), NFS, '#ffd23f', { st: 6, wrap: pw - 100 });
-      const need = notes.length ? probe.height : 0; probe.destroy();
-      const ph0 = PORTRAIT ? 1230 : 1020, by0 = PORTRAIT ? 940 : 925;
+      const NFS = 34, nTop = 700, ph0 = PORTRAIT ? 1230 : 1020, by0 = PORTRAIT ? 940 : 925;
+      const measure = w => { if (!notes.length) return 0; const pr = txt(this, 0, 0, notes.join('\n'), NFS, '#ffd23f', { st: 6, wrap: w - 100 }), h = pr.height; pr.destroy(); return h; };
+      // landscape: the panel widens whenever the notes do not fit, so the icon never moves beside a narrow title (code review)
+      let pw = PORTRAIT ? 920 : 1000, need = measure(pw);
+      if (!PORTRAIT && need > by0 - 70 - nTop) { pw = Math.min(W - 120, 1300); need = measure(pw); }
       let extra = Math.max(0, need - (by0 - 70 - nTop));
       const grow = Math.max(0, Math.min(extra, H - 60 - ph0)); extra -= grow;
       const lift = PORTRAIT ? 0 : Math.min(extra, 150);
