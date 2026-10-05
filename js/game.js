@@ -966,7 +966,7 @@
   // ---------- Squad: your toys
   class SquadScene extends Phaser.Scene {
     constructor() { super('squad'); }
-    init(data) { this.focus = data && data.focus; }
+    init(data) { this.focus = data && data.focus; this.page = (data && data.page) || 0; }
     create() {
       this._leaving = false;
       this.cameras.main.fadeIn(350, 15, 18, 64);
@@ -975,12 +975,27 @@
       txt(this, W / 2, PORTRAIT ? 270 : 165, 'Tap a toy to play as it or to duel it', 32, '#bcc0ee', { st: 5, weight: '500' });
       const items = [{ jack: true }].concat(Save.data.toys.map(t => ({ toy: t }))).concat(Save.data.toys.length < 14 ? [{ add: true }] : []);
       const cols = PORTRAIT ? 3 : Math.min(5, Math.max(4, Math.floor((W - 120) / 300)));
-      const cw = PORTRAIT ? 310 : Math.min(290, (W - 160) / cols - 20), ch = PORTRAIT ? 330 : 270;
-      const top = PORTRAIT ? 360 : 225;
-      items.forEach((it, i) => {
+      const cw = PORTRAIT ? 310 : Math.min(290, (W - 160) / cols - 20), top = PORTRAIT ? 360 : 225;
+      // pages when the squad does not fit (QA B05): the cards get a little shorter first, then ◀ n/m ▶ like the Sticker Album
+      let ch = PORTRAIT ? 330 : 270, rows = Math.ceil(items.length / cols), pages = 1;
+      if (top + rows * (ch + 22) > H - 30) {
+        const room = H - top - 150 + 22, minCh = PORTRAIT ? 280 : 230;
+        rows = Math.max(1, Math.floor(room / (minCh + 22)));
+        ch = Math.min(ch, Math.floor(room / rows) - 22);
+        pages = Math.ceil(items.length / (rows * cols));
+      }
+      const per = rows * cols, fi = this.focus ? items.findIndex(it => it.toy && it.toy.id === this.focus) : -1;
+      const pg = this.page = Math.min(pages - 1, Math.max(0, fi >= 0 ? Math.floor(fi / per) : this.page || 0));
+      items.slice(pg * per, pg * per + per).forEach((it, i) => {
         const x = W / 2 + ((i % cols) - (cols - 1) / 2) * (cw + 22), y = top + ch / 2 + Math.floor(i / cols) * (ch + 22);
         this.card(it, x, y, cw, ch, i);
       });
+      if (pages > 1) {
+        const by = top + rows * (ch + 22) + 50;
+        if (pg > 0) button(this, W / 2 - 260, by, 200, 100, '◀', C.cream, () => this.scene.restart({ page: pg - 1 }), { size: 48 });
+        txt(this, W / 2, by, (pg + 1) + ' / ' + pages, 40, '#fff3d2', { st: 6 });
+        if (pg < pages - 1) button(this, W / 2 + 260, by, 200, 100, '▶', C.star, () => this.scene.restart({ page: pg + 1 }), { size: 48 });
+      }
       backButton(this, () => fade(this, 'map'));
       muteButton(this);
       if (this.focus) { const t = toyById(this.focus); if (t) this.time.delayedCall(450, () => this.details({ toy: t })); }
@@ -1050,7 +1065,7 @@
       if (more) p.add(txt(this, tx, my0 + ml.length * step, 'More moves unlock as you level up!', ss, '#ffd23f', { st: 4, weight: '500' }));
       const bxs = PORTRAIT ? [0, 0] : [tx - 170, tx + 170];
       const b1 = button(this, bxs[0], by, 320, 110, isHero ? 'PLAYING ✓' : 'PLAY AS', isHero ? 0x9fe3c0 : C.star, () => {
-        if (isHero) return; Save.data.hero = it.jack ? 'jack' : it.toy.id; Save.store(); A.levelUp(); close(); this.scene.restart();
+        if (isHero) return; Save.data.hero = it.jack ? 'jack' : it.toy.id; Save.store(); A.levelUp(); close(); this.scene.restart({ page: this.page });
       }, { size: 42 });
       p.add(b1);
       if (!it.jack) {
@@ -1082,7 +1097,7 @@
         Save.data.toys = Save.data.toys.filter(x => x.id !== t.id);
         if (Save.data.hero === t.id) Save.data.hero = 'jack';
         Save.store(); IDB.del(t.id).catch(() => {});
-        layer.destroy(); closeDetails(); this.scene.restart();
+        layer.destroy(); closeDetails(); this.scene.restart({ page: this.page });
       }, { size: 40, color: '#fff3d2' }));
     }
     toast(s) {
