@@ -172,7 +172,7 @@
     },
     async claim(id) { const { data } = await this.sb.rpc('claim_inbox', { p_id: id }); this.inboxCache = this.inboxCache.filter(m => m.id !== id); this.unread = this.inboxCache.length; return data; },
     // ---- co-op boss, scores, museum
-    async bossStatus() { const { data } = await this.sb.rpc('boss_status'); this.boss = data; return data; },
+    async bossStatus() { const { data, error } = await this.sb.rpc('boss_status'); if (error || !data) throw error || new Error('no boss'); this.boss = data; return data; }, // (QA B23)
     async bossStart() { const { data } = await this.sb.rpc('boss_start'); return !!data; },
     async bossHit(d) { const { data } = await this.sb.rpc('boss_hit', { p_dmg: d }); this.boss = data; return data; },
     async bossClaim() { const { data } = await this.sb.rpc('boss_claim'); return !!data; },
@@ -513,10 +513,18 @@
         const k = this.add.image(W / 2, PORTRAIT ? 620 : 380, 'kraken').setScale(PORTRAIT ? 1.6 : 1.3);
         this.tweens.add({ targets: k, y: k.y - 24, angle: { from: -4, to: 4 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         this.info = txt(this, W / 2, PORTRAIT ? 900 : 620, 'Loading...', 36, '#fff3d2', { st: 6 });
-        Net.bossStatus().then(b => this.show(b)).catch(() => this.info.setText('Could not connect. Check the internet!'));
+        // a late answer from before a RETRY (or from a destroyed game) must not draw on this screen
+        const tok = this._tok = {}, live = () => this._tok === tok && this.sys.isActive();
+        Net.bossStatus().then(b => live() && this.show(b), e => { console.warn('boss', e); if (live()) this.fail(); });
+      }
+      // the server call failed (offline or an RPC error): say so, with RETRY and BACK (QA B23 / #22)
+      fail() {
+        const y = PORTRAIT ? 900 : 620;
+        this.info.setText('The Kraken is hiding! Could not reach the server.').setWordWrapWidth(Math.min(W - 120, 900));
+        button(this, W / 2 - 220, y + 150, 380, 120, 'RETRY', C.star, () => this.scene.restart(), { size: 44 });
+        button(this, W / 2 + 220, y + 150, 380, 120, 'BACK', C.cream, () => fade(this, 'map'), { size: 44 });
       }
       show(b) {
-        if (!b) return;
         this.info.destroy();
         const y = PORTRAIT ? 880 : 600, bw = Math.min(W - 160, 900), left = Math.max(0, b.max_hp - b.dmg);
         txt(this, W / 2, y - 70, b.name + ': ' + left + ' / ' + b.max_hp + ' pep left', 40, '#fff3d2', { st: 6 });
