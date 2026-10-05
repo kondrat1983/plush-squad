@@ -3232,13 +3232,15 @@
       txt(this, W / 2, PORTRAIT ? 190 : 80, 'CAPSULE MACHINE', PORTRAIT ? 76 : 70, '#fff3d2', { stroke: '#0f1240', st: 12 });
       this.countT = txt(this, W / 2, PORTRAIT ? 275 : 155, '', 36, '#ffd23f', { st: 6 });
       const short = PORTRAIT && H < 1900;
-      this.mx = PORTRAIT ? W / 2 : W * 0.3; this.my = PORTRAIT ? (short ? 620 : 760) : 560; this.ms = short ? 0.8 : 1;
+      // iPad portrait (short and wide): TURN! sits beside a smaller machine, so both booster rows fit below it (QA B07)
+      const side = this.side = PORTRAIT && H < 1700;
+      this.mx = PORTRAIT && !side ? W / 2 : W * 0.3; this.my = side ? 640 : PORTRAIT ? (short ? 620 : 760) : 560; this.ms = side ? 0.75 : short ? 0.8 : 1;
       this.machine();
-      const by = this.my + (PORTRAIT ? 330 * this.ms + 90 : 390);
-      this.turnBtn = button(this, this.mx, by, 380, 120, 'TURN!', C.star, () => this.turn(), { size: 56 });
+      const bx = side ? W * 0.75 : this.mx, by = side ? this.my + 40 : this.my + (PORTRAIT ? 330 * this.ms + 90 : 390);
+      this.turnBtn = button(this, bx, by, side ? 340 : 380, 120, 'TURN!', C.star, () => this.turn(), { size: 56 });
       this.tweens.add({ targets: this.turnBtn, scale: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      this.noneT = txt(this, this.mx, by, 'Win duels to get capsules.\nOne more is free every day!', 32, '#bcc0ee', { st: 5, weight: '500' });
-      this.gridTop = PORTRAIT ? by + 140 : 250;
+      this.noneT = txt(this, bx, by, 'Win duels to get capsules.\nOne more is free every day!', 32, '#bcc0ee', { st: 5, weight: '500' });
+      this.gridTop = side ? this.my + 330 * this.ms + 50 : PORTRAIT ? by + 140 : 250;
       this.grid = this.add.container(0, 0);
       this.refresh();
       backButton(this, () => fade(this, 'map', { world: this.world }));
@@ -3319,7 +3321,8 @@
     }
     hint2(s) {
       if (this._h) this._h.destroy();
-      const t = this._h = fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
+      // iPad portrait: the booster rows reach the bottom, so the hint goes under TURN! (QA B07)
+      const t = this._h = this.side ? txt(this, W * 0.72, this.my + 170, s, 32, '#ffd23f', { st: 6, wrap: 540 }).setDepth(70) : fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
       this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
     }
     async turn() {
