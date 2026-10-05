@@ -793,7 +793,8 @@
       const lv = levelOf(Save.data.xp);
       // the hat sticks up above Jack's head and he bobs 34 px: keep both clear of the panel (code review)
       const gap = Math.max(24, (avail - 190 - jack.displayHeight - (hat ? hat.displayHeight * 0.85 : 0) - 34) / 2);
-      const px = PORTRAIT ? W / 2 : 420, py = PORTRAIT ? logoBot + gap + 95 : H * 0.7;
+      // landscape: the panel stays left of Jack's wing, also on 4:3 iPads (QA B18 / #19)
+      const px = PORTRAIT ? W / 2 : clamp(W / 2 - jack.displayWidth / 2 - 240, 230, 420), py = PORTRAIT ? logoBot + gap + 95 : H * 0.7;
       const pg = this.add.graphics(); pg.fillStyle(C.night2, 0.9); pg.fillRoundedRect(px - 210, py - 95, 420, 190, 40); pg.lineStyle(4, C.seam); pg.strokeRoundedRect(px - 210, py - 95, 420, 190, 40);
       txt(this, px, py - 46, 'LEVEL ' + lv.l, 50, '#ffd23f', { st: 0 });
       this.add.rectangle(px, py + 10, 320, 26, C.night3).setStrokeStyle(3, C.seam);
@@ -983,7 +984,7 @@
   // ---------- Squad: your toys
   class SquadScene extends Phaser.Scene {
     constructor() { super('squad'); }
-    init(data) { this.focus = data && data.focus; }
+    init(data) { this.focus = data && data.focus; this.page = (data && data.page) || 0; }
     create() {
       this._leaving = false;
       this.cameras.main.fadeIn(350, 15, 18, 64);
@@ -992,12 +993,27 @@
       txt(this, W / 2, PORTRAIT ? 270 : 165, 'Tap a toy to play as it or to duel it', 32, '#bcc0ee', { st: 5, weight: '500' });
       const items = [{ jack: true }].concat(Save.data.toys.map(t => ({ toy: t }))).concat(Save.data.toys.length < 14 ? [{ add: true }] : []);
       const cols = PORTRAIT ? 3 : Math.min(5, Math.max(4, Math.floor((W - 120) / 300)));
-      const cw = PORTRAIT ? 310 : Math.min(290, (W - 160) / cols - 20), ch = PORTRAIT ? 330 : 270;
-      const top = PORTRAIT ? 360 : 225;
-      items.forEach((it, i) => {
+      const cw = PORTRAIT ? 310 : Math.min(290, (W - 160) / cols - 20), top = PORTRAIT ? 360 : 225;
+      // pages when the squad does not fit (QA B05): the cards get a little shorter first, then ◀ n/m ▶ like the Sticker Album
+      let ch = PORTRAIT ? 330 : 270, rows = Math.ceil(items.length / cols), pages = 1;
+      if (top + rows * (ch + 22) > H - 30) {
+        const room = H - top - 150 + 22, minCh = PORTRAIT ? 280 : 230;
+        rows = Math.max(1, Math.floor(room / (minCh + 22)));
+        ch = Math.min(ch, Math.floor(room / rows) - 22);
+        pages = Math.ceil(items.length / (rows * cols));
+      }
+      const per = rows * cols, fi = this.focus ? items.findIndex(it => it.toy && it.toy.id === this.focus) : -1;
+      const pg = this.page = Math.min(pages - 1, Math.max(0, fi >= 0 ? Math.floor(fi / per) : this.page || 0));
+      items.slice(pg * per, pg * per + per).forEach((it, i) => {
         const x = W / 2 + ((i % cols) - (cols - 1) / 2) * (cw + 22), y = top + ch / 2 + Math.floor(i / cols) * (ch + 22);
         this.card(it, x, y, cw, ch, i);
       });
+      if (pages > 1) {
+        const by = top + rows * (ch + 22) + 50;
+        if (pg > 0) button(this, W / 2 - 260, by, 200, 100, '◀', C.cream, () => this.scene.restart({ page: pg - 1 }), { size: 48 });
+        txt(this, W / 2, by, (pg + 1) + ' / ' + pages, 40, '#fff3d2', { st: 6 });
+        if (pg < pages - 1) button(this, W / 2 + 260, by, 200, 100, '▶', C.star, () => this.scene.restart({ page: pg + 1 }), { size: 48 });
+      }
       backButton(this, () => fade(this, 'map'));
       muteButton(this);
       if (this.focus) { const t = toyById(this.focus); if (t) this.time.delayedCall(450, () => this.details({ toy: t })); }
@@ -1067,7 +1083,7 @@
       if (more) p.add(txt(this, tx, my0 + ml.length * step, 'More moves unlock as you level up!', ss, '#ffd23f', { st: 4, weight: '500' }));
       const bxs = PORTRAIT ? [0, 0] : [tx - 170, tx + 170];
       const b1 = button(this, bxs[0], by, 320, 110, isHero ? 'PLAYING ✓' : 'PLAY AS', isHero ? 0x9fe3c0 : C.star, () => {
-        if (isHero) return; Save.data.hero = it.jack ? 'jack' : it.toy.id; Save.store(); A.levelUp(); close(); this.scene.restart();
+        if (isHero) return; Save.data.hero = it.jack ? 'jack' : it.toy.id; Save.store(); A.levelUp(); close(); this.scene.restart({ page: this.page });
       }, { size: 42 });
       p.add(b1);
       if (!it.jack) {
@@ -1099,7 +1115,7 @@
         Save.data.toys = Save.data.toys.filter(x => x.id !== t.id);
         if (Save.data.hero === t.id) Save.data.hero = 'jack';
         Save.store(); IDB.del(t.id).catch(() => {});
-        layer.destroy(); closeDetails(); this.scene.restart();
+        layer.destroy(); closeDetails(); this.scene.restart({ page: this.page });
       }, { size: 40, color: '#fff3d2' }));
     }
     toast(s) {
@@ -2652,28 +2668,38 @@
       if (!fresh) A.music('calm');
       const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0).setDepth(60).setInteractive();
       if (fresh) this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 300 }); else dim.fillAlpha = 0.6;
-      const pw = PORTRAIT ? 920 : 1000, ph = PORTRAIT ? 1230 : 1020, T0 = -ph / 2;
+      // notes keep a readable size (QA B32 / #28): the panel makes room for them first. Portrait: it grows taller.
+      // Landscape (no height to spare): it grows wider, the icon moves beside the title and the rest moves up.
+      const NFS = 34, nTop = 700, ph0 = PORTRAIT ? 1230 : 1020, by0 = PORTRAIT ? 940 : 925;
+      const measure = w => { if (!notes.length) return 0; const pr = txt(this, 0, 0, notes.join('\n'), NFS, '#ffd23f', { st: 6, wrap: w - 100 }), h = pr.height; pr.destroy(); return h; };
+      // landscape: the panel widens whenever the notes do not fit, so the icon never moves beside a narrow title (code review)
+      let pw = PORTRAIT ? 920 : 1000, need = measure(pw);
+      if (!PORTRAIT && need > by0 - 70 - nTop) { pw = Math.min(W - 120, 1300); need = measure(pw); }
+      let extra = Math.max(0, need - (by0 - 70 - nTop));
+      const grow = Math.max(0, Math.min(extra, H - 60 - ph0)); extra -= grow;
+      const lift = PORTRAIT ? 0 : Math.min(extra, 150);
+      const ph = ph0 + grow, T0 = -ph / 2, Y = v => T0 + v - lift;
       const p = this.add.container(W / 2, H / 2).setDepth(61).setScale(fresh ? 0 : 1);
       p.add(panel(this, 0, 0, pw, ph, C.night2, 0));
-      const icon = this.add.image(0, T0 + 120, won ? 'trophy' : 'zzz').setScale(0.7);
+      const icon = lift ? this.add.image(-pw / 2 + 150, Y(265), won ? 'trophy' : 'zzz').setScale(0.55) : this.add.image(0, T0 + 120, won ? 'trophy' : 'zzz').setScale(0.7);
       this.tweens.add({ targets: icon, y: icon.y - 12, angle: { from: -5, to: 5 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      const title = txt(this, 0, T0 + 265, won ? 'YOU WIN!' : 'SO SLEEPY...', 100, won ? '#ffd23f' : '#bcc0ee', { stroke: '#0f1240', st: 14 });
-      const sub = txt(this, 0, T0 + 345, won ? (R.laugh || '') : this.hero.name + ' needs a nap. Next time for sure!', 34, '#fff3d2', { st: 0, weight: '500', wrap: pw - 120 });
+      const title = txt(this, 0, Y(265), won ? 'YOU WIN!' : 'SO SLEEPY...', 100, won ? '#ffd23f' : '#bcc0ee', { stroke: '#0f1240', st: 14 });
+      const sub = txt(this, 0, Y(345), won ? (R.laugh || '') : this.hero.name + ' needs a nap. Next time for sure!', 34, '#fff3d2', { st: 0, weight: '500', wrap: pw - 120 });
       p.add([icon, title, sub]);
       const sr = [];
-      if (isCampaign) for (let i = 0; i < 3; i++) { const s = this.add.image((i - 1) * 120, T0 + 445 - (i === 1 ? 14 : 0), 'star').setScale(0.42).setTint(0x3a3f7a); p.add(s); sr.push(s); }
-      const xpT = txt(this, 0, T0 + 545, '+0 XP', 60, '#7fe39a', { stroke: '#0f1240', st: 10 });
-      const bw = pw - 220;
-      const lvT = txt(this, -bw / 2, T0 + 610, 'LEVEL ' + before.l, 34, '#fff3d2', { ox: 0, st: 0 });
-      const barBg = this.add.rectangle(0, T0 + 660, bw, 34, C.night3).setStrokeStyle(4, C.seam);
-      const bar = this.add.rectangle(-bw / 2, T0 + 660, Math.max(4, bw * before.r / before.n), 26, C.star).setOrigin(0, 0.5);
-      const note = txt(this, 0, T0 + 700, '', 34, '#ffd23f', { st: 6, wrap: pw - 100, oy: 0 });
+      if (isCampaign) for (let i = 0; i < 3; i++) { const s = this.add.image((i - 1) * 120, Y(445) - (i === 1 ? 14 : 0), 'star').setScale(0.42).setTint(0x3a3f7a); p.add(s); sr.push(s); }
+      const xpT = txt(this, 0, Y(545), '+0 XP', 60, '#7fe39a', { stroke: '#0f1240', st: 10 });
+      const bw = Math.min(pw, 1000) - 220;
+      const lvT = txt(this, -bw / 2, Y(610), 'LEVEL ' + before.l, 34, '#fff3d2', { ox: 0, st: 0 });
+      const barBg = this.add.rectangle(0, Y(660), bw, 34, C.night3).setStrokeStyle(4, C.seam);
+      const bar = this.add.rectangle(-bw / 2, Y(660), Math.max(4, bw * before.r / before.n), 26, C.star).setOrigin(0, 0.5);
+      const note = txt(this, 0, Y(nTop), '', NFS, '#ffd23f', { st: 6, wrap: pw - 100, oy: 0 });
       p.add([xpT, lvT, barBg, bar, note]);
-      const by = T0 + (PORTRAIT ? 940 : 925);
-      // all notes stay above the buttons (QA B09)
-      let nfs = notes.length > 2 ? 27 : notes.length > 1 ? 30 : 34;
-      note.setText(notes.join('\n')).setFontSize(nfs);
-      while (note.height > by - 70 - (T0 + 700) && nfs > 18) { nfs -= 2; note.setFontSize(nfs); }
+      const by = T0 + by0 + grow;
+      // all notes stay above the buttons (QA B09); only the rare 6-note landscape case still shrinks a little
+      let nfs = NFS;
+      note.setText(notes.join('\n'));
+      while (note.height > by - 70 - Y(nTop) && nfs > 24) { nfs -= 2; note.setFontSize(nfs); }
       const primary = info.primary === 'next' ? ['NEXT RIVAL', () => fade(this, 'battle', { rival: info.nextIdx })]
         // Kraken fights only through the Weekly Boss screen: it counts the daily tries (QA B33)
         : info.primary === 'boss' ? ['BOSS', () => fade(this, 'boss')]
@@ -2690,7 +2716,7 @@
         this.time.delayedCall(600 + i * 280, () => {
           sr[i].clearTint(); A.starDing(i);
           this.tweens.add({ targets: sr[i], scale: { from: 0.8, to: 0.42 }, angle: { from: -30, to: 0 }, duration: 320, ease: 'Back.out' });
-          this.sparks.explode(10, W / 2 + (i - 1) * 120, H / 2 + T0 + 445);
+          this.sparks.explode(10, W / 2 + (i - 1) * 120, H / 2 + Y(445));
         });
       }
       const st = sr.length ? stars : 0;
@@ -3236,13 +3262,15 @@
       txt(this, W / 2, PORTRAIT ? 190 : 80, 'CAPSULE MACHINE', PORTRAIT ? 76 : 70, '#fff3d2', { stroke: '#0f1240', st: 12 });
       this.countT = txt(this, W / 2, PORTRAIT ? 275 : 155, '', 36, '#ffd23f', { st: 6 });
       const short = PORTRAIT && H < 1900;
-      this.mx = PORTRAIT ? W / 2 : W * 0.3; this.my = PORTRAIT ? (short ? 620 : 760) : 560; this.ms = short ? 0.8 : 1;
+      // iPad portrait (short and wide): TURN! sits beside a smaller machine, so both booster rows fit below it (QA B07)
+      const side = this.side = PORTRAIT && H < 1700;
+      this.mx = PORTRAIT && !side ? W / 2 : W * 0.3; this.my = side ? 640 : PORTRAIT ? (short ? 620 : 760) : 560; this.ms = side ? 0.75 : short ? 0.8 : 1;
       this.machine();
-      const by = this.my + (PORTRAIT ? 330 * this.ms + 90 : 390);
-      this.turnBtn = button(this, this.mx, by, 380, 120, 'TURN!', C.star, () => this.turn(), { size: 56 });
+      const bx = side ? W * 0.75 : this.mx, by = side ? this.my + 40 : this.my + (PORTRAIT ? 330 * this.ms + 90 : 390);
+      this.turnBtn = button(this, bx, by, side ? 340 : 380, 120, 'TURN!', C.star, () => this.turn(), { size: 56 });
       this.tweens.add({ targets: this.turnBtn, scale: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      this.noneT = txt(this, this.mx, by, 'Win duels to get capsules.\nOne more is free every day!', 32, '#bcc0ee', { st: 5, weight: '500' });
-      this.gridTop = PORTRAIT ? by + 140 : 250;
+      this.noneT = txt(this, bx, by, 'Win duels to get capsules.\nOne more is free every day!', 32, '#bcc0ee', { st: 5, weight: '500' });
+      this.gridTop = side ? this.my + 330 * this.ms + 50 : PORTRAIT ? by + 140 : 250;
       this.grid = this.add.container(0, 0);
       this.refresh();
       backButton(this, () => fade(this, 'map', { world: this.world }));
@@ -3323,7 +3351,8 @@
     }
     hint2(s) {
       if (this._h) this._h.destroy();
-      const t = this._h = fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
+      // iPad portrait: the booster rows reach the bottom, so the hint goes under TURN! (QA B07)
+      const t = this._h = this.side ? txt(this, W * 0.72, this.my + 170, s, 32, '#ffd23f', { st: 6, wrap: 540 }).setDepth(70) : fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
       this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
     }
     async turn() {

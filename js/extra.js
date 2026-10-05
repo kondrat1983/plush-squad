@@ -160,6 +160,13 @@
     g.lineStyle(5, stroke == null ? PS.C.seam : stroke); g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 34);
     return g;
   }
+  // a long line wraps to two lines instead of shrinking to fit (QA B59); only a third line makes it a bit smaller
+  function wrap2(t, maxW, minSize = 24) {
+    t.setWordWrapWidth(maxW);
+    let fs = parseInt(t.style.fontSize, 10);
+    while (t.getWrappedText().length > 2 && fs > minSize) { fs -= 2; t.setFontSize(fs); }
+    return t;
+  }
   // grown-up gate: a multiplication question typed on the number pad
   function parentGate(scene, PS, onOk) {
     const { W, H, txt, button, C, A } = PS;
@@ -245,7 +252,9 @@
       create() {
         header(this, PS, 'ME');
         const d = Save.data, hero = heroDef(this), lv = levelOf(d.xp).l, Net = window.PSNet;
-        const cw = Math.min(W - 80, 960), cx = W / 2, cy = PORTRAIT ? 640 : 410, chh = PORTRAIT ? 560 : 520;
+        // short portrait screens (iPads): the card, the hat row and the account box move closer together (QA B11)
+        const short = PORTRAIT && H < 1700;
+        const cw = Math.min(W - 80, 960), cx = W / 2, cy = PORTRAIT ? (short ? 600 : 640) : 410, chh = PORTRAIT ? 560 : 520;
         this.add.existing(card(this, PS, cx, cy, cw, chh, C.night2, C.star));
         const ax = PORTRAIT ? cx : cx - cw / 2 + 200, ay = PORTRAIT ? cy - 120 : cy;
         const av = this.add.image(ax, ay + 110, hero.isJack ? 'jack_front' : hero.tex).setOrigin(0.5, 1);
@@ -265,16 +274,16 @@
         txt(this, tx, ty + 205, 'Wins ' + (d.wins || 0) + '   ·   Toys ' + (d.toys || []).length, 30, '#bcc0ee', { st: 5, ox, weight: '500' });
         // costumes
         const owned = COSTUMES.filter(c => c.id === 'none' || (d.costumes || {})[c.id]);
-        const yC = cy + chh / 2 + 90;
+        const yC = cy + chh / 2 + (short ? 60 : 90), hy = yC + (short ? 100 : 110);
         txt(this, cx, yC, 'COSTUME', 40, '#ffd23f', { st: 7 });
         // more hats than fit in one row (v0.8: up to 8 + none): tall portrait screens wrap into two rows, others shrink the cards
         // (a second row must stay above the account box, which starts about H - 340 in portrait; iPad portrait has no room)
-        const wrap = PORTRAIT && owned.length * 170 > W - 80 && yC + 110 + 170 + 75 < H - 340;
-        const step = wrap ? 170 : Math.min(170, (W - 80) / owned.length), cs = step - 20;
+        const wrap = PORTRAIT && owned.length * 170 > W - 80 && hy + 170 + 75 < H - 340;
+        const step = wrap ? 170 : Math.min(short ? 150 : 170, (W - 80) / owned.length), cs = step - 20;
         const perRow = wrap ? Math.floor((W - 80) / 170) : owned.length;
         owned.forEach((c, i) => {
           const row = Math.floor(i / perRow), inRow = Math.min(perRow, owned.length - row * perRow), col = i % perRow;
-          const x = cx + (col - (inRow - 1) / 2) * step, y = yC + 110 + row * 170, on = d.costume === c.id;
+          const x = cx + (col - (inRow - 1) / 2) * step, y = hy + row * 170, on = d.costume === c.id;
           const b = this.add.container(x, y);
           b.add(card(this, PS, 0, 0, cs, cs, on ? C.star : C.night2, on ? 0xffffff : C.seam));
           if (c.tex) { const im = PS.hatImage(this, 0, -8, c); im.setScale(cs * 0.66 / Math.max(im.width, im.height)); b.add(im); }
@@ -282,9 +291,9 @@
           b.setSize(cs, cs).setInteractive({ useHandCursor: true }); PS.press(this, b);
           b.on('pointerup', () => { d.costume = c.id; Save.store(); A.click(); this.scene.restart(); });
         });
-        if (owned.length === 1) txt(this, cx, yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat Professor Hoot to win the Owl Hat!', 28, '#bcc0ee', { st: 5, weight: '500' });
+        if (owned.length === 1) txt(this, cx, short ? hy + cs / 2 + 40 : yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat Professor Hoot to win the Owl Hat!', 28, '#bcc0ee', { st: 5, weight: '500' });
         // account
-        const yA = PORTRAIT ? H - 260 : H - 55;
+        const yA = PORTRAIT ? H - (short ? 230 : 260) : H - 55;
         if (Net && Net.ready) {
           if (Net.user) {
             txt(this, PORTRAIT ? cx : 300, yA - (PORTRAIT ? 60 : 0), 'Friend code: ' + (Net.user.code || '...'), 38, '#7fe39a', { st: 6 });
@@ -380,21 +389,23 @@
       create() {
         header(this, PS, 'REAL-LIFE QUESTS');
         const q = todaysQuests();
-        fit(txt(this, W / 2, PORTRAIT ? 275 : 150, 'Do it for real, tap I DID IT, then a grown-up checks it. Each quest = +1 capsule +20 XP', 30, '#bcc0ee', { st: 5, weight: '500', wrap: W - 120 }), W - 80);
-        const w = Math.min(W - 80, 1000), h = PORTRAIT ? 230 : 190, top = PORTRAIT ? 380 : 230;
+        fit(txt(this, W / 2, PORTRAIT ? 290 : 150, 'Do it for real, tap I DID IT, then a grown-up checks it. Each quest = +1 capsule +20 XP', 30, '#bcc0ee', { st: 5, weight: '500', wrap: W - 120 }), W - 80);
+        // landscape: wider cards, the quest text wraps to two lines next to the button (QA B16 / B59)
+        const w = PORTRAIT ? Math.min(W - 80, 1000) : Math.min(W - 160, 1500), h = PORTRAIT ? 230 : 190, top = PORTRAIT ? 380 : 230;
         q.list.forEach((it, i) => {
           const Q = QBY[it.id], y = top + h / 2 + i * (h + 24);
           this.add.existing(card(this, PS, W / 2, y, w, h, it.st === 'ok' ? 0x2d6b55 : C.night2, it.st === 'ok' ? 0x7fe39a : C.seam));
           const ic = img(this, W / 2 - w / 2 + 100, y, Q.icon); ic.setScale(iconScale(Q.icon, 120));
-          fit(txt(this, W / 2 - w / 2 + 190, y - (PORTRAIT ? 40 : 0), Q.text, 38, '#fff3d2', { st: 6, ox: 0 }), PORTRAIT ? w - 230 : w - 560);
-          const bx = PORTRAIT ? W / 2 - w / 2 + 190 + 170 : W / 2 + w / 2 - 170, by = PORTRAIT ? y + 50 : y;
+          if (PORTRAIT) fit(txt(this, W / 2 - w / 2 + 190, y - 40, Q.text, 38, '#fff3d2', { st: 6, ox: 0 }), w - 230);
+          else wrap2(txt(this, W / 2 - w / 2 + 190, y, Q.text, W > 1800 ? 46 : 38, '#fff3d2', { st: 6, ox: 0, align: 'left' }), w - 640);
+          const bx = PORTRAIT ? W / 2 - w / 2 + 190 + 170 : W / 2 + w / 2 - 220, by = PORTRAIT ? y + 50 : y;
           if (it.st === 'todo') button(this, bx, by, 300, 90, 'I DID IT!', C.star, () => { it.st = 'done'; Save.store(); A.levelUp(); this.scene.restart(); }, { size: 36 });
           else if (it.st === 'done') chip(this, bx, by, 'Waiting for a grown-up', C.cream, 26);
           else chip(this, bx, by, 'DONE! +1 capsule', 0x7fe39a, 28);
         });
         const n = pendingQuests().length;
-        if (n) button(this, W / 2, PORTRAIT ? H - 160 : H - 90, 560, 110, 'GROWN-UP: CHECK (' + n + ')', C.cream, () => fade(this, 'parents'), { size: 38 });
-        txt(this, W / 2, PORTRAIT ? H - 50 : H - 25, 'New quests every day', 26, '#6a72d6', { st: 0, shadow: false, weight: '500' });
+        if (n) button(this, W / 2, PORTRAIT ? H - 160 : H - 115, 560, 110, 'GROWN-UP: CHECK (' + n + ')', C.cream, () => fade(this, 'parents'), { size: 38 });
+        txt(this, W / 2, PORTRAIT ? H - 50 : H - 28, 'New quests every day', 26, '#6a72d6', { st: 0, shadow: false, weight: '500' });
       }
     }
 
@@ -406,8 +417,10 @@
         header(this, PS, 'PARENTS');
         if (!this.ok) { parentGate(this, PS, () => this.scene.restart({ ok: true })); return; }
         const d = Save.data; if (!d.parent) d.parent = { bedtime: 'off', limit: 0 };
-        const P = d.parent, colW = PORTRAIT ? W - 80 : (W - 120) / 2;
-        const lx = PORTRAIT ? W / 2 : 40 + colW / 2, rx = PORTRAIT ? W / 2 : W - 40 - colW / 2;
+        // landscape: the quest column gets more room than the settings column, so the quest texts stay readable (QA B59)
+        const P = d.parent, colW = PORTRAIT ? W - 80 : Math.round((W - 120) * 0.58), colR = this.colR = PORTRAIT ? W - 80 : W - 120 - colW;
+        const lx = PORTRAIT ? W / 2 : 40 + colW / 2, rx = PORTRAIT ? W / 2 : W - 40 - colR / 2;
+        const short = PORTRAIT && H < 1700; // iPad portrait: the play-time chart is squeezed in (QA B15)
         let y = PORTRAIT ? 300 : 170;
         // quests to approve
         txt(this, lx, y, 'Quests to check', 40, '#ffd23f', { st: 6 });
@@ -417,9 +430,10 @@
           const Q = QBY[it.id], yy = y + 90 + i * 110;
           this.add.existing(card(this, PS, lx, yy, colW, 96));
           const ic = img(this, lx - colW / 2 + 60, yy, Q.icon); ic.setScale(iconScale(Q.icon, 70));
-          fit(txt(this, lx - colW / 2 + 110, yy, Q.text, 28, '#fff3d2', { st: 5, ox: 0 }), colW - 420);
-          button(this, lx + colW / 2 - 200, yy, 170, 74, 'YES', 0x7fe39a, () => this.approve(it, true), { size: 30 });
-          button(this, lx + colW / 2 - 70, yy, 110, 74, 'NO', C.cream, () => this.approve(it, false), { size: 30 });
+          // YES and NO side by side with a clear gap (QA B19); the text wraps to two lines next to them (QA B59)
+          wrap2(txt(this, lx - colW / 2 + 110, yy, Q.text, 28, '#fff3d2', { st: 5, ox: 0, align: 'left' }), colW - 430, 22);
+          button(this, lx + colW / 2 - 222, yy, 150, 74, 'YES', 0x7fe39a, () => this.approve(it, true), { size: 30 });
+          button(this, lx + colW / 2 - 72, yy, 110, 74, 'NO', C.cream, () => this.approve(it, false), { size: 30 });
         });
         if (PORTRAIT) y += 120 + Math.max(1, Math.min(4, list.length)) * 110;
         // bedtime + limit
@@ -429,19 +443,19 @@
         txt(this, rx, ry0 + 180, 'Daily play limit', 40, '#ffd23f', { st: 6 });
         this.pills(rx, ry0 + 260, [0, 30, 45, 60, 90], P.limit || 0, v => { P.limit = v; }, v => v ? v + ' min' : 'off');
         // play time chart (7 days)
-        const cy = ry0 + 380, play = d.play || {};
+        const cy = ry0 + (short ? 350 : 380), play = d.play || {};
         txt(this, rx, cy, 'Play time', 40, '#ffd23f', { st: 6 });
         const days = []; for (let i = 6; i >= 0; i--) { const t = new Date(Date.now() - i * 86400000); days.push([todayKey(t), 'SMTWTFS'[t.getDay()]]); }
-        const max = Math.max(1800, ...days.map(([k]) => play[k] || 0)), bw = Math.min(90, (colW - 60) / 7 - 14), bh = 180;
+        const max = Math.max(1800, ...days.map(([k]) => play[k] || 0)), bw = Math.min(90, (colR - 60) / 7 - 14), bh = short ? 150 : 180;
         days.forEach(([k, l], i) => {
-          const x = rx + (i - 3) * (bw + 14), v = play[k] || 0, hh = Math.max(4, bh * v / max), base = cy + 60 + bh;
+          const x = rx + (i - 3) * (bw + 14), v = play[k] || 0, hh = Math.max(4, bh * v / max), base = cy + (short ? 55 : 60) + bh;
           this.add.rectangle(x, base, bw, hh, i === 6 ? C.star : C.mint).setOrigin(0.5, 1);
           txt(this, x, base + 26, l, 24, '#bcc0ee', { st: 0, shadow: false });
           txt(this, x, base - hh - 18, Math.round(v / 60) + 'm', 20, '#fff3d2', { st: 0, shadow: false });
         });
       }
       pills(x, y, vals, cur, set, label = v => v) {
-        const bw = Math.min(170, (PORTRAIT ? W - 100 : (W - 160) / 2) / vals.length - 8);
+        const bw = Math.max(104, Math.min(170, (PORTRAIT ? W - 100 : this.colR - 40) / vals.length - 8)); // touch targets stay over 90 px (B26)
         vals.forEach((v, i) => {
           const px = x + (i - (vals.length - 1) / 2) * (bw + 8), on = v === cur;
           const b = this.add.container(px, y);
