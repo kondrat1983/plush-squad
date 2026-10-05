@@ -160,6 +160,13 @@
     g.lineStyle(5, stroke == null ? PS.C.seam : stroke); g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 34);
     return g;
   }
+  // a long line wraps to two lines instead of shrinking to fit (QA B59); only a third line makes it a bit smaller
+  function wrap2(t, maxW, minSize = 24) {
+    t.setWordWrapWidth(maxW);
+    let fs = parseInt(t.style.fontSize, 10);
+    while (t.getWrappedText().length > 2 && fs > minSize) { fs -= 2; t.setFontSize(fs); }
+    return t;
+  }
   // grown-up gate: a multiplication question typed on the number pad
   function parentGate(scene, PS, onOk) {
     const { W, H, txt, button, C, A } = PS;
@@ -341,21 +348,23 @@
       create() {
         header(this, PS, 'REAL-LIFE QUESTS');
         const q = todaysQuests();
-        fit(txt(this, W / 2, PORTRAIT ? 275 : 150, 'Do it for real, tap I DID IT, then a grown-up checks it. Each quest = +1 capsule +20 XP', 30, '#bcc0ee', { st: 5, weight: '500', wrap: W - 120 }), W - 80);
-        const w = Math.min(W - 80, 1000), h = PORTRAIT ? 230 : 190, top = PORTRAIT ? 380 : 230;
+        fit(txt(this, W / 2, PORTRAIT ? 290 : 150, 'Do it for real, tap I DID IT, then a grown-up checks it. Each quest = +1 capsule +20 XP', 30, '#bcc0ee', { st: 5, weight: '500', wrap: W - 120 }), W - 80);
+        // landscape: wider cards, the quest text wraps to two lines next to the button (QA B16 / B59)
+        const w = PORTRAIT ? Math.min(W - 80, 1000) : Math.min(W - 160, 1500), h = PORTRAIT ? 230 : 190, top = PORTRAIT ? 380 : 230;
         q.list.forEach((it, i) => {
           const Q = QBY[it.id], y = top + h / 2 + i * (h + 24);
           this.add.existing(card(this, PS, W / 2, y, w, h, it.st === 'ok' ? 0x2d6b55 : C.night2, it.st === 'ok' ? 0x7fe39a : C.seam));
           const ic = img(this, W / 2 - w / 2 + 100, y, Q.icon); ic.setScale(iconScale(Q.icon, 120));
-          fit(txt(this, W / 2 - w / 2 + 190, y - (PORTRAIT ? 40 : 0), Q.text, 38, '#fff3d2', { st: 6, ox: 0 }), PORTRAIT ? w - 230 : w - 560);
-          const bx = PORTRAIT ? W / 2 - w / 2 + 190 + 170 : W / 2 + w / 2 - 170, by = PORTRAIT ? y + 50 : y;
+          if (PORTRAIT) fit(txt(this, W / 2 - w / 2 + 190, y - 40, Q.text, 38, '#fff3d2', { st: 6, ox: 0 }), w - 230);
+          else wrap2(txt(this, W / 2 - w / 2 + 190, y, Q.text, W > 1800 ? 46 : 38, '#fff3d2', { st: 6, ox: 0, align: 'left' }), w - 640);
+          const bx = PORTRAIT ? W / 2 - w / 2 + 190 + 170 : W / 2 + w / 2 - 220, by = PORTRAIT ? y + 50 : y;
           if (it.st === 'todo') button(this, bx, by, 300, 90, 'I DID IT!', C.star, () => { it.st = 'done'; Save.store(); A.levelUp(); this.scene.restart(); }, { size: 36 });
           else if (it.st === 'done') chip(this, bx, by, 'Waiting for a grown-up', C.cream, 26);
           else chip(this, bx, by, 'DONE! +1 capsule', 0x7fe39a, 28);
         });
         const n = pendingQuests().length;
-        if (n) button(this, W / 2, PORTRAIT ? H - 160 : H - 90, 560, 110, 'GROWN-UP: CHECK (' + n + ')', C.cream, () => fade(this, 'parents'), { size: 38 });
-        txt(this, W / 2, PORTRAIT ? H - 50 : H - 25, 'New quests every day', 26, '#6a72d6', { st: 0, shadow: false, weight: '500' });
+        if (n) button(this, W / 2, PORTRAIT ? H - 160 : H - 115, 560, 110, 'GROWN-UP: CHECK (' + n + ')', C.cream, () => fade(this, 'parents'), { size: 38 });
+        txt(this, W / 2, PORTRAIT ? H - 50 : H - 28, 'New quests every day', 26, '#6a72d6', { st: 0, shadow: false, weight: '500' });
       }
     }
 
