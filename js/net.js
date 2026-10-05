@@ -6,6 +6,9 @@
   const CFG = window.PS_CONFIG || {};
   const KEY = 'plushsquad_v1';
   const S = () => (window.__save && window.__save.data) || {};
+  // replace the save in memory too: the rebuild after login / logout stores the in-memory save, which would
+  // otherwise write the old (empty) progress over the one just pulled from the cloud
+  const setMem = data => { const d = window.__save && window.__save.data; if (d) { Object.keys(d).forEach(k => delete d[k]); Object.assign(d, data); } };
   const STICKERS = [
     { id: 'gg', label: 'GG!', icon: 'j:thumbs' }, { id: 'rematch', label: 'REMATCH?', icon: 'j:game' },
     { id: 'lol', label: 'LOL', icon: 'j:joy' }, { id: 'cool', label: 'COOL', icon: 'j:cool' },
@@ -77,6 +80,7 @@
       this.user = null;
       // the progress is safe in the cloud; this device goes back to a fresh guest
       try { localStorage.removeItem(KEY); } catch (e) {}
+      setMem({});
       try { const db = await window.__IDB.open(); await new Promise(r => { const tx = db.transaction('img', 'readwrite'); tx.objectStore('img').clear(); tx.oncomplete = r; tx.onerror = r; }); } catch (e) {}
     },
     async resetPassword(name, code, pass) {
@@ -122,6 +126,7 @@
     async applyCloud(data) {
       data.owner = this.user.id;
       try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
+      setMem(data);
       // bring the toy pictures to this device
       const ids = (data.toys || []).map(t => this.user.id + ':' + t.id);
       if (ids.length) {

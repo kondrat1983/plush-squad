@@ -34,3 +34,17 @@ test('a pending push goes out at once when the page is hidden (app switch on iOS
   expect(pushed).toBe(true);
   noErrors(page);
 });
+
+test('login on a fresh device: the cloud progress survives the rebuild that follows (it was overwritten by the empty save)', async ({ page }) => {
+  await boot(page, { xp: 0, wins: 0, toys: [], stars: {}, hero: 'jack' });
+  await page.evaluate(async js => {
+    eval(js); const cloud = { xp: 900, wins: 9, toys: [], stars: { teddy: 3 }, savedAt: 5 };
+    PSNet.sb.from = t => ({ select() { return this; }, eq() { return this; }, in() { return this; }, maybeSingle: async () => ({ data: { data: cloud } }) });
+    await PSNet.reconcile();
+    window.__psRebuild({ key: 'title', data: {} });
+  }, fakeSb('null'));
+  await page.waitForFunction(() => window.__game && __game.scene.isActive('title'), null, { timeout: 60000 });
+  const r = await page.evaluate(() => ({ mem: __save.data.xp, ls: JSON.parse(localStorage.getItem('plushsquad_v1')).xp, owner: __save.data.owner }));
+  expect(r).toEqual({ mem: 900, ls: 900, owner: 'u1' });
+  noErrors(page);
+});
