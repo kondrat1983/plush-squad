@@ -17,7 +17,7 @@ test('the comic shows on the first trip to Canada, taps go panel by panel, LET\'
   expect(await page.evaluate(() => __game.scene.getScene('comic').titled)).toBe(true);
   expect(await page.evaluate(() => __psSnapshot().data.panel)).toBe(3);
   expect(await offscreen(page, 'comic')).toEqual([]);
-  expect(await page.evaluate(() => (__save.data.comics || {}).canada)).toBeFalsy();
+  expect(await page.evaluate(() => (__save.data.comics || {}).canada)).toBe(true); // the title page counts as seen (SKIP or the end)
   await page.evaluate(() => { const c = __game.scene.getScene('comic'); c.children.list.find(o => o.type === 'Container' && o.list.some(t => t.text === 'LET\'S GO!')).emit('pointerup'); });
   await expect.poll(async () => { await wait(page, 500); return scenes(page); }, { timeout: 30000 }).toEqual(['map']);
   expect(await page.evaluate(() => [__game.scene.getScene('map').world, __save.data.comics.canada])).toEqual([2, true]);

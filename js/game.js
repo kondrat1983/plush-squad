@@ -761,7 +761,7 @@
       // portrait: logo, level panel and Jack share the height evenly; Jack grows on tall phones (QA B44 / #45)
       const logoBot = ly + fs * 1.07 + fs * 0.55, avail = jy - logoBot;
       const hatOn = COSTUMES.some(c => c.id === Save.data.costume && c.tex);
-      const hMax = PORTRAIT ? clamp(avail - 190 - 120 - (hatOn ? 230 : 0), 380, 800) : 425;
+      const hMax = PORTRAIT ? clamp(avail - 190 - 120 - (hatOn ? 230 : 0), hatOn ? 280 : 380, 800) : 425; // small iPads with a hat: Jack shrinks a bit (QA B55)
       const sh = this.add.image(W / 2, jy + 6, 'shadow').setScale(1.3, 1);
       const hero = heroDef(this);
       const heroKey = hero.isJack ? 'jack_front' : hero.tex;
@@ -1235,7 +1235,7 @@
       const status = txt(this, W / 2, cy + ph.displayHeight / 2 + 80, 'Looking for your toy...', 42, '#fff3d2', { st: 7 });
       this.layer.add([scan, sparks, status]);
       // top right, clear of the photo and the status line on every screen (code review)
-      const cancel = button(this, W - 270, 80, 300, 100, 'CANCEL', C.cream, () => this.cancelJob(), { size: 42 });
+      const cancel = button(this, W - 310, 80, 300, 100, 'CANCEL', C.cream, () => this.cancelJob(), { size: 42 });
       this.layer.add(cancel);
       const files = {};
       const w = getWorker();
@@ -2926,8 +2926,10 @@
         this.bg(c, 'sky4');
         const g = this.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.2, c.r.w - 10, c.r.h * 0.3 - 5); c.add(g);
         // head first in the snowbank: the upside-down Jack, the head half hidden by a snow mound, tail wagging
-        const j = this.actor(c, 'jack_upside', 0.55, 0.95, 0.75);
-        const snow = this.add.graphics(); snow.fillStyle(0xffffff); snow.fillEllipse(c.r.w * 0.05, c.r.h * 0.3, c.r.w * 0.62, c.r.h * 0.36); c.add(snow);
+        const j = this.actor(c, 'jack_upside', 0.55, 0.88, 0.7);
+        // the mound is sized from Jack, so his tail always sticks out (QA B57)
+        const mh = Math.min(j.displayHeight * 0.55, 2 * (c.r.h * 0.48 - j.y));
+        const snow = this.add.graphics(); snow.fillStyle(0xffffff); snow.fillEllipse(j.x, j.y, Math.max(j.displayWidth * 1.4, c.r.w * 0.4), mh); c.add(snow);
         this.anim({ targets: j, angle: { from: -6, to: 6 }, duration: 260, yoyo: true, repeat: -1 });
         const fw = inst => { this.burst(c, 0.22, 0.28, 'FWUMP!', PORTRAIT ? 72 : 60, inst); if (!inst) { A.stomp(); A.whoosh(); } };
         instant ? fw(true) : this.at(200, fw);
@@ -2974,6 +2976,7 @@
     }
     toTitle() {
       if (this.titled) return; this.titled = true;
+      Save.data.comics = Object.assign({}, Save.data.comics, { canada: true }); Save.store(); // seen once the title page shows (SKIP or the end)
       if (this.nextEv) { this.nextEv.remove(false); this.nextEv = null; }
       while (this.cur < 2) { this.finishPanel(false); this.play(this.cur + 1, true); }
       if (!this.done) this.finishPanel(false);

@@ -63,7 +63,8 @@ test('Title portrait: the level panel sits between the logo and Jack with even g
 });
 
 test('Title on a small phone with a hat on: the hat stays clear of the level panel', async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 667 });
+  for (const vp of [{ width: 375, height: 667 }, { width: 768, height: 1024 }]) { // 768 x 1024: QA B55
+  await page.setViewportSize(vp);
   await boot(page, save({ costumes: { witchhat: true }, costume: 'witchhat' }));
   await go(page, 'title');
   const g = await page.evaluate(() => {
@@ -73,6 +74,7 @@ test('Title on a small phone with a hat on: the hat stays clear of the level pan
     return { panelBot: lvl.y + 140, hatTop: hat.y - hat.displayHeight * 0.85 };
   });
   expect(g.hatTop).toBeGreaterThan(g.panelBot - 40); // minus Jack's bob
+  }
   noErrors(page);
 });
 
