@@ -324,6 +324,21 @@
     });
     return c;
   }
+  // press-down feedback for any tappable container (QA B27 / G30): shrink a little on touch, spring back on release
+  // (rest = the scale the thing normally has; cards that pop in from 0 pass 1)
+  // (an endless pulse on the same thing waits while it is pressed, so it can't undo the press)
+  function press(scene, c, k = 0.93, rest = c.scaleX) {
+    let down = false, own = null, held = [];
+    const go = (scale, duration, ease, onComplete) => { if (own) own.stop(); own = scene.tweens.add({ targets: c, scale, duration, ease, onComplete }); };
+    const back = d => { if (!down) return; down = false; go(rest, d, 'Back.out', () => { held.forEach(t => t.resume()); held = []; }); };
+    c.on('pointerdown', () => {
+      if (!down) { const loops = scene.tweens.getTweensOf(c).filter(t => t !== own && t.isPlaying() && (t.loop === -1 || (t.data || []).some(d => d.repeat === -1))); loops.forEach(t => t.pause()); held = held.concat(loops); }
+      down = true; go(rest * k, 70);
+    });
+    c.on('pointerup', () => back(220));
+    c.on('pointerout', () => back(120));
+    return c;
+  }
   function button(scene, x, y, w, h, label, color, cb, o = {}) {
     const c = scene.add.container(x, y);
     const g = scene.add.graphics();
@@ -674,7 +689,7 @@
     const c = scene.add.container(80, 80).setDepth(50);
     const bg = scene.add.circle(0, 0, 46, C.night2).setStrokeStyle(4, C.seam);
     const g = scene.add.graphics(); g.lineStyle(9, 0xfff3d2); g.beginPath(); g.moveTo(10, -20); g.lineTo(-12, 0); g.lineTo(10, 20); g.strokePath();
-    c.add([bg, g]); c.setSize(100, 100).setInteractive({ useHandCursor: true });
+    c.add([bg, g]); c.setSize(100, 100).setInteractive({ useHandCursor: true }); press(scene, c, 0.88);
     c.on('pointerup', () => { A.init(); A.click(); cb(); });
     return c;
   }
@@ -718,7 +733,7 @@
       c.add(txt(scene, 32, -32, String(n), 26, C.ink, { st: 0, shadow: false }));
       scene.tweens.add({ targets: c, scale: 1.1, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
-    c.setSize(100, 100).setInteractive({ useHandCursor: true });
+    c.setSize(100, 100).setInteractive({ useHandCursor: true }); press(scene, c, 0.88);
     c.on('pointerup', () => { A.init(); A.click(); fade(scene, 'gacha', { world }); });
     return c;
   }
@@ -801,7 +816,7 @@
         c.add(txt(this, PORTRAIT ? 0 : 64, PORTRAIT ? 66 : 0, typeof it.label === 'function' ? it.label(PS) : it.label, 24, '#fff3d2', { st: 5, ox: PORTRAIT ? 0.5 : 0 }));
         const n = it.badge ? it.badge(PS) : 0;
         if (n) { c.add(this.add.circle(32, -32, 20, C.coral).setStrokeStyle(3, 0x0f1240)); c.add(txt(this, 32, -32, n > 9 ? '9+' : String(n), 22, '#ffffff', { st: 0, shadow: false })); }
-        c.setSize(100, 100).setInteractive({ useHandCursor: true });
+        c.setSize(100, 100).setInteractive({ useHandCursor: true }); press(this, c, 0.88);
         c.on('pointerup', () => { A.init(); A.click(); A.startMusic(); fade(this, it.key, it.data || {}); });
       });
       muteButton(this);
@@ -899,7 +914,9 @@
         const D = DIFFS[k], px = (i - 1) * bw;
         const g = this.add.graphics(), t = txt(this, px, 0, D.name, 30, '#fff3d2', { st: 0, shadow: false });
         const z = this.add.zone(px, 0, bw, bh).setInteractive({ useHandCursor: true });
-        z.on('pointerup', () => { A.init(); A.click(); Save.data.diff = k; Save.store(); draw(); this.tweens.add({ targets: c, scale: { from: 1.06, to: 1 }, duration: 200 }); });
+        z.on('pointerdown', () => this.tweens.add({ targets: c, scale: 0.95, duration: 70 }));
+        z.on('pointerout', () => this.tweens.add({ targets: c, scale: 1, duration: 120 }));
+        z.on('pointerup', () => { A.init(); A.click(); Save.data.diff = k; Save.store(); draw(); this.tweens.killTweensOf(c); this.tweens.add({ targets: c, scale: { from: 1.06, to: 1 }, duration: 200 }); });
         c.add([g, t, z]);
         return { k, g, t, px, D };
       });
@@ -921,7 +938,7 @@
       const ic = this.add.image(iconOnly ? 0 : -tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
       const t = fit(txt(this, 26, 0, open ? w.name : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140).setVisible(!iconOnly);
       c.add([g, ic, t]);
-      c.setSize(tw0, h).setInteractive({ useHandCursor: true });
+      c.setSize(tw0, h).setInteractive({ useHandCursor: true }); press(this, c);
       c.on('pointerup', () => {
         A.init();
         if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 12, duration: 60, yoyo: true, repeat: 3 }); const fi = RIVALS.findIndex(r => (r.world || 0) === i); this.hint(fi > 0 ? 'Beat ' + RIVALS[fi - 1].name + ' to open ' + w.name + '!' : 'Locked!'); return; }
@@ -954,7 +971,7 @@
         const ring = this.add.image(x, y, 'ring').setScale(R * ns / 52).setTint(C.star).setDepth(3).setAlpha(0.6);
         this.tweens.add({ targets: ring, scale: R * ns / 40, alpha: 0, duration: 1300, repeat: -1 });
       }
-      c.setSize(R * 2, R * 2 + 120).setInteractive({ useHandCursor: true });
+      c.setSize(R * 2, R * 2 + 120).setInteractive({ useHandCursor: true }); press(this, c);
       c.on('pointerup', () => {
         A.init();
         if (!open) { A.block(); this.tweens.add({ targets: c, x: x + 14, duration: 60, yoyo: true, repeat: 3 }); if (i > 0) this.hint('Beat ' + RIVALS[i - 1].name + ' first!'); return; }
@@ -1007,7 +1024,7 @@
         if (isHero) c.add(chip(this, 0, -h / 2 + 4, 'PLAYING', C.star, 24));
       }
       c.setScale(0); this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 50, ease: 'Back.out' });
-      c.setSize(w, h).setInteractive({ useHandCursor: true });
+      c.setSize(w, h).setInteractive({ useHandCursor: true }); press(this, c, 0.93, 1);
       c.on('pointerup', () => { A.init(); A.click(); if (it.add) fade(this, 'studio'); else this.details(it); });
     }
     details(it) {
@@ -1066,7 +1083,7 @@
         p.add(del);
       }
       const x = txt(this, -pw / 2 + 70, -ph / 2 + 70, '✕', 50, '#bcc0ee', { st: 0 }).setInteractive({ useHandCursor: true });
-      x.on('pointerup', () => close()); p.add(x);
+      x.on('pointerup', () => close()); press(this, x, 0.85); p.add(x);
       layer.add(p); p.setScale(0.7); p.alpha = 0;
       this.tweens.add({ targets: p, scale: 1, alpha: 1, duration: 260, ease: 'Back.out' });
       const close = () => { this.tweens.add({ targets: layer, alpha: 0, duration: 150, onComplete: () => layer.destroy() }); };
@@ -1327,7 +1344,7 @@
         const bg = this.add.circle(x, y, cell * 0.44, i < 3 && this.scores.length ? 0x3a3f9e : C.night2).setStrokeStyle(4, i < 3 && this.scores.length ? C.star : C.seam);
         const ic = img(this, x, y - 4, 'i:' + id).setScale(cell * 0.62 / 144);
         const lb = fit(txt(this, x, y + cell * 0.48, a.name, PORTRAIT ? 24 : 20, '#fff3d2', { st: 4, weight: '500' }), cell - 6);
-        bg.setInteractive({ useHandCursor: true });
+        bg.setInteractive({ useHandCursor: true }); press(this, bg, 0.9);
         bg.on('pointerup', () => { A.click(); layer.destroy(); this.makeHero(id); });
         layer.add([bg, ic, lb]);
       });
@@ -1497,7 +1514,7 @@
           }
           c.add(chip(this, cw / 2 - 44, -ch / 2 + 6, '×' + Save.data.boosts[b.id], C.star, 26));
         } else c.add(txt(this, 0, 0, 'NO BOOSTER', 38, '#fff3d2', { st: 6 }));
-        c.setSize(cw, ch).setInteractive({ useHandCursor: true }).setScale(0);
+        c.setSize(cw, ch).setInteractive({ useHandCursor: true }).setScale(0); press(this, c, 0.93, 1);
         this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 50, ease: 'Back.out' });
         c.on('pointerup', () => { A.init(); A.click(); if (b) { A.levelUp(); } layer.list.forEach(o => o.disableInteractive && o.disableInteractive()); done(b); });
         layer.add(c);
@@ -3298,7 +3315,7 @@
           if (cnt) c.add(chip(this, cw / 2 - 24, -ch / 2 + 8, '×' + cnt, C.star, 22));
           else c.setAlpha(0.6);
         } else c.add(txt(this, 0, -10, '?', 90, '#6a72d6', { st: 0, shadow: false }));
-        c.setSize(cw, ch).setInteractive();
+        c.setSize(cw, ch).setInteractive(); if (known) press(this, c);
         c.on('pointerup', () => { if (known) { A.click(); this.hint2(b.name + ': ' + b.desc); } });
         this.grid.add(c);
       });
@@ -3399,7 +3416,7 @@
   // ---------- start
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
   PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA,
-    txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, backButton, muteButton, capsuleButton, drawCapsule,
+    txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, press, backButton, muteButton, capsuleButton, drawCapsule,
     addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
   function snapshot(game) {

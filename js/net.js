@@ -307,7 +307,7 @@
           const im = img(this, -tw / 2 + 38, 0, ic); im.setScale(iconScale(ic, 50)); b.add(im);
           b.add(fit(txt(this, 18, 0, l, 26, on ? C.ink : '#fff3d2', { st: 0, shadow: false }), tw - 80));
           if (k === 'mail' && Net.unread) { b.add(this.add.circle(tw / 2 - 8, -34, 18, C.coral)); b.add(txt(this, tw / 2 - 8, -34, String(Net.unread), 20, '#fff', { st: 0, shadow: false })); }
-          b.setSize(tw, 80).setInteractive({ useHandCursor: true });
+          b.setSize(tw, 80).setInteractive({ useHandCursor: true }); PS.press(this, b);
           b.on('pointerup', () => { if (!on) { A.click(); this.scene.restart({ tab: k }); } });
         });
         this.top = ty + 80;
@@ -382,7 +382,7 @@
           if (it.t) { key = 'ftoy_' + it.t.meta.id; name = it.t.meta.name; if (!this.textures.exists(key)) await PS.addTexture(this, key, it.t.img); }
           if (this.textures.exists(key)) c.add(avatarImg(this, PS, 0, -30, key, 180));
           c.add(fit(txt(this, 0, ch / 2 - 40, name, 28, '#fff3d2', { st: 5 }), cw - 20));
-          c.setSize(cw, ch).setInteractive({ useHandCursor: true });
+          c.setSize(cw, ch).setInteractive({ useHandCursor: true }); PS.press(this, c);
           c.on('pointerup', () => {
             A.click();
             if (it.t) fade(this, 'battle', { ftoy: Object.assign({}, it.t.meta, { url: it.t.img, owner: f.id, dbid: it.t.id }), ownerName: f.username, ownerId: f.id });
@@ -406,7 +406,7 @@
           const ic = img(this, 0, -30, b.icon); ic.setScale(iconScale(b.icon, 100)); c.add(ic);
           c.add(fit(txt(this, 0, 60, b.name, 24, C.ink, { st: 0, shadow: false }), 190));
           c.add(chip(this, 80, -90, '×' + d.boosts[b.id], C.star, 20));
-          c.setSize(210, 210).setInteractive({ useHandCursor: true });
+          c.setSize(210, 210).setInteractive({ useHandCursor: true }); PS.press(this, c);
           c.on('pointerup', async () => {
             try {
               const r = await Net.send(f.id, 'gift_boost', { boost: b.id }); if (!r.ok) throw new Error(r.error);
@@ -424,7 +424,7 @@
           c.add(X().card(this, PS, 0, 0, 210, 210, C.cream, C.star));
           const ic = img(this, 0, -25, s.icon); ic.setScale(iconScale(s.icon, 110)); c.add(ic);
           c.add(fit(txt(this, 0, 70, s.label, 28, C.ink, { st: 0, shadow: false }), 190));
-          c.setSize(210, 210).setInteractive({ useHandCursor: true });
+          c.setSize(210, 210).setInteractive({ useHandCursor: true }); PS.press(this, c);
           c.on('pointerup', async () => {
             try { const r = await Net.send(f.id, 'sticker', { s: s.id }); if (!r.ok) throw new Error(r.error); A.levelUp(); lay.destroy(true); X().toast(this, PS, s.icon, 'Sticker sent!', s.label + ' to ' + f.username); }
             catch (e) { A.block(); err(this, PS, e.message, H / 2); }
@@ -493,7 +493,7 @@
           const heart = img(this, cw / 2 - 50, ch / 2 - 30, 'j:heart2'); heart.setScale(iconScale('j:heart2', 40)); if (!t.liked) heart.setAlpha(0.35);
           const cnt = txt(this, cw / 2 - 22, ch / 2 - 30, String(t.likes), 24, '#fff3d2', { st: 4, ox: 0 });
           c.add([heart, cnt]);
-          c.setSize(cw, ch).setInteractive({ useHandCursor: true });
+          c.setSize(cw, ch).setInteractive({ useHandCursor: true }); PS.press(this, c, 0.96);
           c.on('pointerup', async () => { A.click(); t.liked = !t.liked; heart.setAlpha(t.liked ? 1 : 0.35); this.tweens.add({ targets: heart, scale: heart.scale * 1.4, duration: 120, yoyo: true }); cnt.setText(String(await Net.like(t.id))); });
         });
       }
@@ -563,7 +563,7 @@
     const k = scene.add.image(0, 0, 'kraken').setScale(70 / 235); c.add(k);
     c.add(txt(scene, 0, 60, 'BOSS', 22, '#fff3d2', { st: 5 }));
     scene.tweens.add({ targets: k, angle: { from: -10, to: 10 }, duration: 700, yoyo: true, repeat: -1 });
-    c.setSize(100, 100).setInteractive({ useHandCursor: true });
+    c.setSize(100, 100).setInteractive({ useHandCursor: true }); PS.press(scene, c, 0.88);
     c.on('pointerup', () => { A.init(); A.click(); fade(scene, 'boss'); });
   }
   async function mailPopup(scene, PS) {
@@ -572,7 +572,7 @@
       const list = await Net.inbox();
       if (list.length && scene.sys.isActive() && window.PSExtra) {
         const c = window.PSExtra.toast(scene, PS, 'j:mail', 'You have ' + list.length + ' new message' + (list.length > 1 ? 's' : '') + '!', 'Tap here to open MAIL');
-        c.setSize(820, 150).setInteractive({ useHandCursor: true });
+        c.setSize(820, 150).setInteractive({ useHandCursor: true }); PS.press(scene, c, 0.96);
         c.on('pointerup', () => PS.fade(scene, 'friends', { tab: 'mail' }));
       }
     } catch (e) {}

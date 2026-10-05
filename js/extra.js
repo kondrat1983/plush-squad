@@ -258,7 +258,7 @@
         if (!d.title) d.title = 'Plush Friend';
         const tchip = chip(this, PORTRAIT ? cx : tx + 0, ty + 70, '★ ' + d.title + '  ▸', C.star, 30);
         if (!PORTRAIT) tchip.x = tx + tchip.w / 2;
-        tchip.setSize(tchip.w, 60).setInteractive({ useHandCursor: true });
+        tchip.setSize(tchip.w, 60).setInteractive({ useHandCursor: true }); PS.press(this, tchip);
         tchip.on('pointerup', () => { const t = titles(), i = t.indexOf(d.title); d.title = t[(i + 1) % t.length]; Save.store(); A.click(); this.scene.restart(); });
         const stats = 'Level ' + lv + '   ·   ★ ' + totalStars() + '   ·   Stickers ' + Object.keys(d.ach || {}).length + '/' + ACH.length + '   ·   Best catch ' + (d.bestCatch || 0);
         fit(txt(this, tx, ty + 150, stats, 30, '#bcc0ee', { st: 5, ox, weight: '500' }), PORTRAIT ? cw - 60 : cw - 440);
@@ -279,7 +279,7 @@
           b.add(card(this, PS, 0, 0, cs, cs, on ? C.star : C.night2, on ? 0xffffff : C.seam));
           if (c.tex) { const im = PS.hatImage(this, 0, -8, c); im.setScale(cs * 0.66 / Math.max(im.width, im.height)); b.add(im); }
           else b.add(txt(this, 0, -8, 'NONE', Math.round(cs * 0.2), on ? C.ink : '#bcc0ee', { st: 0, shadow: false }));
-          b.setSize(cs, cs).setInteractive({ useHandCursor: true });
+          b.setSize(cs, cs).setInteractive({ useHandCursor: true }); PS.press(this, b);
           b.on('pointerup', () => { d.costume = c.id; Save.store(); A.click(); this.scene.restart(); });
         });
         if (owned.length === 1) txt(this, cx, yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat Professor Hoot to win the Owl Hat!', 28, '#bcc0ee', { st: 5, weight: '500' });
@@ -406,7 +406,7 @@
           const b = this.add.container(px, y);
           b.add(card(this, PS, 0, 0, bw, 76, on ? C.star : 0x161946, on ? 0xffffff : C.seam));
           b.add(fit(txt(this, 0, 0, String(label(v)), 28, on ? C.ink : '#bcc0ee', { st: 0, shadow: false }), bw - 12));
-          b.setSize(bw, 76).setInteractive({ useHandCursor: true });
+          b.setSize(bw, 76).setInteractive({ useHandCursor: true }); PS.press(this, b);
           b.on('pointerup', () => { set(v); Save.store(); A.click(); this.scene.restart({ ok: true }); });
         });
       }
