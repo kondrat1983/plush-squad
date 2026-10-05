@@ -31,7 +31,7 @@
         this.sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'plushsquad-auth' } });
         this.ready = true;
         const { data } = await this.sb.auth.getSession();
-        if (data && data.session) { await this.loadProfile(data.session.user); setTimeout(() => this.catchUp(), 5000); } // after the game has loaded the save
+        if (data && data.session) { await this.loadProfile(data.session.user); const t = setInterval(() => { if (window.__game && window.__save) { clearInterval(t); this.sync(); } }, 200); } // once the game has loaded the save
       } catch (e) { console.warn('net init', e); }
     },
     email: name => name.toLowerCase() + '@' + (CFG.userDomain || 'players.plushsquad.app'),
@@ -62,7 +62,7 @@
       const r = await this.sb.rpc('init_profile', { p_username: name });
       if (r.error) throw new Error(r.error.message);
       this.user = { id: data.user.id, name, code: r.data.code };
-      await this.adoptLocal();
+      this.synced = true; await this.adoptLocal();
       return r.data.recovery;
     },
     async login(name, pass) {
@@ -75,9 +75,9 @@
     async logout() {
       // save the last few seconds of progress first (QA B14)
       clearTimeout(this._push);
-      try { await this.pushNow(); } catch (e) {}
+      try { if (!this.synced) await this.sync(); await this.pushNow(); } catch (e) {}
       try { await this.sb.auth.signOut(); } catch (e) {}
-      this.user = null;
+      this.user = null; this.synced = false;
       // the progress is safe in the cloud; this device goes back to a fresh guest
       try { localStorage.removeItem(KEY); } catch (e) {}
       setMem({});
@@ -96,6 +96,7 @@
     // after login: which save wins? returns null when done, or {cloud, local} when the kid must choose
     async reconcile() {
       const { data: row } = await this.sb.from('saves').select('data, updated_at').eq('user_id', this.user.id).maybeSingle();
+      this.synced = true; // login decides here which save wins
       const local = S();
       const fresh = !(local.xp || 0) && !(local.toys || []).length && !(local.wins || 0);
       if (!row) { await this.adoptLocal(); return null; }
@@ -107,14 +108,25 @@
       this._conflict = row.data;
       return { cloud: this.summary(row.data), local: this.summary(local) };
     },
-    // on start with a kept login: progress made here that never reached the cloud (the app was closed before the
-    // 15 s push) goes up now, unless the cloud already holds something newer
-    async catchUp() {
+    // with a kept login (on start, and back in the app): the newer of this device and the cloud wins, so two
+    // devices on one account no longer overwrite each other (#64). Until it has run once, nothing is pushed.
+    async sync() {
+      if (this._syncing || !this.user) return;
+      const d = S(); if (d.owner !== this.user.id) return;
+      this._syncing = true; this._syncAt = Date.now();
       try {
-        const d = S(); if (!this.user || d.owner !== this.user.id) return;
-        const { data: row } = await this.sb.from('saves').select('data').eq('user_id', this.user.id).maybeSingle();
-        if (!row || (d.savedAt || 0) > ((row.data && row.data.savedAt) || 0)) await this.pushNow();
-      } catch (e) {}
+        const { data: row, error } = await this.sb.from('saves').select('data').eq('user_id', this.user.id).maybeSingle();
+        if (error) return;
+        const cloud = row && row.data, ct = (cloud && cloud.savedAt) || 0, lt = d.savedAt || 0;
+        this.synced = true;
+        if (!cloud || lt > ct) { await this.pushNow(); return; }
+        if (ct <= lt) return;
+        // a newer cloud save: never swap it in under a running duel, photo or game; try again a bit later
+        const g = window.__game;
+        if (g && ['battle', 'studio', 'comic', 'catch', 'hockey', 'gacha', 'account'].some(k => g.scene.isActive(k))) { setTimeout(() => this.sync(), 10000); return; }
+        await this.applyCloud(cloud);
+        if (window.__psRebuild) window.__psRebuild();
+      } catch (e) {} finally { this._syncing = false; }
     },
     async resolve(which) { if (which === 'cloud') await this.applyCloud(this._conflict); else await this.adoptLocal(); this._conflict = null; },
     async adoptLocal() {
@@ -143,7 +155,7 @@
     schedulePush() { if (!this.user) return; clearTimeout(this._push); this._push = setTimeout(() => this.pushNow(), 15000); },
     async pushNow() {
       if (!this.user) return;
-      const d = S(); if (!d || d.owner !== this.user.id) return;
+      const d = S(); if (!d || d.owner !== this.user.id || !this.synced) return;
       try {
         await this.sb.from('saves').upsert({ user_id: this.user.id, data: d, updated_at: new Date().toISOString() });
         const hero = d.hero && d.hero !== 'jack' ? (d.toys || []).find(t => t.id === d.hero) : null;
@@ -201,7 +213,10 @@
   const flush = () => { if (Net._push) { clearTimeout(Net._push); Net._push = 0; Net.pushNow(); } };
   window.addEventListener('pagehide', flush);
   // iOS does not send pagehide when the player switches apps or locks the phone: push then too
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flush();
+    else if (Net.user && Date.now() - (Net._syncAt || 0) > 20000) Net.sync(); // back in the app: maybe played on another device meanwhile
+  });
 
   // ---------- UI helpers
   function input(scene, PS, x, y, w, ph, type) {

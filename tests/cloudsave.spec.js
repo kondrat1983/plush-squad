@@ -1,4 +1,5 @@
 // v0.8.2: progress reaches the cloud even when iOS closes the app before the 15 s push
+// v0.8.3: with a kept login the newer of this device and the cloud wins (#64)
 const { test, expect } = require('@playwright/test');
 const { boot, noErrors } = require('./helpers');
 
@@ -7,17 +8,16 @@ const fakeSb = cloud => `(() => {
   const q = t => ({ select() { return this; }, eq() { return this; }, in() { return this; }, delete() { log.push(t + ':delete'); return this; },
     maybeSingle: async () => ({ data: ${cloud} }), then: r => r({ data: [] }),
     upsert: async v => { log.push(t + ':upsert'); return {}; }, update() { log.push(t + ':update'); return this; } });
-  PSNet.sb = { from: q }; PSNet.user = { id: 'u1', name: 'tester' };
+  PSNet.sb = { from: q }; PSNet.user = { id: 'u1', name: 'tester' }; PSNet.synced = true; PSNet._syncing = false;
 })()`;
 
-test('catchUp pushes a newer local save, skips when the cloud is newer or the save is not this account', async ({ page }) => {
+test('sync pushes a newer local save, skips when the save is not this account', async ({ page }) => {
   await boot(page);
   const run = (cloud, owner, savedAt) => page.evaluate(async ([js, owner, savedAt]) => {
-    eval(js); __save.data.owner = owner; __save.data.savedAt = savedAt; await PSNet.catchUp(); return __sbLog.includes('saves:upsert');
+    eval(js); __save.data.owner = owner; __save.data.savedAt = savedAt; await PSNet.sync(); return __sbLog.includes('saves:upsert');
   }, [fakeSb(cloud), owner, savedAt]);
   expect(await run('null', 'u1', 5)).toBe(true);
   expect(await run('{ data: { savedAt: 1 } }', 'u1', 5)).toBe(true);
-  expect(await run('{ data: { savedAt: 9 } }', 'u1', 5)).toBe(false);
   expect(await run('null', 'someone', 5)).toBe(false);
   noErrors(page);
 });
@@ -46,5 +46,36 @@ test('login on a fresh device: the cloud progress survives the rebuild that foll
   await page.waitForFunction(() => window.__game && __game.scene.isActive('title'), null, { timeout: 60000 });
   const r = await page.evaluate(() => ({ mem: __save.data.xp, ls: JSON.parse(localStorage.getItem('plushsquad_v1')).xp, owner: __save.data.owner }));
   expect(r).toEqual({ mem: 900, ls: 900, owner: 'u1' });
+  noErrors(page);
+});
+
+test('#64: a newer cloud save (played on the other device) replaces this one on start, and nothing is pushed before that', async ({ page }) => {
+  await boot(page);
+  const r = await page.evaluate(async js => {
+    eval(js); PSNet.synced = false;
+    __save.data.owner = 'u1'; __save.data.savedAt = 5; __save.data.xp = 100;
+    await PSNet.pushNow(); const early = __sbLog.includes('saves:upsert');
+    const cloud = { owner: 'u1', savedAt: 9, xp: 2000, wins: 20, toys: [], stars: {}, hero: 'jack' };
+    PSNet.sb.from = t => ({ select() { return this; }, eq() { return this; }, in() { return this; }, maybeSingle: async () => ({ data: { data: cloud } }) });
+    await PSNet.sync();
+    return { early };
+  }, fakeSb('null'));
+  expect(r.early).toBe(false);
+  await page.waitForFunction(() => window.__game && __game.scene.isActive('title') && __save.data.xp === 2000, null, { timeout: 60000 });
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plushsquad_v1')).xp)).toBe(2000);
+  noErrors(page);
+});
+
+test('#64: a newer cloud save waits while a duel is running', async ({ page }) => {
+  await boot(page);
+  const r = await page.evaluate(async js => {
+    eval(js); __save.data.owner = 'u1'; __save.data.savedAt = 5; const xp = __save.data.xp;
+    const g = __game, real = g.scene.isActive.bind(g.scene); g.scene.isActive = k => k === 'battle' || real(k);
+    PSNet.sb.from = t => ({ select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { data: { owner: 'u1', savedAt: 9, xp: 2000 } } }) });
+    await PSNet.sync();
+    g.scene.isActive = real;
+    return { xp: __save.data.xp, before: xp };
+  }, fakeSb('null'));
+  expect(r.xp).toBe(r.before);
   noErrors(page);
 });
