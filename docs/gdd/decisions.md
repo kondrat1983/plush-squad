@@ -4,6 +4,7 @@ Owner decisions (Kondrat). They stand until Kondrat changes them; agents and doc
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| 5 Oct 2026 | **Ocean world (sketch, `ocean-ideas.md`):** tone = cozy mystery (fog, lighthouse, Sargasso ship park, the picnic crew of the "Mary Pillowste"); boss = Sleepy Thully (cute plush Cthulhu in a nightcap, the fight is about waking him up); mechanic = Compass Spin (nothing moves on EASY); own music = a `sea` shanty plus a lullaby while the boss sleeps. Seagulls are never hit (funny thieves only). | Kondrat, answers 1-4. Full design doc later. |
 | 5 Oct 2026 | **Comics for every world** as in `0.9-world-comics.md`, all recommendations: 3 panels + title page; Hills plays for new players only (old saves get it unlocked in the Album); Space once for everyone; Spooky during the event only, cover hidden out of season unless seen; no NEW chip, no comic sticker; titles as proposed. | Kondrat (#62). |
 | 5 Oct 2026 | **Daily streak "Pillow Week"** as in `0.9-daily-streak.md`, all recommendations: a day counts at the first map open; replaces the daily capsule; 9 capsules + 1 golden + 140 XP a week; one Sleepy Pillow a week, quiet restart; popup on the map from day 2 + one line in Me; "Pillow Week" sticker; no Parents switch; cloud streak fetched before counting. | Kondrat (#32). |
 | 5 Oct 2026 | **Order:** fix #64 (two devices overwrite progress) first, then world comics, then the streak. | Kondrat. |

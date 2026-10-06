@@ -4,6 +4,7 @@ Newest on top. ✅ = shipped (with version). Source: Kondrat, the chief tester, 
 
 | Date | Idea | Source | Status |
 |---|---|---|---|
+| 5 Oct 2026 | Ocean world sketch: foggy Bermuda Triangle sea, lighthouse, seagull snack thieves (nobody hurts them), Captain Fog, Sleepy Thully (plush Cthulhu) boss, "Compass Spin" mechanic. See `ocean-ideas.md`. | Kondrat / `game-designer` | idea, sketch only, needs a design doc |
 | 5 Oct 2026 | Veggie world: the yuckiest vegetables as rivals, Broccoli boss (#63). | Kondrat | idea, needs a design doc |
 | 5 Oct 2026 | Pillow Week: 7-day daily streak with a Sleepy Pillow, golden capsule on day 7 (#32). | GDD roadmap | approved, design: `0.9-daily-streak.md` |
 | 5 Oct 2026 | Comics for every world (Pillow Hills, Space, Spooky), 4 covers in Album > COMICS (#62). | Kondrat | approved, design: `0.9-world-comics.md` |
