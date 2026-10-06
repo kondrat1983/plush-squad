@@ -28,8 +28,10 @@ test('the comic shows on the first trip to Canada, taps go panel by panel, LET\'
   await wait(page, 1500);
   expect(await scenes(page)).toEqual(['map']);
   // the reused scene starts fresh (Album replay) and SKIP still reaches the title page
-  await go(page, 'comic', { world: 'canada', then: { key: 'album', data: { tab: 'comics' } } });
-  expect(await page.evaluate(() => __game.scene.getScene('comic').titled)).toBe(false);
+  // checked right after create: on a slow CI runner one long frame can auto-advance the panels to the title page
+  await page.evaluate(() => __game.scene.getScenes(true)[0].scene.start('comic', { world: 'canada', then: { key: 'album', data: { tab: 'comics' } } }));
+  const fresh = await page.waitForFunction(() => { const c = __game.scene.getScene('comic'); return __game.scene.isActive('comic') && c.cur >= 0 ? { titled: c.titled, cur: c.cur } : null; }, null, { timeout: 30000, polling: 'raf' });
+  expect((await fresh.jsonValue()).titled).toBe(false);
   await page.evaluate(() => __game.scene.getScene('comic').skipBtn.emit('pointerup'));
   expect(await page.evaluate(() => __game.scene.getScene('comic').titled)).toBe(true);
   noErrors(page);
