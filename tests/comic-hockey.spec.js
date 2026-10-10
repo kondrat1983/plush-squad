@@ -23,10 +23,15 @@ test('the comic shows on the first trip to Canada, taps go panel by panel, LET\'
   expect(await page.evaluate(() => [__game.scene.getScene('map').world, __save.data.comics.canada])).toEqual([2, true]);
   await go(page, 'title'); await go(page, 'map', { world: 2 });
   expect(await scenes(page)).toEqual(['map']);
-  // replay from the open Canada tab: the reused scene starts fresh and still reaches LET'S GO
+  // v0.9 (#62): tapping the open Canada tab no longer replays the comic (replay only from the Album)
   await page.evaluate(() => { const m = __game.scene.getScene('map'); m.children.list.find(o => o.type === 'Container' && o.height === 96 && o.list.some(t => t.text === 'CANADA')).emit('pointerup'); });
-  await expect.poll(async () => { await wait(page, 500); return scenes(page); }, { timeout: 30000 }).toEqual(['comic']);
-  expect(await page.evaluate(() => __game.scene.getScene('comic').titled)).toBe(false);
+  await wait(page, 1500);
+  expect(await scenes(page)).toEqual(['map']);
+  // the reused scene starts fresh (Album replay) and SKIP still reaches the title page
+  // checked right after create: on a slow CI runner one long frame can auto-advance the panels to the title page
+  await page.evaluate(() => __game.scene.getScenes(true)[0].scene.start('comic', { world: 'canada', then: { key: 'album', data: { tab: 'comics' } } }));
+  const fresh = await page.waitForFunction(() => { const c = __game.scene.getScene('comic'); return __game.scene.isActive('comic') && c.cur >= 0 ? { titled: c.titled, cur: c.cur } : null; }, null, { timeout: 30000, polling: 'raf' });
+  expect((await fresh.jsonValue()).titled).toBe(false);
   await page.evaluate(() => __game.scene.getScene('comic').skipBtn.emit('pointerup'));
   expect(await page.evaluate(() => __game.scene.getScene('comic').titled)).toBe(true);
   noErrors(page);

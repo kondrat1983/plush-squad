@@ -40,6 +40,8 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - `sw.js`, `manifest.json` — offline + install
 
 ## Versions
+- **v0.9**
+  - **Comics for every world**: Pillow Hills (new players), Space (everyone, once), Canada and Spooky (Halloween). Watch them again in the Album (COMICS, 2 x 2 shelf).
 - **v0.8**
   - **Canada**, a new snowy world: Max the Moose, Beaver Bob, Mountie Bear and the boss **Sasquatch**. Harder than Space.
   - **SAVE IT!**: Sasquatch shoots hockey pucks; tap at the right moment for a perfect save (the puck bounces back).
