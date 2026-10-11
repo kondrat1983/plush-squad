@@ -281,8 +281,7 @@ for (const [name, vp] of [['iPhone SE', [375, 667]], ['iPhone 15 Pro Max', [430,
         }));
         return out;
       });
-      // known, not part of #62: Canada's pine and Sasquatch (panel 3, shipped in v0.8) stick out past the right screen edge in landscape
-      expect(bad.filter(x => !(id === 'canada' && x[0] === 'actor' && ['pine', 'sasquatch'].includes(x[2]))), id).toEqual([]);
+      expect(bad, id).toEqual([]);
     }
     noErrors(page);
   });

@@ -2938,8 +2938,9 @@
         (s, c, instant) => {
           s.bg(c, 'sky4');
           const g = s.add.graphics(); g.fillStyle(0xf2f8ff); g.fillRect(-c.r.w / 2 + 5, c.r.h * 0.15, c.r.w - 10, c.r.h * 0.35 - 5); c.add(g);
-          s.actor(c, 'pine', 0.88, 0.72, 0.5).setAlpha(0.9);
-          s.peekObj = s.actor(c, 'sasquatch', 0.88, 0.7, 0.3).setVisible(false);
+          // B64: the pine and Sasquatch are kept inside the panel (they stuck out past the right screen edge in landscape)
+          const pine = s.inside(c, s.actor(c, 'pine', 0.88, 0.72, 0.5).setAlpha(0.9));
+          s.peekObj = s.inside(c, s.actor(c, 'sasquatch', 0.88, 0.7, 0.3).setVisible(false)); s.peekObj.x = Math.min(s.peekObj.x, pine.x);
           s.actor(c, 'moose', 0.7, 0.98, 0.42);
           s.actor(c, 'pancakes', 0.5, 0.8, 0.18);
           s.actor(c, 'jack_front', 0.24, 0.98, 0.5);
@@ -2988,7 +2989,8 @@
         s.anim({ targets: j, angle: { from: -8, to: 8 }, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         if (instant) j.y = up; else s.anim({ targets: j, y: up, duration: 2200, ease: 'Sine.inOut' });
         const blip = inst => { s.burst(c, PORTRAIT ? 0.2 : 0.3, PORTRAIT ? 0.3 : 0.14, 'BLIP!', PORTRAIT ? 72 : 60, inst); if (!inst) A.beam(); };
-        const say = inst => s.bubble(c, PORTRAIT ? 0.78 : 0.5, PORTRAIT ? 0.5 : 0.48, 'Put me DOWN! ...Okay, this is fun.', -1, inst);
+        // B66: in portrait a narrower bubble right of the beam, clear of Jack and of the panel border
+        const say = inst => s.bubble(c, PORTRAIT ? 0.8 : 0.5, PORTRAIT ? 0.6 : 0.48, 'Put me DOWN! ...Okay, this is fun.', -1, inst, PORTRAIT ? 340 : 0);
         if (instant) { blip(true); say(true); } else { s.at(200, blip); s.at(1300, say); }
       },
       // The Blips (and Robo-Bop behind them) come in peace, with pillows
@@ -3025,7 +3027,8 @@
         const moon = s.actor(c, 'moon', ...mf); owl.y = moon.y - moon.displayHeight * 0.08; s.peekObj = owl; s.peekDX = -moon.displayWidth * 0.6;
         const jack = s.actor(c, 'jack_upside', PORTRAIT ? 0.34 : 0.5, 0.97, PORTRAIT ? 0.62 : 0.34, PORTRAIT ? 0.3 : 0.5);
         s.anim({ targets: jack, angle: { from: -4, to: 4 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-        const z = s.actor(c, 'zzz', 0, 0, 0.16, 0.12); z.x = jack.x + jack.displayWidth * 0.35; z.y = jack.y - jack.displayHeight * 0.75;
+        // B67: the head is at the bottom left of jack_upside.png, so the Zzz starts next to it (not at the feet)
+        const z = s.actor(c, 'zzz', 0, 0, 0.16, 0.12); z.x = jack.x - jack.displayWidth * 0.5 - z.displayWidth * 0.3; z.y = jack.y - jack.displayHeight * 0.12;
         s.anim({ targets: z, y: z.y - c.r.h * 0.12, alpha: { from: 1, to: 0.2 }, duration: 1400, repeat: -1 });
         s.caption(c, 'MEANWHILE, IN THE PILLOW HILLS...', instant);
         if (!instant) s.at(300, () => A.snore());
@@ -3179,6 +3182,8 @@
     // inner picture fitted to the panel (no masks: the pictures are sized to the panel)
     bg(c, key, tint) { const r = c.r, b = this.add.image(0, 0, key).setDisplaySize(r.w - 10, r.h - 10); if (tint) b.setTint(tint); c.add(b); return b; }
     actor(c, key, fx, fy, hFrac, wFrac = 0.45) { const r = c.r, a = this.add.image((fx - 0.5) * r.w, (fy - 0.5) * r.h, key).setOrigin(0.5, 1); a.setScale(Math.min(hFrac * r.h / a.height, wFrac * r.w / a.width)); c.add(a); return a; }
+    // moves an actor sideways so it stays inside its panel (QA B64)
+    inside(c, a, pad = 12) { const hw = a.displayWidth / 2, lim = c.r.w / 2 - pad - hw; a.x = lim > 0 ? clamp(a.x, -lim, lim) : 0; return a; }
     // a flat strip across the panel (ground, snow, moon dust): from fy0 to fy1 of the panel height
     strip(c, col, fy0, fy1) { const r = c.r, g = this.add.graphics(); g.fillStyle(col); g.fillRect(-r.w / 2 + 5, (fy0 - 0.5) * r.h, r.w - 10, (fy1 - fy0) * r.h - 5); c.add(g); return g; }
     // the yellow caption box in the top left corner; the text types in
@@ -3190,9 +3195,10 @@
       if (instant) { cap.setText(full); drawCap(); }
       else { let n = 0; const ev = this.time.addEvent({ delay: 30, repeat: full.length - 1, callback: () => { cap.setText(full.slice(0, ++n)); drawCap(); } }); this.steps.push(ev); this.later.push({ fn: () => { cap.setText(full); drawCap(); }, ran: false }); }
     }
-    bubble(c, fx, fy, text, tailX, instant) {
+    // wrap: a narrower text width than the default (0 = default)
+    bubble(c, fx, fy, text, tailX, instant, wrap) {
       const r = c.r, x = (fx - 0.5) * r.w, y = (fy - 0.5) * r.h;
-      const t = txt(this, 0, 0, text, PORTRAIT ? 32 : 30, '#1d2163', { st: 0, shadow: false, wrap: Math.min(r.w * 0.8, 560) });
+      const t = txt(this, 0, 0, text, PORTRAIT ? 32 : 30, '#1d2163', { st: 0, shadow: false, wrap: Math.min(r.w * 0.8, wrap || 560) });
       const bw = t.width + 60, bh = t.height + 44, g = this.add.graphics();
       g.fillStyle(0xffffff); g.lineStyle(6, 0x1d2163);
       g.fillTriangle(tailX * bw * 0.3 - 20, bh / 2 - 8, tailX * bw * 0.3 + 20, bh / 2 - 8, tailX * bw * 0.45, bh / 2 + 44);
@@ -3213,7 +3219,9 @@
       const star = (rad, col) => { const pts = []; for (let k = 0; k < 28; k++) { const a = k * Math.PI / 14, rr = k % 2 ? rad * 0.62 : rad; pts.push(new Phaser.Geom.Point(Math.cos(a) * rr * 1.25 * sx, Math.sin(a) * rr)); } g.fillStyle(col); g.fillPoints(pts, true); g.lineStyle(6, 0x1d2163); g.strokePoints(pts, true); };
       star(R, 0xffd23f); star(R * 0.72, 0xff6b5b);
       const k = maxW && t.width > maxW ? maxW / t.width : 1;
-      const b = this.add.container(x, y, [g, t]).setAngle(-6).setScale(k);
+      // inside its panel sideways (a little overlap on the border is comic style; QA B64: FWUMP! on iPad)
+      const hw = R * 1.25 * sx * k, lim = c ? r.w / 2 + 10 - hw : 0;
+      const b = this.add.container(c && lim > 0 ? clamp(x, -lim, lim) : x, y, [g, t]).setAngle(-6).setScale(k); b.halfW = hw;
       if (c) c.add(b);
       if (!instant) { b.setScale(0); this.anim({ targets: b, scale: k, duration: 300, ease: 'Back.out' }); }
       return b;
