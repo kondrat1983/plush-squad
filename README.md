@@ -40,6 +40,9 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - `sw.js`, `manifest.json` — offline + install
 
 ## Versions
+- **v1.0**
+  - **Ocean** and **Veggie Patch**, two new worlds with new tricks (Compass Spin, WAKE UP!, PEEKABOO!) and bosses Sleepy Thully and Brock Lee.
+  - **Pillow Week** daily streak, toys go on **adventures**, toys **grow** (levels, new moves, GOLDEN), and a **Settings** screen.
 - **v0.9**
   - **Comics for every world**: Pillow Hills (new players), Space (everyone, once), Canada and Spooky (Halloween). Watch them again in the Album (COMICS, 2 x 2 shelf).
 - **v0.8**

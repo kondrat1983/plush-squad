@@ -284,6 +284,15 @@
 
   // ---------- "What's new" popup: shows once per version (CLOSE = see it again next time, DON'T SHOW AGAIN = hide until the next update)
   const WHATS_NEW = {
+    '1.0': [
+      { icon: 'compass', title: 'OCEAN', text: 'A foggy new sea! Find the LUCKY card when the cards drift.' },
+      { icon: 'thully', title: 'Sleepy Thully', text: 'Wake up the sleepiest boss ever. Ring the ALARM!' },
+      { icon: 'broccoli', title: 'VEGGIE PATCH', text: 'The yuckiest veggies hide in the soil. Spot the pillow and bonk!' },
+      { icon: 'pillow', title: 'Pillow Week', text: 'Play on 7 days for a GOLDEN capsule. Missed a day? The Sleepy Pillow saves you!' },
+      { icon: 'j:ticket', title: 'Adventures', text: 'Toys can go on adventures and send you postcards!' },
+      { icon: 'j:glowstar', title: 'Toys grow up', text: 'New moves, badges and a GOLDEN glow for your toys!' },
+      { icon: 'j:gear', title: 'Settings', text: 'Music and sounds louder or softer, calm mode and cards for left hands!' },
+    ],
     '0.9': [
       { icon: 'j:album', title: 'Comics', text: 'Jack lands in every world! Watch the comics again in the Album.' },
     ],
