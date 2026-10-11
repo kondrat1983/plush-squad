@@ -2028,7 +2028,7 @@
       glow.lineStyle(4, 0xffffff, 0.8); glow.strokeRoundedRect(-w / 2 - 14, -h / 2 - 14, w + 28, h + 28, R + 12);
       const badge = this.add.image(-w / 2 + 26, -h / 2 + 24, 'compass').setScale(iconScale('compass', 40)).setVisible(false);
       const plus = chip(this, w / 2 - 40, -h / 2 + 8, '+5', 0x5ff0e6, 24).setVisible(false);
-      c.add([glow, g, ic, t1, t2, used, ufo, badge, plus]);
+      c.add([g, ic, t1, t2, used, ufo, glow, badge, plus]); // (the new parts go last: tests and other code read list[1] = icon, list[2] = title)
       this.tweens.add({ targets: glow, alpha: { from: 1, to: 0.35 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       c.setSpin = (moved, lucky, shine) => { badge.setVisible(!!moved || (!!lucky && !shine && !this.easy)); glow.setVisible(!!lucky && !!shine); plus.setVisible(!!lucky && !!shine); };
       c.setSize(w, h).setInteractive({ useHandCursor: true });

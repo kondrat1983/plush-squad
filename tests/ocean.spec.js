@@ -95,7 +95,7 @@ for (const diff of ['easy', 'normal', 'hard']) test(`Compass Spin on ${diff}: ca
   await wait(page, 1500);
   expect(await cardPlaces(page)).toEqual(sp.order);
   // the glow: EASY / NORMAL keep it; HARD hides it 1 s after the slide but keeps the badge
-  const look = await page.evaluate(() => { const b = __game.scene.getScene('battle'), c = b.moves[b.spin.lucky].card; return { glow: c.list[0].visible, badge: c.list[7].visible, plus: c.list[8].visible }; });
+  const look = await page.evaluate(() => { const b = __game.scene.getScene('battle'), c = b.moves[b.spin.lucky].card; return { glow: c.list[6].visible, badge: c.list[7].visible, plus: c.list[8].visible }; });
   expect(look.glow).toBe(diff !== 'hard');
   expect(look.badge).toBe(diff !== 'easy');
   // play the LUCKY card with a fixed 10 pep hit: 15 lands
