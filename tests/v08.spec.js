@@ -12,8 +12,8 @@ test('the 5 new stickers are earned from their stats, the 6 new quests are in th
   });
   for (const id of ['sasquatch', 'goalie', 'hattrick', 'slapshot', 'umbrella5']) expect(r.ach).toContain(id);
   for (const id of ['fort', 'pancakes', 'leaf', 'polite', 'animal', 'birds']) expect(r.quests).toContain(id);
-  expect(r.quests.length).toBe(24);
-  expect(r.n).toBe(31); // 27 in v0.8 + Pillow Week (v0.9) + Explorer, Golden Toy, Toy Champion (v1.0)
+  expect(r.quests.length).toBe(36); // v1.0: +6 Ocean, +6 Veggie Patch
+  expect(r.n).toBe(37); // 27 in v0.8 + Pillow Week (v0.9) + Explorer, Golden Toy, Toy Champion, 3 Ocean, 3 Veggie Patch (v1.0)
   noErrors(page);
 });
 

@@ -124,6 +124,11 @@
       const E = window.PSExtra, t = E ? E.todayKey() : '';
       d.streak = E && d.daily === new Date().toDateString() ? { days: [t], pillow: 0, at: Date.now(), weeks: 0, seen: t } : { days: [], pillow: 0, at: 0, weeks: 0, seen: '' };
     }
+    // once, for saves from before v1.0 (Ocean and Veggie Patch are worlds 3 and 4, Spooky moves from 3 to 5)
+    if (!d.mig10) {
+      if (d.lastWorld === 3) d.lastWorld = 5;
+      d.mig10 = 1;
+    }
   })(Save.data);
   // Halloween event: October + first week of November (or ?halloween to test)
   const NOW = new Date();
@@ -256,21 +261,26 @@
   function iconScale(key, size) { // scale so the icon is ~size px
     if (!key) return 1;
     if (key.startsWith('i:') || key.startsWith('j:')) return size / 144;
-    const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
+    const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, crab: 242, blowfish: 242, jellyfish: 240, compass: 242, ship: 242, bubbles: 242, thully: 380, fogcap: 250, nightcap: 230, hand: 242,
+      onion: 223, peapod: 243, garlic: 218, mushroom: 211, broccoli: 240, worm: 241, cheese: 238, bread: 242, sunflower: 242, brocklee: 380, mound: 200, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
     return size / base;
   }
 
   // ---------- shared scenery
   const SPACE = 1;
   const CANADA = 2; // v0.8
-  const SPOOKY = 3;
-  const groundKey = w => w === SPACE ? 'ground2' : w === SPOOKY ? 'ground3' : w === CANADA ? 'ground4' : 'ground';
+  const OCEAN = 3, VEGGIE = 4; // v1.0 (docs/gdd/1.0-ocean.md, 1.0-veggie.md)
+  const SPOOKY = 5; // the October event (was 3 before v1.0, see mig10)
+  const GROUND = { [SPACE]: 'ground2', [CANADA]: 'ground4', [OCEAN]: 'ground5', [VEGGIE]: 'ground6', [SPOOKY]: 'ground3' };
+  const SKY = { [SPACE]: 'sky2', [CANADA]: 'sky4', [OCEAN]: 'sky5', [VEGGIE]: 'sky6', [SPOOKY]: 'sky3' };
+  const groundKey = w => GROUND[w] || 'ground';
   function sky(scene, world = 0) {
     const sp = world === SPACE, spook = world === SPOOKY, can = world === CANADA;
-    scene.add.image(BLEED.cx, BLEED.cy, sp ? 'sky2' : spook ? 'sky3' : can ? 'sky4' : 'sky').setDisplaySize(GW, GH);
+    scene.add.image(BLEED.cx, BLEED.cy, SKY[world] || 'sky').setDisplaySize(GW, GH);
     const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(0.55);
     scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : 1); i++) {
+    const few = world === OCEAN || world === VEGGIE ? 0.6 : 1; // foggy sea, moonlit garden: fewer stars
+    for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : few); i++) {
       const s = scene.add.image(Math.random() * W, Math.random() * H * (sp ? 0.75 : 0.62), 'dot')
         .setScale(0.12 + Math.random() * 0.22).setTint(Math.random() < 0.3 ? C.star : 0xffffff).setAlpha(0.3 + Math.random() * 0.6);
       scene.tweens.add({ targets: s, alpha: 0.08, duration: 900 + Math.random() * 2200, yoyo: true, repeat: -1, delay: Math.random() * 2000, ease: 'Sine.inOut' });
@@ -278,6 +288,8 @@
     if (sp) spaceDecor(scene, scene.scene.key === 'battle' ? 15000 : 7000);
     else if (spook) spookyDecor(scene);
     else if (can) canadaDecor(scene);
+    else if (world === OCEAN) oceanDecor(scene);
+    else if (world === VEGGIE) veggieDecor(scene);
     else for (let i = 0; i < 5; i++) {
       const cl = scene.add.image(Math.random() * W, H * (0.08 + Math.random() * 0.42), 'cloud')
         .setAlpha(0.13 + Math.random() * 0.12).setScale(0.8 + Math.random() * 1.3);
@@ -312,6 +324,52 @@
       const y = H * (0.1 + Math.random() * 0.35), l = scene.add.image(-80, y, 'mapleleaf').setScale(0.22).setAlpha(0.9).setDepth(3);
       scene.tweens.add({ targets: l, angle: 720, x: W + 80, y: y + rnd(80, 260), duration: 9000, ease: 'Sine.inOut', onComplete: () => l.destroy() });
     } });
+  }
+  // Ocean (v1.0): drifting fog bands everywhere; on the map also a lighthouse, plush ships, buoys and bobbing gulls
+  function oceanDecor(scene) {
+    for (let i = 0; i < 3; i++) {
+      const f = scene.add.image(Math.random() * W, H * (0.2 + i * 0.16), 'glow').setDisplaySize(W * 0.9, 180 + i * 40).setTint(0xffffff).setAlpha(0.12 + i * 0.04);
+      scene.tweens.add({ targets: f, x: { from: -W * 0.5, to: W * 1.5 }, duration: 40000 + i * 10000, repeat: -1 }); f.x = Math.random() * W;
+    }
+    const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null; // the horizon things only on the map (like Canada's pines)
+    if (!gy) return;
+    // the lighthouse: a striped tower, a yellow lamp and a beam that sweeps every 6 s
+    const lx = W * 0.07, g = scene.add.graphics();
+    for (let k = 0; k < 5; k++) { g.fillStyle(k % 2 ? 0xffffff : 0xe2524a, 0.85); g.fillRect(lx - 26 + k * 1.5, gy - 40 - k * 34, 52 - k * 3, 34); }
+    g.fillStyle(0x2a3060); g.fillRect(lx - 24, gy - 226, 48, 18); g.fillStyle(0xffe08a); g.fillCircle(lx, gy - 192, 16);
+    const beam = scene.add.graphics().setPosition(lx, gy - 192); beam.fillStyle(0xfff3b0, 0.18); beam.fillTriangle(0, 0, 420, -70, 420, 70);
+    scene.tweens.add({ targets: beam, scaleX: { from: 1, to: -1 }, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    // plush ships napping in the seaweed ship park, buoys in a triangle, two gulls bobbing on the water (they never fly at anyone)
+    [[0.84, 0.5, 0], [0.7, 0.32, 1]].forEach(([x, sc, k]) => {
+      const sh = scene.add.image(W * x, gy + 10, 'ship').setOrigin(0.5, 1).setScale(sc).setAlpha(0.55).setTint(0xc8d8f0);
+      scene.tweens.add({ targets: sh, y: sh.y - 8, angle: 3, duration: 2200 + k * 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    });
+    [[0.32, 0], [0.4, 0], [0.36, -26]].forEach(([x, dy], k) => {
+      const b = scene.add.graphics().setPosition(W * x, gy + 4 + dy); b.fillStyle(0xe2524a); b.fillCircle(0, 0, 10); b.fillStyle(0xffffff); b.fillRect(-10, -3, 20, 6);
+      scene.tweens.add({ targets: b, y: b.y - 5, duration: 1500 + k * 300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    });
+    [0.55, 0.6].forEach((x, k) => {
+      const gl = img(scene, W * x, gy - 6, 'i:bird').setScale(0.3).setTint(0xffffff).setFlipX(k === 1).setAlpha(0.85);
+      scene.tweens.add({ targets: gl, y: gl.y - 10, duration: 1200 + k * 400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    });
+  }
+  // Veggie Patch (v1.0): fireflies everywhere; on the map also a low fence, sunflowers and rows of sprouts
+  function veggieDecor(scene) {
+    for (let i = 0; i < 24; i++) {
+      const f = scene.add.image(Math.random() * W, H * (0.1 + Math.random() * 0.6), 'dot').setScale(0.12 + Math.random() * 0.08).setTint(Math.random() < 0.5 ? 0xd8ff6a : 0xfff27a).setAlpha(0.2);
+      scene.tweens.add({ targets: f, alpha: 0.95, duration: 700 + Math.random() * 900, yoyo: true, repeat: -1, delay: Math.random() * 2000, ease: 'Sine.inOut' });
+      scene.tweens.add({ targets: f, x: f.x + rnd(-120, 120), y: f.y + rnd(-80, 80), duration: 5000 + Math.random() * 4000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+    const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null;
+    if (!gy) return;
+    const fence = scene.add.graphics(); fence.fillStyle(0xb98a5a, 0.7);
+    fence.fillRect(0, gy - 70, W, 12); fence.fillRect(0, gy - 36, W, 12);
+    for (let x = 20; x < W; x += 90) { fence.fillRect(x, gy - 96, 22, 96); fence.fillTriangle(x, gy - 96, x + 22, gy - 96, x + 11, gy - 112); }
+    [0.12, 0.5, 0.88].forEach((x, k) => {
+      const sf = scene.add.image(W * x + rnd(-30, 30), gy - 20, 'sunflower').setOrigin(0.5, 1).setScale(0.45 + k * 0.05).setAlpha(0.8);
+      scene.tweens.add({ targets: sf, angle: { from: -4, to: 4 }, duration: 2600 + k * 300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    });
+    for (let i = 0; i < 14; i++) img(scene, W * (0.04 + i * 0.07), gy + 30 + (i % 2) * 24, 'i:leaf').setScale(0.18).setTint(0x8fe36a).setAlpha(0.7);
   }
   // Space world: a far planet, a drifting UFO and a rocket that zooms by now and then
   function spaceDecor(scene, rocketEvery = 7000) {
@@ -395,7 +453,10 @@
         'dumpling', 'milk', 'books', 'lock', 'dizzy', 'dance', 'crown', 'note', 'shield',
         'robot', 'ghost', 'dragonboss', 'aliens', 'mothership', 'umbrella', 'planet', 'rocket', 'extinguisher', 'comet', 'ufo',
         'pumpkin', 'bat', 'spider', 'vampire', 'kraken', 'candy', 'lollipop', 'web', 'tophat', 'witchhat', 'gift',
-        'moose', 'beaver', 'bear', 'sasquatch', 'mapleleaf', 'pine', 'pancakes', 'hockey', 'glove']
+        'moose', 'beaver', 'bear', 'sasquatch', 'mapleleaf', 'pine', 'pancakes', 'hockey', 'glove',
+        // v1.0 Ocean and Veggie Patch (Fluent Emoji 3D, MIT; thully and brocklee by Kondrat)
+        'crab', 'blowfish', 'jellyfish', 'compass', 'ship', 'bubbles', 'thully', 'hand',
+        'onion', 'peapod', 'garlic', 'mushroom', 'broccoli', 'worm', 'cheese', 'bread', 'sunflower', 'brocklee']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
       this.load.atlas('icons2', 'assets/icons2.webp', 'assets/icons2.json');
@@ -509,6 +570,33 @@
       tx.strokeStyle = 'rgba(160,170,200,0.6)'; tx.lineWidth = 4; for (let x = 24; x < 228; x += 18) { tx.beginPath(); tx.moveTo(x, 166); tx.lineTo(x, 212); tx.stroke(); }
       const leaf = this.textures.get('mapleleaf').getSourceImage(); tx.drawImage(leaf, 82, 92, 76, 79);
       tq.refresh();
+      // v1.0 Captain Fog: the cloud with a face and a captain's hat (white top, navy band, black visor, gold anchor)
+      const fc = this.textures.createCanvas('fogcap', 250, 250), fx2 = fc.getContext();
+      fx2.drawImage(this.textures.get('cloud').getSourceImage(), 13, 96, 224, 146);
+      fx2.fillStyle = '#1d2163'; [[100, 168], [150, 168]].forEach(([x, y]) => { fx2.beginPath(); fx2.ellipse(x, y, 9, 12, 0, 0, Math.PI * 2); fx2.fill(); });
+      fx2.fillStyle = '#ff9ed8'; fx2.globalAlpha = 0.5; [[80, 190], [170, 190]].forEach(([x, y]) => { fx2.beginPath(); fx2.ellipse(x, y, 14, 8, 0, 0, Math.PI * 2); fx2.fill(); }); fx2.globalAlpha = 1;
+      fx2.strokeStyle = '#1d2163'; fx2.lineWidth = 6; fx2.lineCap = 'round'; fx2.beginPath(); fx2.arc(125, 188, 22, 0.2, Math.PI - 0.2); fx2.stroke();
+      fx2.fillStyle = '#ffffff'; fx2.beginPath(); fx2.ellipse(125, 74, 78, 34, 0, 0, Math.PI * 2); fx2.fill(); fx2.strokeStyle = '#c9d3f0'; fx2.lineWidth = 4; fx2.stroke();
+      fx2.fillStyle = '#1d2163'; fx2.fillRect(62, 82, 126, 26);
+      fx2.fillStyle = '#111428'; fx2.beginPath(); fx2.ellipse(125, 110, 70, 14, 0, 0, Math.PI); fx2.fill();
+      fx2.fillStyle = '#ffd23f'; fx2.beginPath(); fx2.arc(125, 74, 13, 0, Math.PI * 2); fx2.fill(); fx2.fillStyle = '#1d2163'; fx2.fillRect(122, 64, 6, 18); fx2.fillRect(116, 70, 18, 4);
+      fc.refresh();
+      // v1.0 Nightcap (Sleepy Thully's reward): a floppy blue-and-white striped cap with a white pompom hanging to one side
+      const nc = this.textures.createCanvas('nightcap', 240, 230), nx = nc.getContext();
+      nx.save(); nx.beginPath(); nx.moveTo(20, 190); nx.bezierCurveTo(30, 60, 150, 20, 205, 95); nx.quadraticCurveTo(170, 110, 220, 190); nx.closePath(); nx.clip();
+      for (let i = 0; i < 12; i++) { nx.fillStyle = i % 2 ? '#f4f7ff' : '#4a78dc'; nx.save(); nx.translate(120, 120); nx.rotate(-0.6); nx.fillRect(-200, -200 + i * 34, 400, 34); nx.restore(); }
+      nx.restore();
+      nx.fillStyle = '#ffffff'; nx.beginPath(); nx.roundRect ? nx.roundRect(8, 170, 224, 46, 22) : nx.rect(8, 170, 224, 46); nx.fill(); nx.strokeStyle = '#b8c6ee'; nx.lineWidth = 4; nx.stroke();
+      nx.beginPath(); nx.arc(212, 104, 22, 0, Math.PI * 2); nx.fill(); nx.stroke();
+      nc.refresh();
+      // v1.0 PEEKABOO! mound: a soil heap with crumbs and a sprout
+      const mc = this.textures.createCanvas('mound', 200, 130), mx = mc.getContext();
+      const mgr = mx.createLinearGradient(0, 20, 0, 130); mgr.addColorStop(0, '#9a6a42'); mgr.addColorStop(1, '#5a3a22');
+      mx.fillStyle = mgr; mx.beginPath(); mx.moveTo(4, 126); mx.bezierCurveTo(20, 20, 180, 20, 196, 126); mx.closePath(); mx.fill();
+      mx.fillStyle = 'rgba(40,24,10,0.35)'; for (let i = 0; i < 14; i++) { mx.beginPath(); mx.arc(30 + Math.random() * 140, 60 + Math.random() * 60, 4 + Math.random() * 4, 0, Math.PI * 2); mx.fill(); }
+      mx.strokeStyle = '#5fbf4a'; mx.lineWidth = 6; mx.lineCap = 'round'; mx.beginPath(); mx.moveTo(100, 44); mx.quadraticCurveTo(98, 26, 108, 16); mx.stroke();
+      mx.fillStyle = '#7fe36a'; mx.beginPath(); mx.ellipse(116, 16, 12, 6, -0.5, 0, Math.PI * 2); mx.fill();
+      mc.refresh();
       // spooky grass for the Halloween world
       const gt3 = this.textures.createCanvas('ground3', GW, GH), q3 = gt3.getContext();
       q3.save(); q3.beginPath(); q3.ellipse(GW / 2, RY, GW / 2, RY, 0, Math.PI, 0); q3.lineTo(GW, GH); q3.lineTo(0, GH); q3.closePath(); q3.clip();
@@ -518,6 +606,30 @@
       for (let i = 1; i < 6; i++) { q3.beginPath(); q3.ellipse(GW / 2, RY + i * GH * 0.11, GW / 2 - i * 20, RY, 0, Math.PI, 0); q3.stroke(); }
       for (let i = -8; i <= 8; i++) { q3.beginPath(); q3.moveTo(GW / 2 + i * GW * 0.035, GH * 0.02); q3.lineTo(GW / 2 + i * GW * 0.11, GH); q3.stroke(); }
       q3.restore(); gt3.refresh();
+      // v1.0 Ocean: foggy night sea and water with a sandbar; Veggie Patch: a moonlit garden and soil rows
+      const grad = (key, stops) => { const t = this.textures.createCanvas(key, W, H), x = t.getContext(), gg = x.createLinearGradient(0, 0, 0, H); stops.forEach(([o, c]) => gg.addColorStop(o, c)); x.fillStyle = gg; x.fillRect(0, 0, W, H); return { t, x }; };
+      grad('sky5', [[0, '#0e1f3d'], [0.6, '#173656'], [1, '#1d4a5c']]).t.refresh();
+      const s6 = grad('sky6', [[0, '#2a1f4f'], [0.6, '#4a3560'], [1, '#6b4a6e']]);
+      const mg = s6.x.createRadialGradient(W * 0.5, H * 0.8, 0, W * 0.5, H * 0.8, W * 0.6); mg.addColorStop(0, 'rgba(255,214,140,0.18)'); mg.addColorStop(1, 'rgba(0,0,0,0)');
+      s6.x.fillStyle = mg; s6.x.fillRect(0, 0, W, H); s6.t.refresh();
+      const dome = (key, stops, paint) => {
+        const t = this.textures.createCanvas(key, GW, GH), q = t.getContext();
+        q.save(); q.beginPath(); q.ellipse(GW / 2, RY, GW / 2, RY, 0, Math.PI, 0); q.lineTo(GW, GH); q.lineTo(0, GH); q.closePath(); q.clip();
+        const qg = q.createLinearGradient(0, 0, 0, GH); stops.forEach(([o, c]) => qg.addColorStop(o, c)); q.fillStyle = qg; q.fillRect(0, 0, GW, GH);
+        paint(q); q.restore(); t.refresh();
+      };
+      dome('ground5', [[0, '#e9d7a6'], [0.07, '#d9c28a'], [0.1, '#2c8a8f'], [1, '#1b5a73']], q => {
+        q.strokeStyle = 'rgba(255,255,255,0.35)'; q.lineWidth = 5; q.lineCap = 'round';
+        for (let i = 0; i < 30; i++) {
+          const x = Math.random() * GW, y = GH * 0.14 + Math.random() * GH * 0.86, w = 50 + Math.random() * 90;
+          q.beginPath(); for (let k = 0; k <= 16; k++) { const xx = x + w * k / 16, yy = y + Math.sin(k / 16 * Math.PI * 2) * 7; k ? q.lineTo(xx, yy) : q.moveTo(xx, yy); } q.stroke();
+        }
+      });
+      dome('ground6', [[0, '#8a5a35'], [0.35, '#7a4e2d'], [1, '#4e3220']], q => {
+        q.lineWidth = 9; q.strokeStyle = 'rgba(50,30,15,0.45)';
+        for (let i = 1; i < 7; i++) { q.beginPath(); q.ellipse(GW / 2, RY + i * GH * 0.1, GW / 2 - i * 18, RY, 0, Math.PI, 0); q.stroke(); }
+        for (let i = 0; i < 70; i++) { q.fillStyle = Math.random() < 0.5 ? 'rgba(127,214,90,0.8)' : 'rgba(170,230,120,0.7)'; q.beginPath(); q.ellipse(Math.random() * GW, RY * 0.6 + Math.random() * GH, 7, 4, -0.5, 0, Math.PI * 2); q.fill(); }
+      });
       // load saved toy pictures, then go
       Promise.all(Save.data.toys.map(t => IDB.get(t.id).then(url => url && addTexture(this, 'toy_' + t.id, url)).catch(() => {})))
         .then(() => this.go(), () => this.go());
@@ -542,11 +654,14 @@
     { k: 'inferno', lvl: 5, uses: 1, title: 'Inferno Rain', sub: '22–30 pep', icon: 'comet', type: 'rain', dmg: [22, 30], log: '{a} calls down INFERNO RAIN from the sky!' },
   ];
   // worlds (rivals are unlocked in order across all worlds)
+  // the index is the world id (SPACE, CANADA...); tab = the short name on a squeezed map tab (v1.0: 5-6 tabs)
   const WORLDS = [
-    { name: 'PILLOW HILLS', icon: 'moon' },
-    { name: 'SPACE', icon: 'rocket' },
-    { name: 'CANADA', icon: 'mapleleaf' },
-  ].concat(EVENT_ON ? [{ name: 'SPOOKY', icon: 'pumpkin', event: true }] : []);
+    { name: 'PILLOW HILLS', tab: 'HILLS', icon: 'moon' },
+    { name: 'SPACE', tab: 'SPACE', icon: 'rocket' },
+    { name: 'CANADA', tab: 'CANADA', icon: 'mapleleaf' },
+    { name: 'OCEAN', tab: 'OCEAN', icon: 'compass' },
+    { name: 'VEGGIE PATCH', tab: 'VEGGIES', icon: 'broccoli' },
+  ].concat(EVENT_ON ? [{ name: 'SPOOKY', tab: 'SPOOKY', icon: 'pumpkin', event: true }] : []);
   const RIVALS = [
     { id: 'timmy', name: 'Timmy the Tiger', nick: 'Timmy', short: 'TIMMY', tex: 'tiger', scale: 2.0, color: C.orange, hp: 100, xp: 40,
       intro: 'Timmy waves a paw: "Pillows at dawn, Jack!"', laugh: 'Timmy laughed so hard he gave up.',
@@ -630,6 +745,80 @@
         { type: 'quake', word: 'AVALANCHE!', sound: 'stomp', dmg: [16, 24], w: 25, log: '{a} stomps his giant feet. AVALANCHE!' },
         { type: 'volley', tex: 'snowball', word: 'SNOWBALLS!', sound: 'whoosh', dmg: [16, 24], w: 20, log: '{a} throws a mountain of snowballs at {d}!' },
         { type: 'roar', word: 'HELLO FRIEND!', color: 0xc9a27a, sound: 'roar', dmg: [15, 23], w: 20, log: '{a} waves and yells HELLO so loud the snow falls off the trees!' }] },
+    // ---- World 4: OCEAN (v1.0, docs/gdd/1.0-ocean.md). +10 pep per slot over Canada, scaling from level 9.
+    // Compass Spin ('whirl'): the next player turn the cards drift, one rides a LUCKY CURRENT (+5). Nothing moves on EASY.
+    { id: 'hermy', world: OCEAN, name: 'Hermy the Hermit Crab', nick: 'Hermy', short: 'HERMY', tex: 'crab', color: 0xff7b5c, hp: 155, xp: 150,
+      intro: 'Hermy pops out of a shell: "Welcome to my new house! Please wipe your feet."', laugh: 'Hermy giggled so hard he fell out of his shell. "Time to move house again!"',
+      moves: [{ type: 'multi', hits: 2, dmg: [7, 11], w: 30, log: 'PINCH-TICKLE! {a} tickles {d} with both claws!' },
+        { type: 'rush', word: 'SIDEWAYS!', dmg: [12, 20], w: 30, log: '{a} scuttles in sideways. Surprise!' },
+        { type: 'shield', w: 20, log: '{a} hops into a bigger shell. Next hit only does half!' },
+        { type: 'whirl', mini: true, word: 'WHIRL!', sound: 'whirr', dmg: [8, 12], uses: 1, w: 25, log: '{a} spins his shell like a compass... the cards get dizzy!' }] },
+    { id: 'puff', world: OCEAN, name: 'Puff the Pufferfish', nick: 'Puff', short: 'PUFF', tex: 'blowfish', color: 0xffd36b, hp: 165, xp: 160,
+      intro: 'Puff jumps: "EEP! You scared me!" ...and puffs up like a beach ball.', laugh: 'Puff giggled so hard he went PFFFT and floated away like a balloon.',
+      moves: [{ type: 'shield', word: 'PUFF UP!', sound: 'puff', w: 25, log: '{a} puffs up big and round. Next hit only does half!' },
+        { type: 'spray', tex: 'i:bubble', word: 'BUBBLES!', sound: 'bubble', dmg: [12, 20], w: 30, log: '{a} blows a stream of bubbles at {d}!' },
+        { type: 'hop', word: 'BOING!', dmg: [13, 21], w: 25, log: '{a} bounces over like a beach ball!' },
+        { type: 'roar', word: 'PFFFT!', color: 0xffd36b, sound: 'pffft', dmg: [13, 21], w: 20, log: '{a} lets the air out. PFFFT! {d} is blown over!' },
+        { type: 'heal', tex: 'i:leaf', amt: 20, uses: 1, w: 10, log: '{a} munches some seaweed. Crunchy!' }] },
+    { id: 'jelly', world: OCEAN, name: 'Jelly the Jellyfish', nick: 'Jelly', short: 'JELLY', tex: 'jellyfish', color: 0xd8a8ff, hp: 175, xp: 170,
+      intro: 'Jelly floats by, glowing: "Hellooo... want to see me... wiggle?"', laugh: 'Jelly giggled and glowed all the colours of the rainbow. "Sooo... fun..."',
+      moves: [{ type: 'dizzy', color: 0xd8a8ff, word: 'BZZZT!', sound: 'laser', uses: 1, w: 15, log: '{a} gives {d} a tiny tickle zap... bzzzt!' },
+        { type: 'multi', hits: 4, dmg: [4, 6], w: 25, log: 'WIGGLE TICKLE! {a} tickles {d} with all her ribbons!' },
+        { type: 'hop', word: 'WOBBLE!', dmg: [12, 20], w: 25, log: '{a} wobbles over like jelly on a plate!' },
+        { type: 'whirl', word: 'GLOW SPIN!', sound: 'whirr', dmg: [10, 14], uses: 1, w: 25, log: '{a} spins and glows... the cards drift away!' },
+        { type: 'spray', tex: 'spark', tint: [0xd8a8ff, 0xff9ed8, 0xffffff], word: 'GLOW!', sound: 'laser', dmg: [12, 19], w: 20, log: '{a} glows so bright that {d} has to blink!' }] },
+    { id: 'fog', world: OCEAN, name: 'Captain Fog', nick: 'Captain Fog', short: 'CAPTAIN FOG', tex: 'fogcap', color: 0xdfe6f5, hp: 185, xp: 180, big: 1.05,
+      intro: 'Captain Fog puffs up on deck: "Ahoy! The crew is on a picnic, so I am the whole ship today!"', laugh: 'Captain Fog giggled into a tiny cloud. "Ahoy, best pillow fight on the seven seas!"',
+      moves: [{ type: 'roar', word: 'FOG HORN!', color: 0xdfe6f5, sound: 'honk', dmg: [15, 23], w: 25, log: '{a} toots the fog horn. HOOONK!' },
+        { type: 'shield', w: 15, log: '{a} hides in a fog bank. Next hit only does half!' },
+        { type: 'whirl', word: 'COMPASS SPIN!', sound: 'whirr', dmg: [12, 16], uses: 2, usesHard: 3, w: 25, log: 'THE TRIANGLE IS TINGLING... {a} spins every compass on the sea!' },
+        { type: 'volley', tex: 'pillow', word: 'FIRE THE PILLOWS!', sound: 'whoosh', dmg: [14, 22], w: 25, log: '{a} fires the pillow cannon at {d}!' },
+        // the ALARM! tutorial before Thully: if nobody rings, he naps (+20) and wakes by himself
+        { type: 'yawn', charge: true, mini: true, amt: 20, uses: 1, w: 20, log: '{a} yawns on watch... "Just five minutes..."' }] },
+    { id: 'thully', world: OCEAN, name: 'Sleepy Thully', nick: 'Thully', short: 'SLEEPY THULLY', tex: 'thully', big: 1.15, color: 0x7fd6b4, hp: 220, xp: 220, boss: true, sleepy: true, reward: 'nightcap',
+      intro: 'Shhh... Sleepy Thully is having the longest nap in history. Wake him up for a pillow fight!',
+      wake: '"WHO WOKE ME UP?! ...Oh. A pillow fight? Fine. But I\'m GRUMPY."',
+      laugh: 'Thully giggled himself wide awake. "Good morning! Same time tomorrow?"',
+      moves: [{ type: 'quake', word: 'FLAP FLOP!', sound: 'stomp', dmg: [14, 21], w: 25, log: '{a} flaps his tiny wings and flops down. The sea shakes!' },
+        { type: 'multi', hits: 3, dmg: [6, 9], w: 25, log: '{a} tucks {d} in with a blanket... three times!' },
+        { type: 'spray', tex: 'i:bubble', word: 'BLUB ZZZ!', sound: 'bubble', dmg: [13, 20], w: 20, log: '{a} snores a stream of bubbles at {d}!' },
+        { type: 'roar', word: 'GRUMBLE!', color: 0x7fd6b4, sound: 'grumble', dmg: [13, 21], w: 20, log: '{a} grumbles like a grumpy morning. GRRRMBL!' },
+        { type: 'yawn', charge: true, amt: 40, uses: 2, usesEasy: 1, usesHard: 3, w: 30, log: '{a} stretches and yawns... "Five more minutes..."' }] },
+    // ---- World 5: VEGGIE PATCH (v1.0, docs/gdd/1.0-veggie.md). +10 pep per slot over Ocean (boss +20), scaling from level 11.
+    // PEEKABOO! ('hide'): the rival hides in a mound; tap the one with the pillow corner peeking out. dmg = the sneak tickle on a miss.
+    { id: 'onion', world: VEGGIE, name: 'Olly the Onion', nick: 'Olly', short: 'OLLY', tex: 'onion', color: 0xd9a5e8, hp: 165, xp: 170,
+      intro: 'Olly sniffs: "A pillow fight? That\'s so beautiful... I\'m not crying, YOU\'RE crying!"', laugh: 'Olly laughed so hard he cried happy tears. "Best. Day. EVER!"',
+      moves: [{ type: 'spray', tex: 'i:droplet', word: 'WAAAH!', sound: 'whoosh', dmg: [12, 20], w: 30, log: '{a} cries happy tears all over {d}!' },
+        { type: 'shield', w: 20, log: '{a} puts on another layer. Next hit only does half!' },
+        { type: 'throw', tex: 'ring', tint: 0xe8c9f0, dmg: [13, 20], w: 30, log: 'ONION RING! {a} rolls a ring at {d}!' },
+        { type: 'hide', mini: true, word: 'PEEKABOO!', sound: 'peekaboo', dmg: [12, 18], uses: 1, w: 25, log: '{a} dives into the soil... which mound is he in?' }] },
+    { id: 'peas', world: VEGGIE, name: 'The Peas', nick: 'Peas', short: 'THE PEAS', tex: 'peapod', color: 0x8fd96b, hp: 175, xp: 180, plural: true,
+      intro: 'The Peas pop out of their pod: "We\'re the Peas!" "...in a pod!" "...and we HIDE!"', laugh: 'The Peas giggled and rolled away in three directions. "Bye!" "Bye!" "Bye!"',
+      moves: [{ type: 'volley', tex: 'dot', tint: 0x8fd96b, word: 'PEW PEW PEA!', sound: 'blip', dmg: [13, 20], w: 30, log: '{a} shoot peas at {d}! Tiny but many!' },
+        { type: 'hop', word: 'ROLL ROLL!', dmg: [13, 20], w: 25, log: '{a} roll over {d} like marbles!' },
+        { type: 'multi', hits: 3, dmg: [5, 8], w: 25, log: 'ONE! TWO! THREE! {a} bonk {d} one by one!' },
+        { type: 'hide', word: 'PEEKABOO!', sound: 'peekaboo', dmg: [14, 20], uses: 1, w: 20, log: '{a} hide under the mashed potatoes... find them!' }] },
+    { id: 'garlic', world: VEGGIE, name: 'Garlic Gus', nick: 'Gus', short: 'GARLIC GUS', tex: 'garlic', color: 0xf3e9d2, hp: 185, xp: 190,
+      intro: 'Garlic Gus breathes on his paws: "HAAAH! Smell that? That\'s FLAVOUR. Count Fang runs away from me!"', laugh: 'Gus laughed so hard his breath made the moon blink. "Okay, okay, I\'ll get a mint!"',
+      moves: [{ type: 'roar', word: 'HAAAH!', color: 0xd7f5a0, sound: 'huff', dmg: [15, 23], w: 25, log: '{a} says HELLO very close. HAAAH!' },
+        { type: 'dizzy', color: 0xd7f5a0, word: 'PEE-YEW!', sound: 'huff', uses: 1, w: 15, log: '{a} wafts a stinky cloud... {d} is dizzy!' },
+        { type: 'volley', tex: 'garlic', word: 'CLOVES!', sound: 'whoosh', dmg: [14, 22], w: 30, log: '{a} throws a handful of garlic cloves at {d}!' },
+        { type: 'shield', w: 15, log: '{a} wraps up in his papery skin. Next hit only does half!' },
+        { type: 'heal', tex: 'bread', amt: 22, uses: 1, w: 10, log: '{a} munches warm garlic bread. Yum!' }] },
+    { id: 'fungi', world: VEGGIE, name: 'Fun-Guy the Mushroom', nick: 'Fun-Guy', short: 'FUN-GUY', tex: 'mushroom', color: 0xff6b5b, hp: 195, xp: 200, big: 1.05,
+      intro: 'Fun-Guy tips his spotty cap: "I\'m not a vegetable, I\'m a FUN-GI! ...Get it? GET IT?"', laugh: 'Fun-Guy laughed so hard his spots fell off. "Okay, YOU are the fun guy now!"',
+      moves: [{ type: 'spray', tex: 'dot', tint: [0xfff3d2, 0xffffff], word: 'ACHOO!', sound: 'sneeze', dmg: [14, 22], w: 25, log: '{a} sneezes a cloud of tickly spores at {d}!' },
+        { type: 'hop', word: 'BOING!', dmg: [15, 22], w: 25, log: '{a} bounces on his cap like a trampoline!' },
+        { type: 'hide', word: 'PEEKABOO!', sound: 'peekaboo', dmg: [18, 24], uses: 2, w: 25, log: '{a} pops into the ground. Where did he go?' },
+        { type: 'roar', word: 'KNOCK KNOCK!', color: 0xff6b5b, sound: 'honk', dmg: [14, 22], w: 20, log: '{a} tells a joke so bad that {d} falls over!' },
+        { type: 'heal', tex: 'i:mushroom', amt: 20, uses: 1, w: 10, log: '{a} has a cup of mushroom soup. Cozy!' }] },
+    { id: 'brocklee', world: VEGGIE, name: 'Brock Lee', nick: 'Brock Lee', short: 'BROCK LEE', tex: 'brocklee', big: 1.15, color: 0x5fbf4a, hp: 240, xp: 240, boss: true, reward: 'brochair',
+      intro: 'Brock Lee flexes his florets: "I\'m not a vegetable. I\'m a TREE! A pillow-fighting TREE!"', laugh: 'Brock Lee giggled so hard he shook like a tree. "Fine, I\'m a veggie. A HAPPY one!"',
+      moves: [{ type: 'hide', forest: true, word: 'PEEKABOO!', sound: 'peekaboo', dmg: [22, 28], uses: 2, usesHard: 3, w: 30, log: '{a} hides in a broccoli forest. Which tree is the real one?' },
+        { type: 'rush', word: 'TIMBER!', dmg: [15, 22], w: 25, log: '{a} swings in like a falling tree... gently!' },
+        { type: 'spray', tex: 'dot', tint: [0xffffff, 0xeef4ff], word: 'STEAMED!', sound: 'steam', dmg: [14, 21], w: 20, log: '{a} puffs warm steam at {d}. Like a sauna!' },
+        { type: 'roar', word: 'GREEN POWER!', color: 0x5fbf4a, sound: 'roar', dmg: [14, 21], w: 20, log: '{a} shouts GREEN POWER so loud the leaves rustle!' },
+        { type: 'heal', tex: 'cheese', amt: 25, uses: 1, w: 10, log: '{a} dips himself in cheese sauce. Delicious!' }] },
   ].concat(EVENT_ON ? [
     // ---- Halloween event world: SPOOKY (open from the start while the event runs)
     { id: 'pumpkin', world: SPOOKY, event: true, name: 'Pumpkin Pete', nick: 'Pete', short: 'PUMPKIN PETE', tex: 'pumpkin', color: C.orange, hp: 110, xp: 50, reward: 'pumpkin',
@@ -669,6 +858,8 @@
     { id: 'tophat', name: 'Top Hat', tex: 'tophat', w: 0.45 },
     { id: 'witchhat', name: 'Witch Hat', tex: 'witchhat', w: 0.55 },
     { id: 'crown', name: 'Royal Crown', tex: 'crown', w: 0.45 },
+    { id: 'nightcap', name: 'Nightcap', tex: 'nightcap', w: 0.5 }, // v1.0: beat Sleepy Thully
+    { id: 'brochair', name: 'Broccoli Hair', tex: 'broccoli', w: 0.55 }, // v1.0: beat Brock Lee
   ];
   // a costume image (with its tint) for the title, the duel and the Me screen
   const hatImage = (scene, x, y, c) => { const h = scene.add.image(x, y, c.tex); if (c.tint) h.setTint(c.tint); return h; };
@@ -679,6 +870,7 @@
       { type: 'spray', tex: 'dot', tint: [0x3b2a6e, 0x6a4fb0], word: 'INK!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} squirts pillow ink at {d}!' },
       { type: 'tickle', dmg: [8, 26], w: 25 },
       { type: 'roar', word: 'BLUB BLUB!', color: 0xff9ed8, sound: 'boo', dmg: [13, 21], w: 20, log: '{a} bubbles a giant BLUB!' }] };
+  const SCALE_FROM = { [SPACE]: 4, [CANADA]: 6, [OCEAN]: 9, [VEGGIE]: 11 };
   const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, beam: 30, slapshot: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
   const isUnlocked = i => i === 0 || (RIVALS[i].event && !RIVALS[i - 1].event) || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
   const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
@@ -885,24 +1077,34 @@
       const ty = PORTRAIT ? 190 : 95, room = PORTRAIT ? W - 60 : W - 600, n = WORLDS.length, tw0 = Math.min(PORTRAIT ? 420 : 440, room / n - 30);
       // 4 worlds (Canada + the October event): names do not fit any more, so only the open tab is wide with its name,
       // the others show just their icon
-      const wide = tw0 - 140 < 230, tws = WORLDS.map((w, i) => !wide ? tw0 : i === this.world ? Math.min(400, (room - 30 * (n - 1)) * 2 / (n + 1)) : Math.min(200, (room - 30 * (n - 1)) / (n + 1)));
-      let tx0 = W / 2 - (tws.reduce((a, b) => a + b, 0) + 30 * (n - 1)) / 2;
-      WORLDS.forEach((w, i) => { this.tab(w, i, tx0 + tws[i] / 2, ty, tws[i], wide && i !== this.world); tx0 += tws[i] + 30; });
+      // v1.0, 5-6 worlds: the other tabs are icon-only at 110 px, the open tab takes the rest and shows its short name;
+      // landscape with 6 tabs: all icon-only, the world's name moves into the level line (docs/gdd/1.0-ocean.md section 2)
+      const many = n >= 5, gap = many ? 20 : 30, ICON = 110;
+      const openW = many ? Math.min(400, room - (n - 1) * (ICON + gap)) : 0, allIcons = many && (!PORTRAIT && n >= 6 || openW < 260);
+      const wide = !many && tw0 - 140 < 230, tws = WORLDS.map((w, i) => many ? (i === this.world && !allIcons ? openW : ICON)
+        : !wide ? tw0 : i === this.world ? Math.min(400, (room - 30 * (n - 1)) * 2 / (n + 1)) : Math.min(200, (room - 30 * (n - 1)) / (n + 1)));
+      let tx0 = W / 2 - (tws.reduce((a, b) => a + b, 0) + gap * (n - 1)) / 2;
+      WORLDS.forEach((w, i) => { this.tab(w, i, tx0 + tws[i] / 2, ty, tws[i], (wide || many) && (i !== this.world || allIcons), many); tx0 += tws[i] + gap; });
       const lv = levelOf(Save.data.xp);
-      txt(this, W / 2, PORTRAIT ? 285 : 180, 'Level ' + lv.l + '  ·  ★ ' + totalStars() + ' / ' + RIVALS.length * 3, 34, '#ffd23f', { st: 6 });
-      // portrait: fit the 4 nodes between the difficulty switch and the bottom buttons (short phones shrink the nodes)
-      let pts; this.ns = 1;
+      txt(this, W / 2, PORTRAIT ? 285 : 180, (allIcons ? WORLDS[wd].tab + '  ·  ' : '') + 'Level ' + lv.l + '  ·  ★ ' + totalStars() + ' / ' + RIVALS.length * 3, 34, '#ffd23f', { st: 6 });
+      const idx = RIVALS.map((r, i) => i).filter(i => worldOf(i) === wd), five = idx.length >= 5;
+      // portrait: fit the nodes (4, or 5 in Ocean and Veggie Patch) between the difficulty switch and the bottom buttons (short phones shrink them)
+      let pts; this.ns = 1; this.labelW = 420;
       if (PORTRAIT) {
-        const yTopLim = 430, yBotLim = H - 110 - 55 - 24;
+        const yTopLim = 430, yBotLim = H - 110 - 55 - 24, gaps = Math.max(3, idx.length - 1);
+        const xs = five ? [0.3, 0.7, 0.3, 0.7, 0.34] : [0.3, 0.7, 0.3, 0.66];
         let s = 1;
-        for (let k = 0; k < 3; k++) {
+        for (let k = 0; k < (five ? 5 : 3); k++) {
           const yTop = yTopLim + (130 + 60) * s, yBot = yBotLim - (110 + 140) * s;
-          s = clamp(2 * (yBot - yTop) / 3 / (220 + 140 + 40), 0.6, 1);
-          pts = [[0.3, yBot], [0.7, yBot - (yBot - yTop) / 3], [0.3, yBot - 2 * (yBot - yTop) / 3], [0.66, yTop]].map(([x, y]) => [W * x, y]);
+          s = clamp((yBot - yTop) / gaps / 200, 0.6, 1);
+          pts = xs.map((x, j) => [W * x, yBot - j * (yBot - yTop) / gaps]);
         }
         this.ns = s;
+      } else if (five) {
+        // landscape, 5 nodes: a little smaller, names fitted between the neighbours (docs/gdd/1.0-ocean.md section 2, item 5)
+        pts = [[0.11, 0.6], [0.3, 0.37], [0.5, 0.6], [0.7, 0.37], [0.89, 0.6]].map(([x, y]) => [W * x, H * y]);
+        this.ns = 0.88; this.labelW = Math.min(420, 2 * (0.19 * W - 130 * this.ns - 16) / this.ns);
       } else pts = [[0.14, 0.6], [0.37, 0.37], [0.61, 0.6], [0.85, 0.37]].map(([x, y]) => [W * x, H * y]);
-      const idx = RIVALS.map((r, i) => i).filter(i => worldOf(i) === wd);
       const g = this.add.graphics(); g.lineStyle(10, 0xfff3d2, 0.55);
       for (let i = 0; i < idx.length - 1; i++) {
         const [x1, y1] = pts[i], [x2, y2] = pts[i + 1]; const n = 14;
@@ -918,8 +1120,9 @@
       // hero marker at the furthest open node of this world
       const hero = heroDef(this);
       const [cx, cy] = pts[current];
-      const nr = (RIVALS[idx[current]].boss ? 130 : 110) * this.ns, off = nr + 80 * this.ns;
-      const j = this.add.image(cx - off < 90 ? cx + off : cx - off, cy + 40 * this.ns, hero.tex).setOrigin(0.5, 1).setDepth(5);
+      // (landscape with 5 nodes: closer and a little lower, clear of the next node's star row)
+      const low = five && !PORTRAIT, nr = (RIVALS[idx[current]].boss ? 130 : 110) * this.ns, off = nr + (low ? 70 : 80) * this.ns;
+      const j = this.add.image(cx - off < 90 ? cx + off : cx - off, cy + (low ? nr : 40 * this.ns), hero.tex).setOrigin(0.5, 1).setDepth(5);
       j.setScale(Math.min(150 / j.height, 150 / j.width) * this.ns);
       this.tweens.add({ targets: j, y: j.y - 20, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       // squad + mini-game buttons
@@ -985,15 +1188,15 @@
       draw();
       return c;
     }
-    tab(w, i, x, y, tw0, iconOnly) {
+    tab(w, i, x, y, tw0, iconOnly, short) {
       const open = worldOpen(i), on = i === this.world, h = 96;
       const c = this.add.container(x, y).setDepth(6);
       const g = this.add.graphics();
       g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-tw0 / 2, -h / 2 + 8, tw0, h, h / 2);
       g.fillStyle(on ? C.star : (open ? C.night2 : 0x161946)); g.fillRoundedRect(-tw0 / 2, -h / 2, tw0, h, h / 2);
       g.lineStyle(5, on ? 0xffffff : C.seam); g.strokeRoundedRect(-tw0 / 2, -h / 2, tw0, h, h / 2);
-      const ic = this.add.image(iconOnly ? 0 : -tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
-      const t = fit(txt(this, 26, 0, open ? w.name : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140).setVisible(!iconOnly);
+      const ic = img(this, iconOnly ? 0 : -tw0 / 2 + 58, 0, open ? w.icon : 'lock'); ic.setScale(70 / Math.max(ic.width, ic.height));
+      const t = fit(txt(this, 26, 0, open ? (short ? w.tab : w.name) : '???', 40, on ? C.ink : (open ? '#fff3d2' : '#8a8fd6'), { st: 0, shadow: false }), tw0 - 140).setVisible(!iconOnly);
       c.add([g, ic, t]);
       c.setSize(tw0, h).setInteractive({ useHandCursor: true }); press(this, c);
       c.on('pointerup', () => {
@@ -1021,7 +1224,7 @@
       c.add([g, im]);
       if (r.boss && !r.ownCrown) c.add(this.add.image(0, -R - 10, 'crown').setScale(0.42));
       if (!open) { im.setTint(0x000000).setAlpha(0.75); c.add(this.add.image(0, 10, 'lock').setScale(0.42)); }
-      c.add(fit(txt(this, 0, R + 46, open ? r.name : '???', 38, open ? '#fff3d2' : '#8a8fd6', { st: 7 }), 420));
+      c.add(fit(txt(this, 0, R + 46, open ? r.name : '???', 38, open ? '#fff3d2' : '#8a8fd6', { st: 7 }), this.labelW || 420));
       if (open) c.add(starRow(this, 0, R + 104, stars, 64, 70));
       if (current && open) {
         this.tweens.add({ targets: c, scale: 1.07 * ns, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -1563,7 +1766,8 @@
       this.backKey = this.mode === 'toy' ? 'squad' : this.mode === 'friend' ? 'friends' : 'map';
     }
     create() {
-      this._leaving = false; this.hero = null; this.over = false; this.busy = false; this.shown = null; this.celebrating = false;
+      this._leaving = false; this.hero = null; this.rival = null; this.over = false; this.busy = false; this.shown = null; this.celebrating = false;
+      this.spin = null; this.spinNext = null; this.hidden = null; this.sleepParts = null; this.meterBox = null; this.fogBand = null; this.mounds = null; // v1.0 Compass Spin, PEEKABOO! (the scene object is reused)
       // a friend's toy picture may be missing (e.g. after rotating the screen): load it first
       const ft = this.data0.ftoy;
       if (ft && !this.textures.exists('ftoy_' + ft.id)) {
@@ -1633,8 +1837,9 @@
       const boost = boostId && BOOST_BY_ID[boostId];
       this.boost = boost || null;
       const space = this.world === SPACE;
-      // level scaling per world: Hills and Spooky from L1, Space from L4, Canada from L6 (docs/gdd/0.8-canada.md section 5)
-      const from = space ? 4 : this.world === CANADA ? 6 : 0;
+      // level scaling per world: Hills and Spooky from L1, Space from L4, Canada from L6 (docs/gdd/0.8-canada.md section 5),
+      // Ocean from L9, Veggie Patch from L11 (docs/gdd/1.0-ocean.md section 5)
+      const from = SCALE_FROM[this.world] || 0;
       // difficulty: chosen mode + it grows with the player's level ("too easy!" said the chief tester)
       const lvl = levelOf(Save.data.xp).l, D = diff();
       const hpMul = this.mode === 'boss' ? 1 : D.hp * (!D.scale ? 1 : from ? clamp(1 + 0.05 * (lvl - from), 1, 1.25) : clamp(1 + 0.07 * (lvl - 1), 1, 1.4));
@@ -1663,6 +1868,7 @@
         }
         top = rects[0].y - h / 2;
       }
+      this.rects = rects; // card homes (Compass Spin moves cards between them)
       // left-handed (Settings): the cards mirror, card 0 is top right; recomputed on every setup, so a rotation keeps it
       if (PREF().hand === 'left') rects.forEach(r => { r.x = W - r.x; });
       const compact = !PORTRAIT && n > 4;
@@ -1673,6 +1879,7 @@
       const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, space ? 'planet' : 'moon').setScale((PORTRAIT ? 0.6 : 0.62 * zoom) * (space ? 1.15 : 1)).setAlpha(0.95);
       if (this.world === SPOOKY) moon.setTint(0xffa64d).setScale(moon.scale * 1.3);
       if (this.world === CANADA) moon.setTint(0xd8ecff);
+      if (this.world === OCEAN) moon.setTint(0xdff7f0);
       this.tweens.add({ targets: moon, angle: -6, y: moon.y + 12, duration: 2800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       const bg = this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), groundKey(this.world)).setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
       if (bg.y + bg.displayHeight < H + SB + 4) bg.setScale(1, (H + SB + 4 - bg.y) / bg.height); // reach the bottom edge
@@ -1707,6 +1914,7 @@
       this.rmoves = R.moves.map((m, i) => {
         const o = Object.assign({ k: 'r' + i, w: DEF_W[m.type] || 20 }, m);
         if (o.usesHard && D === DIFFS.hard) o.uses = o.usesHard;
+        if (o.usesEasy && D === DIFFS.easy) o.uses = o.usesEasy; // v1.0 (Big Yawn: 1 on EASY)
         if (o.dmg) o.dmg = o.dmg.map(v => Math.round(v * dmgMul));
         if (o.amt) o.amt = Math.round(o.amt * hpMul);
         return o;
@@ -1731,13 +1939,17 @@
       const toolBtn = (label, color, tex, cb) => {
         const b = button(this, W / 2, bby, 400, 130, label, color, cb, { size: 50, color: '#fff3d2' }).setDepth(35).setVisible(false);
         fit(b.list[1], 240); b.list[1].x = 50;
-        b.icon = this.add.image(-130, -10, tex).setScale(iconScale(tex, 118)).setAngle(-12); b.add(b.icon);
+        b.icon = img(this, -130, -10, tex).setScale(iconScale(tex, 118)).setAngle(-12); b.add(b.icon); // img(): atlas icons work too (j:alarm)
         this.tweens.add({ targets: b, scale: 1.05, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         return b;
       };
       this.blockBtn = toolBtn('BLOCK IT!', C.coral, 'extinguisher', () => this.playerBlock(this.rival.charging && this.rival.charging.type === 'beam' ? 'umb' : 'ext'));
       this.extBtn = toolBtn('FOAM!', C.coral, 'extinguisher', () => this.playerBlock('ext'));
       this.umbBtn = toolBtn('UMBRELLA!', 0x6c7bff, 'umbrella', () => this.playerBlock('umb'));
+      // v1.0 Big Yawn / Captain's Nap: ring the ALARM! (costs the turn, like BLOCK IT!); a hand points at it on EASY and the first time
+      this.alarmBtn = toolBtn('ALARM!', 0xffb347, 'j:alarm', () => this.playerAlarm());
+      this.alarmHand = img(this, W / 2, bby - 150, 'hand').setScale(iconScale('hand', 110)).setDepth(36).setVisible(false);
+      this.tweens.add({ targets: this.alarmHand, y: bby - 120, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       // SLAPSHOT wind-up: a reminder by the hero instead of a button
       // under the hero's pep bar, where the booster chip is (hidden meanwhile): clear of a hat on the hero (QA B54)
       this.saveChip = chip(this, W * 0.27, hy + (PORTRAIT ? 70 : 76), '        NEXT: SAVE IT!', 0xd8ecff, 30).setDepth(35).setVisible(false);
@@ -1765,8 +1977,10 @@
       }
       // coming back after the screen was rotated: restore the duel exactly
       if (res) {
-        const put = (f, o) => { ['hp', 'max', 'used', 'dizzy', 'shield', 'spare', 'bonus', 'firstBonus', 'lastType', 'afterCharge', 'beamed'].forEach(k => { if (o[k] !== undefined) f[k] = o[k]; }); f.bar.setMax(f.max); f.bar.set(f.hp, this); };
+        const put = (f, o) => { ['hp', 'max', 'used', 'dizzy', 'shield', 'spare', 'bonus', 'firstBonus', 'lastType', 'afterCharge', 'beamed', 'asleep', 'meter'].forEach(k => { if (o[k] !== undefined) f[k] = o[k]; }); f.bar.setMax(f.max); f.bar.set(f.hp, this); };
         put(P, res.h); put(T, res.r);
+        if (res.spin) { this.spin = res.spin; this.applySpin(false); } // the same drifted cards and LUCKY card, no slide (docs/gdd/1.0-ocean.md section 4)
+        if (res.hidden && this.showHidden) { this.hidden = res.hidden; this.showHidden(true); }
         if (res.charging >= 0 && this.rmoves[res.charging]) { T.charging = this.rmoves[res.charging]; this.chargeFx(T); }
         if (res.log) this.logT.setText(res.log);
         // the duel was already over: show the result panel again in the new layout (QA B31)
@@ -1777,6 +1991,9 @@
           return;
         }
       }
+      if (R.sleepy && !res) { T.asleep = true; T.meter = 0; } // Sleepy Thully starts asleep (WAKE UP!)
+      if (T.asleep) this.sleepFx(T);
+      A.music(this.track()); // the create hook ran before setup: lullaby or boss after a restore
       this.setStatus(P); this.setStatus(T);
       if (boost && !res) {
         A.levelUp(); this.popWord(P.center().x, P.center().y - 260, boost.name.toUpperCase() + '!', '#ffd23f', 70, -6);
@@ -1787,8 +2004,15 @@
       this.setCards(true);
     }
     snapshot() {
-      const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType, afterCharge: !!f.afterCharge, beamed: (f.beamed || []).slice() });
-      return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '', acted: !!this.acted };
+      const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType, afterCharge: !!f.afterCharge, beamed: (f.beamed || []).slice(), asleep: !!f.asleep, meter: f.meter || 0 });
+      return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '', acted: !!this.acted,
+        spin: this.spin ? Object.assign({}, this.spin, { order: this.spin.order.slice() }) : null, hidden: this.hidden ? Object.assign({}, this.hidden) : null };
+    }
+    // the duel's music: Thully asleep = lullaby; bosses = boss; Canada = north; Ocean = sea; Veggie Patch = garden
+    track() {
+      const R = this.R, T = this.rival;
+      if (R.sleepy && (!T || T.asleep)) return 'lullaby';
+      return R.boss ? 'boss' : R.world === CANADA ? 'north' : R.world === OCEAN ? 'sea' : R.world === VEGGIE ? 'garden' : 'battle';
     }
 
     fighter(x, y, key, scale, dir, maxHp, flip) {
@@ -1824,6 +2048,7 @@
       hat.setScale(w * c.w / hat.width * (jack ? 0.8 : 1)).setAngle(jack ? 14 : -6);
       f.squash.add(hat); f.hat = hat;
       this.tweens.add({ targets: hat, y: hat.y - 10, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      if (c.id === 'nightcap') this.tweens.add({ targets: hat, angle: hat.angle + 8, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' }); // the pompom swings
     }
     setStatus(f) {
       f.status.removeAll(true);
@@ -1847,7 +2072,7 @@
       const val = txt(this, w / 2 - 4, -h / 2 - 34, 'PEP ' + max, PORTRAIT ? 28 : 32, '#bcc0ee', { ox: 1, st: 6 });
       c.add([back, ghost, fill, shine, label, val]);
       return {
-        setMax: (m) => { max = m; },
+        c, setMax: (m) => { max = m; },
         set: (hp, scene) => {
           const tw2 = w * Math.max(0, hp) / max;
           scene.tweens.add({ targets: [fill, shine], width: tw2, duration: 260, ease: 'Quad.out' });
@@ -1888,17 +2113,29 @@
       const used = txt(this, 0, 0, 'USED', compact ? 46 : 60, '#ff6b5b', { stroke: '#fff3d2', st: 8 }).setAngle(-12).setVisible(false);
       // a card the Mothership's tractor beam took: small UFO + BEAMED UP stamp until the end of the duel
       const ufo = this.add.image(w / 2 - 34, -h / 2 + 30, 'ufo').setScale(iconScale('ufo', 52)).setAngle(12).setVisible(false);
-      c.add([g, ic, t1, t2, used, ufo]);
+      // Compass Spin (v1.0): a compass badge on a moved card; the LUCKY CURRENT card glows aqua with a +5 chip
+      const glow = this.add.graphics().setVisible(false);
+      glow.lineStyle(10, 0x5ff0e6); glow.strokeRoundedRect(-w / 2 - 6, -h / 2 - 6, w + 12, h + 12, R + 6);
+      glow.lineStyle(4, 0xffffff, 0.8); glow.strokeRoundedRect(-w / 2 - 14, -h / 2 - 14, w + 28, h + 28, R + 12);
+      const badge = this.add.image(-w / 2 + 26, -h / 2 + 24, 'compass').setScale(iconScale('compass', 40)).setVisible(false);
+      const plus = chip(this, w / 2 - 40, -h / 2 + 8, '+5', 0x5ff0e6, 24).setVisible(false);
+      c.add([g, ic, t1, t2, used, ufo, glow, badge, plus]); // (the new parts go last: tests and other code read list[1] = icon, list[2] = title)
+      this.tweens.add({ targets: glow, alpha: { from: 1, to: 0.35 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      c.setSpin = (moved, lucky, shine) => { badge.setVisible(!!moved || (!!lucky && !shine && !this.easy)); glow.setVisible(!!lucky && !!shine); plus.setVisible(!!lucky && !!shine); };
       c.setSize(w, h).setInteractive({ useHandCursor: true });
       this.tweens.add({ targets: ic, angle: { from: -6, to: 6 }, duration: 900 + Math.random() * 300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       c.on('pointerdown', () => { if (!c.enabled) return; A.init(); draw(true); ic.y = L.iy + 6; t1.y = L.t1y + 6; t2.y = L.t2y + 6; });
       const up = () => { draw(false); ic.y = L.iy; t1.y = L.t1y; t2.y = L.t2y; };
       c.on('pointerout', up);
       c.on('pointerup', () => { up(); if (c.enabled) this.playerMove(a.k); });
-      c.refresh = (on) => {
+      c.refresh = (on, hiding) => {
         const left = a.uses ? a.uses - (this.hero.used[a.k] || 0) : Infinity;
         const beamed = (this.hero.beamed || []).includes(a.k);
         const isUsed = left <= 0 || beamed;
+        if (hiding && !isUsed && on) { // PEEKABOO!: the rival is hiding, attack cards wait
+          c.enabled = false; look = 'off'; draw(false); [ic, t1, t2].forEach(o => o.setAlpha(0.7));
+          used.setText('HIDING!').setScale(1).setVisible(true); fit(used, w - 70); ufo.setVisible(false); return;
+        }
         t2.setText(a.uses ? (a.sub || '') + ' · ' + (beamed ? 'beamed up' : isUsed ? 'used' : (a.uses === 1 ? 'once' : left + ' left')) : (a.sub || ''));
         fit(t2.setScale(1), L.tw);
         c.enabled = on && !isUsed; look = c.enabled ? 'on' : isUsed ? 'used' : 'off'; draw(false);
@@ -1908,10 +2145,12 @@
       return c;
     }
     setCards(on) {
-      this.moves.forEach(m => m.card.refresh(on && !this.over));
+      this.moves.forEach(m => m.card.refresh(on && !this.over, !!this.hidden && !!m.dmg));
       if (this.blockBtn) {
-        const cur = on && !this.over ? this.rival.charging : null, slap = !!(cur && cur.type === 'slapshot');
-        const ch = slap ? null : cur, beam = !!(ch && ch.type === 'beam');
+        const cur = on && !this.over ? this.rival.charging : null, slap = !!(cur && cur.type === 'slapshot'), yawn = !!(cur && cur.type === 'yawn');
+        const ch = slap || yawn ? null : cur, beam = !!(ch && ch.type === 'beam');
+        this.alarmBtn.setVisible(yawn);
+        this.alarmHand.setVisible(yawn && (this.easy || !(Save.data.stats || {}).alarmSeen));
         // SLAPSHOT has no block button: the save is a timed tap when the shot comes
         if (this.saveChip) this.saveChip.setVisible(slap);
         const one = !!(ch && this.easy && !ch.mini), two = !!(ch && !this.easy && !ch.mini);
@@ -1919,7 +2158,7 @@
         this.extBtn.setVisible(two);
         this.umbBtn.setVisible(two || !!(ch && ch.mini));
         // the buttons sit where the HARD / booster chips are on iPad and phone landscape: hide the chips meanwhile (QA B48)
-        const btns = one || two || !!(ch && ch.mini);
+        const btns = one || two || !!(ch && ch.mini) || yawn;
         [this.diffChip, this.boostChip].forEach(o => o && o.setVisible(!btns));
         if (this.boostChip && slap) this.boostChip.setVisible(false);
         // HARD: the two buttons swap sides at random each charge (this.toolSwap is set in startCharge)
@@ -1961,6 +2200,13 @@
       if (target === this.rival && dmg > 0 && !raw) {
         if (this.hero.bonus) dmg += this.hero.bonus;
         if (this.hero.firstBonus) { dmg += this.hero.firstBonus; this.hero.firstBonus = 0; this.popWord(p.x, p.y - 300, 'ROCKET START!', '#ff8a3d', 64, 6); }
+        if (this.hero.lucky5) { dmg += this.hero.lucky5; this.hero.lucky5 = 0; this.popWord(p.x - 120, p.y - 340, 'LUCKY CURRENT +5!', '#5ff0e6', 60, -6); }
+      }
+      // Sleepy Thully: the dream bubble halves a hit, and every hit fills one pip of the Wake-o-meter
+      let wakes = false;
+      if (target.asleep && dmg > 0 && !raw) {
+        dmg = Math.ceil(dmg / 2); target.meter = (target.meter || 0) + 1; this.meterFx(target);
+        if (target.meter >= this.wakeNeed()) wakes = true;
       }
       if (target.shield && dmg > 0 && !raw) {
         dmg = Math.ceil(dmg / 2); target.shield = false; this.setStatus(target);
@@ -1969,7 +2215,7 @@
       const crit = dmg >= 20;
       A.thump(crit ? 1.3 : (quiet ? 0.6 : 0.9)); buzz(crit ? 60 : 30);
       target.spr.setTintFill(0xffffff);
-      this.time.delayedCall(90, () => target.spr.clearTint());
+      this.time.delayedCall(90, () => { target.spr.clearTint(); if (target.asleep) target.spr.setTint(0xc4ccff); });
       this.sparks.explode(crit ? 26 : (quiet ? 8 : 14), p.x, p.y);
       if (kind !== 'roar' && kind !== 'fire') this.feathers.explode(quiet ? 5 : 8 + Math.round(dmg / 2), p.x, p.y - 20);
       const ring = this.add.image(p.x, p.y, 'ring').setDepth(22).setScale(0.3).setAlpha(0.9);
@@ -1984,6 +2230,80 @@
       this.tweens.add({ targets: target.squash, scaleX: 1.18, scaleY: 0.82, duration: 70, yoyo: true, ease: 'Quad.out' });
       await tw(this, { targets: target.root, x: target.root.x + kb, angle: -target.dir * (crit ? 10 : 5), duration: 110, ease: 'Quad.out' });
       await tw(this, { targets: target.root, x: target.home, angle: 0, duration: 420, ease: 'Elastic.out', easeParams: [1, 0.5] });
+      if (wakes && target.asleep) this.wakeUp();
+    }
+    // ---- v1.0 WAKE UP! (Sleepy Thully, docs/gdd/1.0-ocean.md section 4b)
+    wakeNeed() { return this.easy ? 2 : this.hard ? 4 : 3; }
+    // asleep: a sleepy tint, a lean, zzz rising, a dream bubble and the Wake-o-meter under the pep bar; awake: all gone
+    sleepFx(T) {
+      if (this.sleepParts) { this.sleepParts.forEach(o => { this.tweens.killTweensOf(o); o.destroy(); }); this.sleepParts = null; }
+      if (this.meterBox) { this.meterBox.destroy(); this.meterBox = null; }
+      if (!T.asleep) { T.spr.clearTint(); T.squash.setAngle(0); return; }
+      T.spr.setTint(0xc4ccff); T.squash.setAngle(8);
+      const h = T.height(), w = T.spr.displayWidth;
+      const bub = this.add.graphics(); bub.fillStyle(0xe6dcff, 0.14); bub.fillEllipse(0, -h * 0.5, w * 1.25, h * 1.15);
+      bub.lineStyle(6, 0xd8c2ff, 0.6); bub.strokeEllipse(0, -h * 0.5, w * 1.25, h * 1.15);
+      T.root.add(bub);
+      this.tweens.add({ targets: bub, scaleX: 1.04, scaleY: 1.03, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      const zz = this.add.particles(0, 0, 'zzz', { x: { min: T.root.x - 40, max: T.root.x + 40 }, y: T.root.y - h * 0.9, speedY: { min: -120, max: -70 }, speedX: { min: -40, max: 10 }, lifespan: 1800, scale: { start: 0.22, end: 0.08 }, alpha: { start: 0.9, end: 0 }, frequency: 700 }).setDepth(26);
+      this.sleepParts = [bub, zz];
+      this.meterFx(T);
+    }
+    meterFx(T) {
+      if (this.meterBox) { this.meterBox.destroy(); this.meterBox = null; }
+      if (!T.asleep) return;
+      const n = this.wakeNeed(), hy = PORTRAIT ? 200 : 150, c = this.meterBox = this.add.container(W * 0.73, hy + (PORTRAIT ? 70 : 76)).setDepth(30);
+      for (let i = 0; i < n; i++) {
+        const on = i < (T.meter || 0), pip = img(this, (i - (n - 1) / 2) * 62, 0, 'j:alarm').setScale(iconScale('j:alarm', 52));
+        if (!on) pip.setTint(0x3a3f7a).setAlpha(0.8); else this.tweens.add({ targets: pip, angle: { from: -14, to: 14 }, duration: 90, yoyo: true, repeat: 3 });
+        c.add(pip);
+      }
+    }
+    wakeUp(line) {
+      const T = this.rival; T.asleep = false; T.meter = 0; this.sleepFx(T);
+      const c = T.center();
+      this.popWord(c.x, c.y - 280, 'WHO WOKE ME UP?!', '#ffb347', 70, -6);
+      A.alarm && A.alarm(); this.time.delayedCall(500, () => A.grumble && A.grumble());
+      this.tweens.add({ targets: T.squash, scaleX: 1.15, scaleY: 1.15, duration: 160, yoyo: true, repeat: 1 });
+      A.music(this.track());
+      this.log((line ? line + ' ' : '') + (this.R.wake || (T.name + ' wakes up!')));
+    }
+    // Big Yawn not stopped: back to sleep (+40 scaled, a full Wake-o-meter again). Captain's Nap (mini): he naps on watch (+20)
+    async fallAsleep(m, T) {
+      this.endCharge(T);
+      this.tweens.add({ targets: T.squash, scaleY: 0.9, duration: 500, yoyo: true });
+      A.snore();
+      if (!m.mini) { T.asleep = true; T.meter = 0; this.sleepFx(T); A.music(this.track()); this.popWord(T.center().x, T.center().y - 260, 'ZZZ...', '#d8c2ff', 84, 6); }
+      else this.popWord(T.center().x, T.center().y - 260, 'SNOOOZE...', '#d8c2ff', 70, 6);
+      this.log(m.mini ? T.name + ' naps on watch... "Just five minutes..."' : T.name + ' falls back asleep! Hit him ' + this.wakeNeed() + ' times to wake him up.');
+      await wait(this, 700);
+      if (T.hp < T.max) this.heal(T, Math.min(m.amt || 20, T.max - T.hp));
+      await wait(this, 800);
+    }
+    // ALARM!: the clock rings; Thully jumps up dizzy (I'M UP! I'M UP!); Captain Fog just wakes (I'M AWAKE, SIR!)
+    async playerAlarm() {
+      const T = this.rival, m = T.charging;
+      if (this.busy || this.over || !m || m.type !== 'yawn') return;
+      this.busy = true; this.acted = true; this.setCards(false); this.unspin(true);
+      const st = Save.data.stats || (Save.data.stats = {}); st.alarmSeen = 1;
+      emit('alarm', { mini: !!m.mini }, this);
+      const c = T.center(), clock = img(this, c.x, c.y - 260, 'j:alarm').setScale(0).setDepth(27);
+      A.alarm && A.alarm(); buzz([30, 30, 30]);
+      await tw(this, { targets: clock, scale: iconScale('j:alarm', 150), duration: 220, ease: 'Back.out' });
+      this.tweens.add({ targets: clock, angle: { from: -18, to: 18 }, duration: 70, yoyo: true, repeat: 7 });
+      this.popWord(c.x, c.y - 420, 'RIIING!', '#ffb347', 84, -6);
+      await wait(this, 700);
+      this.endCharge(T); T.afterCharge = true;
+      await tw(this, { targets: T.root, y: this.groundY - 160, duration: 200, yoyo: true, ease: 'Quad.out' });
+      this.tweens.add({ targets: clock, scale: 0, alpha: 0, duration: 300, onComplete: () => clock.destroy() });
+      if (m.mini) { this.popWord(c.x, c.y - 260, 'I\'M AWAKE, SIR!', '#fff3d2', 64, 6); this.log(T.name + ' jumps up: "I\'M AWAKE, SIR!"'); await wait(this, 900); }
+      else {
+        this.popWord(c.x, c.y - 260, 'I\'M UP! I\'M UP!', '#fff3d2', 72, 6);
+        this.log(this.H.name + ' rings the ALARM! ' + T.name + ' jumps up all wobbly!');
+        await wait(this, 400);
+        T.dizzy = true; this.setStatus(T); A.dizzy(); await wait(this, 700);
+      }
+      await this.afterPlayer();
     }
     heal(f, n) {
       A.heal(); this.heals.explode(40, f.root.x, f.root.y - 40);
@@ -1997,9 +2317,10 @@
     }
     async back(f) { await tw(this, { targets: f.root, x: f.home, y: this.groundY, duration: 380, ease: 'Quad.inOut' }); }
     projScale(tex) { return tex === 'pillow' ? 0.95 : tex === 'books' ? 0.5 : iconScale(tex, 120); }
-    async throwThing(from, to, tex = 'pillow', dur = 420) {
+    async throwThing(from, to, tex = 'pillow', dur = 420, tint) {
       const a = from.front(), b = to.center();
-      const pil = img(this, a.x, a.y, tex).setDepth(25).setScale(this.projScale(tex));
+      const pil = img(this, a.x, a.y, tex).setDepth(25).setScale(tex === 'dot' ? 0.9 : this.projScale(tex));
+      if (tint) pil.setTint(tint);
       A.whoosh();
       const trail = this.add.particles(0, 0, 'feather', { follow: pil, frequency: 45, lifespan: 500, scale: { start: 0.35, end: 0 }, alpha: { start: 0.8, end: 0 }, speed: 40, rotate: { min: 0, max: 360 } }).setDepth(24);
       const o = { t: 0 };
@@ -2071,7 +2392,7 @@
       L(m.log || DEF_LOG[m.type] || ('{a}: ' + (m.title || 'Here I come') + '!'));
       const d = m.dmg ? rnd(m.dmg[0], m.dmg[1]) : 0;
       switch (m.type) {
-        case 'throw': await this.lunge(att, 60); await this.throwThing(att, def, m.tex || 'pillow'); await this.impact(def, d); await this.back(att); break;
+        case 'throw': await this.lunge(att, 60); await this.throwThing(att, def, m.tex || 'pillow', 420, m.tint); await this.impact(def, d); await this.back(att); break;
         case 'tickle': await this.tickleRun(att, def, d); break;
         case 'roar': await this.rings(att, def, m.color || 0xffb36b, m.word || 'RAWR!', m.sound); await this.impact(def, d, 'roar'); break;
         case 'spray': {
@@ -2118,7 +2439,9 @@
           break;
         }
         case 'shield': {
-          A.block(); att.shield = true; this.setStatus(att);
+          if (m.sound) this.sfx(m.sound); else A.block();
+          if (m.word) this.popWord(att.center().x, att.center().y - 240, m.word, '#ffd36b', 80, -6);
+          att.shield = true; this.setStatus(att);
           this.tweens.add({ targets: att.squash, scaleX: 0.92, scaleY: 1.06, duration: 160, yoyo: true });
           await wait(this, 900); break;
         }
@@ -2196,6 +2519,9 @@
         case 'rain': await this.rain(m, att, def, d); break;
         case 'beam': await this.beam(m, att, def, d); break;
         case 'slapshot': await this.slapshot(m, att, def, d); break;
+        case 'whirl': await this.whirl(m, att, def, d); break;
+        case 'yawn': await this.fallAsleep(m, att); break;
+        case 'hide': await this.hide(m, att); break;
         case 'hop': {
           const sx = att.root.x, tx = def.root.x - att.dir * (PORTRAIT ? 330 : 400);
           for (let i = 1; i <= 3; i++) {
@@ -2212,7 +2538,7 @@
           if (m.word) this.popWord(att.front().x - att.dir * 80, att.front().y - 170, m.word, '#ffe08a', 72, 6);
           const per = Math.ceil(d / 3);
           for (let i = 0; i < 3; i++) {
-            await this.throwThing(att, def, m.tex || 'books', 300);
+            await this.throwThing(att, def, m.tex || 'books', 300, m.tint);
             await this.impact(def, i < 2 ? per : Math.max(1, d - per * 2), 'pillow', true);
             if (def.hp <= 0) break;
           }
@@ -2229,7 +2555,18 @@
       const P = this.hero, T = this.rival;
       P.used[k] = (P.used[k] || 0) + 1;
       emit('move', { k, type: m.type }, this);
+      // Compass Spin: the LUCKY CURRENT card adds +5 to its first hit
+      if (this.spin && this.moves.indexOf(m) === this.spin.lucky && m.dmg) { P.lucky5 = 5; emit('lucky', {}, this); }
+      if (T.asleep && m.type === 'rain') { T.meter = this.wakeNeed(); this.wakeUp('INFERNO RAIN wakes anyone up!'); await wait(this, 900); }
+      if (this.hidden && m.type === 'dance') {
+        // Six-Seven during a PEEKABOO!: the hidden rival can't stop giggling and pops out (found: dizzy, no bonk)
+        this.stopTells(); emit('found', { dance: true }, this); this.seekSeen();
+        this.log(T.name + (this.R.plural ? ' giggle' : ' giggles') + ' and ' + (this.R.plural ? 'pop' : 'pops') + ' out!'); await this.unhide(true);
+      }
       await this.doMove(m, P, T);
+      if (this.hidden && !this.over) { await this.sneak(); if (this.checkEnd()) return; } // a heal or nap during a hide: then the sneak tickle
+      P.lucky5 = 0;
+      this.unspin(true);
       if (this.checkEnd()) return;
       await this.afterPlayer();
     }
@@ -2239,7 +2576,7 @@
       if (this.checkEnd()) return;
       await wait(this, 250);
       if (P.dizzy) {
-        P.dizzy = false;
+        P.dizzy = false; this.spinNext = null; // a Compass Spin is used up by a skipped turn
         this.banner(P.name.toUpperCase() + ' IS DIZZY!', C.coral);
         this.log(P.name + ' is too dizzy... skips this turn!');
         await tw(this, { targets: P.root, angle: { from: -12, to: 12 }, duration: 180, yoyo: true, repeat: 3, onComplete: () => P.root.setAngle(0) });
@@ -2250,7 +2587,9 @@
         await wait(this, 250);
       }
       this.banner('YOUR TURN', C.star);
+      if (this.spinNext) { const sp = this.spinNext; this.spinNext = null; this.startSpin(sp); }
       this.busy = false; this.setCards(true);
+      this.autoSeek();
       // a rotation that happened during the turn is applied now (QA B02)
       if (window.__psRotatePending) this.time.delayedCall(60, () => window.__psTryRebuild && window.__psTryRebuild());
     }
@@ -2263,9 +2602,29 @@
       await wait(this, 450);
       this.banner(T.name.toUpperCase() + (/s$/i.test(T.name) ? '\' TURN' : '\'S TURN'), this.R.color === 0xf2f2f7 ? C.cream : this.R.color);
       await wait(this, 1100);
+      if (this.hidden) await this.unhide(false); // (never expected: a seek turn always follows a hide)
+      if (T.asleep) {
+        // Sleepy Thully only snores: EASY nothing, NORMAL +8, HARD +10 (not scaled)
+        T.dizzy = false; this.setStatus(T);
+        const n = this.easy ? 0 : this.hard ? 10 : 8;
+        A.snore(); this.popWord(T.center().x, T.center().y - 260, 'SNORE...', '#d8c2ff', 76, 6);
+        this.tweens.add({ targets: T.squash, scaleY: 1.06, duration: 600, yoyo: true });
+        this.log(T.name + ' snores' + (n ? ' and dreams of pillows... +' + n + ' pep' : '... zzz') + '. Wake him up!');
+        await wait(this, 700);
+        if (n && T.hp < T.max) this.heal(T, Math.min(n, T.max - T.hp));
+        await wait(this, 700); return;
+      }
       if (T.dizzy) {
         T.dizzy = false; this.setStatus(T);
         const is = this.R.plural ? ' are' : ' is'; // the Blips are three (QA B46)
+        if (T.charging && T.charging.type === 'yawn') {
+          // Six-Seven during a yawn: he dances along and forgets to sleep (EASY / NORMAL); HARD: he still falls asleep
+          if (this.hard) { this.log(T.name + is + ' dizzy... and still sleepy!'); await this.fallAsleep(T.charging, T); T.afterCharge = true; return; }
+          this.endCharge(T); T.afterCharge = true;
+          this.log(T.name + ' dances along and forgets to sleep!');
+          A.dance(); await tw(this, { targets: T.root, angle: { from: -12, to: 12 }, duration: 180, yoyo: true, repeat: 2, onComplete: () => T.root.setAngle(0) });
+          await wait(this, 500); return;
+        }
         if (T.charging && T.charging.type === 'slapshot' && this.hard) {
           // HARD: Six-Seven only delays the shot, the wind-up stays
           this.log(T.name + is + ' too dizzy... the SLAPSHOT waits one turn!');
@@ -2296,14 +2655,16 @@
         if (m.type === 'shield') return !T.shield;
         if (m.type === 'dizzy' || m.type === 'dance') return !P.dizzy && T.lastType !== m.type;
         if (m.charge) return T.lastType !== m.type && !T.afterCharge; // never two charged moves in a row
+        if (m.type === 'whirl') return T.lastType !== 'whirl' && !T.afterCharge; // Compass Spin: never twice in a row, never right after a charge
+        if (m.type === 'hide') return T.lastType !== 'hide' && !T.afterCharge && !P.dizzy; // PEEKABOO!: a seek turn always follows
         return true;
       });
-      const pool = ok.length ? ok : this.rmoves.filter(m => m.dmg && !m.charge);
+      const pool = ok.length ? ok : this.rmoves.filter(m => m.dmg && !m.charge && m.type !== 'hide');
       // a little smarter: go for the finish, avoid hitting a shield, heal when really low
       const wOf = m => {
         let w = m.w;
         if (!this.smart) return w;
-        if (m.dmg && !m.charge && P.hp <= m.dmg[0] && !P.shield) w *= 4;
+        if (m.dmg && !m.charge && m.type !== 'hide' && P.hp <= m.dmg[0] && !P.shield) w *= 4; // a hide's damage only comes on a miss
         if (m.dmg && P.shield) w *= 0.5;
         if ((m.type === 'heal' || m.type === 'nap') && T.hp < T.max * 0.35) w *= 2.5;
         return w;
@@ -2317,6 +2678,15 @@
     // Block it with the fire extinguisher (or, for rivals, with milk!)
     chargeFx(T) {
       const beam = T.charging && T.charging.type === 'beam';
+      if (T.charging && T.charging.type === 'yawn') {
+        // Big Yawn: a sleepy lilac sky, zzz rising around the rival
+        this.fireFx.fillColor = 0xb89cff;
+        this.tweens.add({ targets: this.fireFx, fillAlpha: 0.14, duration: 600 });
+        this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: 0.06, duration: 900, yoyo: true, repeat: -1, delay: 600 });
+        T.spr.setTint(0xe0d0ff);
+        this.embers = this.add.particles(0, 0, 'zzz', { x: { min: T.root.x - 120, max: T.root.x + 120 }, y: T.root.y - T.height() * 0.8, speedY: { min: -200, max: -90 }, lifespan: 1500, scale: { start: 0.2, end: 0.06 }, alpha: { start: 1, end: 0 }, frequency: 260 }).setDepth(12);
+        return;
+      }
       if (T.charging && T.charging.type === 'slapshot') {
         // SLAPSHOT wind-up: frosty tint, snowflakes rising around the rival
         this.fireFx.fillColor = 0x9fdcff;
@@ -2357,6 +2727,17 @@
         await wait(this, 600);
         return;
       }
+      if (m.type === 'yawn') {
+        const first = !(Save.data.stats || {}).alarmSeen;
+        this.log(m.mini ? T.name + ' yawns on watch... Tap ALARM! to wake him up!' : T.name + ' stretches... "Five more minutes..." ' + (first || this.easy ? 'Tap ALARM! to wake him up!' : 'Ring the ALARM!'));
+        A.yawn ? A.yawn() : A.snore();
+        this.chargeFx(T);
+        await tw(this, { targets: T.squash, scaleX: 1.1, scaleY: 1.12, duration: 700, ease: 'Sine.inOut' });
+        this.popWord(T.center().x, T.center().y - 240, m.mini ? 'JUST FIVE MINUTES...' : 'FIVE MORE MINUTES...', '#d8c2ff', 56, 6);
+        await tw(this, { targets: T.squash, scaleX: 1, scaleY: 1, duration: 400 });
+        await wait(this, 500);
+        return;
+      }
       this.toolSwap = this.hard && Math.random() < 0.5;
       const beam = m.type === 'beam';
       const tap = m.mini ? ' Grab the UMBRELLA!' : this.easy ? ' Tap BLOCK IT!' : ' Pick your tool!';
@@ -2385,7 +2766,7 @@
     async playerBlock(tool) {
       if (this.busy || this.over || !this.rival.charging || this.rival.charging.type === 'slapshot') return;
       tool = tool === 'umb' ? 'umb' : 'ext';
-      this.busy = true; this.acted = true; this.setCards(false);
+      this.busy = true; this.acted = true; this.setCards(false); this.unspin(true);
       const P = this.hero;
       P.blocker = tool;
       this.log(P.name + (tool === 'umb' ? ' grabs the umbrella. Bring it on!' : ' grabs the fire extinguisher. Bring it on!'));
@@ -2671,6 +3052,206 @@
       P.beamed = (P.beamed || []).concat(left[0].k);
       return left[0];
     }
+    // ---- v1.0 Compass Spin (docs/gdd/1.0-ocean.md section 4): a hit, then the player's next turn is a Compass turn
+    async whirl(m, att, def, d) {
+      this.sfx(m.sound || 'whirr'); buzz(40);
+      const c = att.center(), cp = this.add.image(c.x + att.dir * 170, c.y - 160, 'compass').setScale(0).setDepth(27);
+      this.tweens.add({ targets: cp, scale: iconScale('compass', 120), duration: 260, ease: 'Back.out' });
+      this.tweens.add({ targets: cp, angle: 720, duration: 1300, ease: 'Sine.inOut' });
+      this.fogDrift();
+      this.popWord(c.x, c.y - 300, m.word || 'WHIRL!', '#5ff0e6', 78, -6);
+      await tw(this, { targets: att.squash, angle: 720 * att.dir, duration: 700, ease: 'Sine.inOut' });
+      att.squash.setAngle(0);
+      for (let i = 0; i < 4; i++) {
+        const ring = this.add.image(c.x, c.y, 'ring').setDepth(22).setTint(0x5ff0e6).setScale(0.3).setAlpha(0.9);
+        this.tweens.add({ targets: ring, x: def.center().x, y: def.center().y, scale: 1.6, angle: 360, alpha: 0, duration: 560, delay: i * 100, onComplete: () => ring.destroy() });
+      }
+      await wait(this, 450);
+      this.tweens.add({ targets: cp, scale: 0, alpha: 0, duration: 300, delay: 200, onComplete: () => cp.destroy() });
+      await this.impact(def, d, 'roar');
+      if (def === this.hero) this.spinNext = { mini: !!m.mini };
+    }
+    // a white fog band drifting across the field
+    fogDrift(hold) {
+      if (this.fogBand) { this.tweens.killTweensOf(this.fogBand); this.fogBand.destroy(); this.fogBand = null; }
+      const y = this.groundY - (PORTRAIT ? 220 : 200), f = this.fogBand = this.add.image(-W * 0.4, y, 'glow').setDisplaySize(W * 1.1, 260).setTint(0xffffff).setAlpha(0).setDepth(18);
+      this.tweens.add({ targets: f, alpha: 0.25, duration: 400 });
+      this.tweens.add({ targets: f, x: W * 1.4, duration: hold ? 9000 : 2600, ease: 'Sine.inOut', repeat: hold ? -1 : 0, onComplete: () => { if (this.fogBand === f) this.fogBand = null; f.destroy(); } });
+    }
+    // the Compass turn: which card goes to which place, and the LUCKY one (an attack card the player can still use)
+    startSpin(sp) {
+      const P = this.hero, n = this.moves.length;
+      const usable = m => !(m.uses && (P.used[m.k] || 0) >= m.uses) && !(P.beamed || []).includes(m.k);
+      const atk = this.moves.map((m, i) => i).filter(i => this.moves[i].dmg && usable(this.moves[i]));
+      if (n < 2 || !atk.length) return;
+      const L = atk[rnd(0, atk.length - 1)], order = this.moves.map((m, i) => i);
+      if (this.easy) { /* nothing moves on EASY (owner's decision): the LUCKY card is a gift */ }
+      else if (this.hard && !sp.mini && n >= 3) {
+        // HARD: every card may move, at least 3 change place, the LUCKY card among them
+        for (let t = 0; t < 60; t++) {
+          const o = order.slice(); for (let i = n - 1; i > 0; i--) { const j = rnd(0, i); [o[i], o[j]] = [o[j], o[i]]; }
+          if (o[L] !== L && o.filter((v, i) => v !== i).length >= Math.min(3, n)) { o.forEach((v, i) => order[i] = v); break; }
+        }
+        if (order[L] === L) { const X = (L + 1) % n; [order[L], order[X]] = [order[X], order[L]]; }
+      } else { let X = rnd(0, n - 2); if (X >= L) X++; [order[L], order[X]] = [order[X], order[L]]; }
+      this.spin = { order, lucky: L, glow: true, mini: !!sp.mini };
+      this.applySpin(true);
+      this.log(this.easy ? 'A LUCKY CURRENT! One card does +5!' : 'The cards drift on the current... find the LUCKY one!');
+    }
+    applySpin(anim) {
+      const sp = this.spin; if (!sp || !this.rects) return;
+      A.whirr && anim && A.whirr();
+      this.fogDrift(true);
+      const dur = this.hard ? 350 : 450;
+      this.moves.forEach((m, i) => {
+        const r = this.rects[sp.order[i]], c = m.card; if (!r || !c) return;
+        c.setSpin(sp.order[i] !== i, i === sp.lucky, sp.glow);
+        if (anim) this.tweens.add({ targets: c, x: r.x, y: r.y, duration: dur, ease: 'Sine.inOut' }); else c.setPosition(r.x, r.y);
+      });
+      // HARD: the glow shows during the slide and 1 s after, then only the compass badge stays
+      if (this.hard && sp.glow) this.time.delayedCall((anim ? dur : 0) + 1000, () => { if (this.spin === sp) { sp.glow = false; this.moves.forEach((m, i) => m.card.setSpin(sp.order[i] !== i, i === sp.lucky, false)); } });
+    }
+    unspin(anim) {
+      if (this.fogBand) { const f = this.fogBand; this.fogBand = null; this.tweens.killTweensOf(f); this.tweens.add({ targets: f, alpha: 0, duration: 400, onComplete: () => f.destroy() }); }
+      if (!this.spin) return;
+      this.spin = null;
+      this.moves.forEach((m, i) => {
+        const r = this.rects[i], c = m.card; if (!r || !c) return;
+        c.setSpin(false, false, false);
+        if (anim) this.tweens.add({ targets: c, x: r.x, y: r.y, duration: 300, ease: 'Sine.inOut' }); else c.setPosition(r.x, r.y);
+      });
+    }
+    // ---- v1.0 PEEKABOO! (docs/gdd/1.0-veggie.md section 4): the rival hides in one of 2-4 mounds (Brock Lee: behind broccoli trees)
+    async hide(m, T) {
+      A.dig && A.dig();
+      this.popWord(T.center().x, T.center().y - 260, 'DIG DIG!', '#d8b07a', 76, -6);
+      this.dust.explode(30, T.root.x, this.groundY);
+      await tw(this, { targets: T.squash, y: 120, alpha: 0, duration: 450, ease: 'Quad.in' });
+      const n = m.mini ? 2 : this.easy ? 2 : m.forest && this.hard ? 4 : 3;
+      this.hidden = { k: this.rmoves.indexOf(m), n, right: rnd(0, n - 1), worm: !this.hard }; // worm = the HARD decoy was used (or never comes)
+      this.showHidden(false);
+      if (m.sound) this.sfx(m.sound);
+      this.log(this.logT.text + ' Tap the ' + (m.forest ? 'tree' : 'mound') + ' where ' + (this.R.plural ? 'they hide!' : 'he hides!'));
+      await wait(this, 900);
+    }
+    // the mounds (or trees) with their tap zones; instant = coming back after a rotation (no pop-up, the worm does not repeat)
+    showHidden(instant) {
+      const Hd = this.hidden, T = this.rival, m = this.rmoves[Hd.k] || {};
+      this.clearMounds();
+      T.squash.setAlpha(0); T.squash.y = 120;
+      if (T.bar && T.bar.c) T.bar.c.setAlpha(0.55);
+      this.hideChip = chip(this, W * 0.73, (PORTRAIT ? 200 : 150) + (PORTRAIT ? 70 : 76), '?', 0xd8b07a, 34).setDepth(30);
+      const xs = { 2: [0.55, 0.82], 3: [0.5, 0.68, 0.86], 4: [0.46, 0.6, 0.74, 0.88] }[Hd.n], gy = this.groundY;
+      const tree = !!m.forest, zw = Math.max(150, W * 0.13), cardsTop = Math.min(...this.rects.map(r => r.y - r.h / 2));
+      this.mounds = xs.map((fx, i) => {
+        const c = this.add.container(W * fx, gy).setDepth(15);
+        const art = tree ? this.add.image(0, 0, 'broccoli').setOrigin(0.5, 1) : this.add.image(0, 0, 'mound').setOrigin(0.5, 1);
+        const gapW = W * (xs[1] - xs[0]) - 10; // neighbours never overlap
+        art.setScale(tree ? Math.min(Math.min(T.spr.displayHeight * 0.75, 300) / art.height, gapW / art.width) : Math.min(140, gapW) / art.width);
+        const top = -art.displayHeight;
+        const pil = this.add.image(tree ? art.displayWidth * 0.35 : 0, top + 40, 'pillow').setScale(0.38).setAngle(-20).setVisible(i === Hd.right);
+        c.add([pil, art]); c.pil = pil; c.top = top; c.art = art;
+        // the tap zone: 150 x 220+, grown upwards so it never reaches the cards
+        const bot = Math.min(40, cardsTop - gy - 4), zh = Math.max(220, bot - (top - 60));
+        const z = this.add.zone(0, bot - zh / 2, zw, zh).setInteractive({ useHandCursor: true }); c.add(z);
+        z.on('pointerdown', () => { if (this.busy || this.over) return; this.tweens.add({ targets: c, scaleY: 0.88, scaleX: 1.06, duration: 70 }); });
+        const up = () => this.tweens.add({ targets: c, scaleX: 1, scaleY: 1, duration: 160, ease: 'Back.out' });
+        z.on('pointerout', up);
+        z.on('pointerup', () => { up(); this.seek(i); });
+        if (!instant) { c.setScale(0); this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 90, ease: 'Back.out' }); }
+        return c;
+      });
+      if (!instant) A.pop && A.pop();
+      this.startTells(instant);
+    }
+    clearMounds() {
+      (this.mounds || []).forEach(c => { this.tweens.killTweensOf(c); c.destroy(); }); this.mounds = null;
+      if (this.hideChip) { this.hideChip.destroy(); this.hideChip = null; }
+    }
+    // the tell: the pillow corner peeks out of the right mound (EASY: all the time, with a sparkle). HARD: once, a worm pops out of a wrong one
+    startTells(instant) {
+      this.stopTells();
+      const Hd = this.hidden, R = this.mounds[Hd.right], pil = R.pil, out = R.top - 30, inn = R.top + 40;
+      const first = !(Save.data.stats || {}).seekSeen;
+      const peek = (ms) => { this.tweens.killTweensOf(pil); pil.y = inn; this.tweens.add({ targets: pil, y: out, duration: 140, ease: 'Back.out', hold: ms, yoyo: true }); A.giggle && !this.hard && A.giggle(); this.tweens.add({ targets: R.art, angle: { from: -4, to: 4 }, duration: 80, yoyo: true, repeat: 2, onComplete: () => R.art.setAngle(0) }); };
+      this.tellEvs = [];
+      if (this.easy) { pil.y = out; this.tellEvs.push(this.time.addEvent({ delay: 500, loop: true, callback: () => this.sparks.explode(4, R.x + pil.x, R.y + out) })); }
+      else {
+        const T0 = this.hard ? 900 : 500, every = this.hard ? 3000 : 2000, hold = this.hard ? 300 : 600;
+        if (first) { pil.y = out; this.tellEvs.push(this.time.delayedCall(2000, () => { if (this.hidden === Hd) pil.y = inn; })); }
+        this.tellEvs.push(this.time.delayedCall(first ? 2000 + T0 : T0, () => { if (this.hidden !== Hd) return; peek(hold); this.tellEvs.push(this.time.addEvent({ delay: every, loop: true, callback: () => this.hidden === Hd && peek(hold) })); }));
+        if (this.hard && !Hd.worm) this.tellEvs.push(this.time.delayedCall(1500, () => {
+          if (this.hidden !== Hd) return; Hd.worm = true;
+          const wi = [...Array(Hd.n).keys()].filter(i => i !== Hd.right)[rnd(0, Hd.n - 2)], M = this.mounds[wi];
+          const wm = this.add.image(0, M.top + 30, 'worm').setScale(iconScale('worm', 110)); M.addAt(wm, 0); A.squeak && A.squeak();
+          this.tweens.add({ targets: wm, y: M.top - 50, duration: 220, ease: 'Back.out', hold: 900, yoyo: true, onComplete: () => wm.destroy() });
+          this.popWord(M.x, this.groundY + M.top - 140, 'Not me! I\'m just a worm!', '#ffd6e8', 44, 4);
+        }));
+      }
+      if (first) {
+        // the first seek ever: a hand points at the right mound
+        const hd = this.seekHand = img(this, R.x, this.groundY + out - 150, 'hand').setScale(iconScale('hand', 100)).setDepth(36);
+        this.tweens.add({ targets: hd, y: hd.y + 30, duration: 400, yoyo: true, repeat: -1 });
+        if (!instant) this.log('Look for the pillow! Tap that mound!');
+      }
+    }
+    stopTells() { (this.tellEvs || []).forEach(e => e.remove(false)); this.tellEvs = []; if (this.seekHand) { this.seekHand.destroy(); this.seekHand = null; } }
+    seekSeen() { const st = Save.data.stats || (Save.data.stats = {}); if (!st.seekSeen) { st.seekSeen = 1; Save.store(); } }
+    // the rival pops back out of the right mound (and the mounds go away)
+    async unhide(anim) {
+      const T = this.rival, Hd = this.hidden; if (!Hd) return;
+      this.stopTells(); this.hidden = null;
+      const M = this.mounds && this.mounds[Hd.right];
+      if (M && anim) { this.popWord(M.x, this.groundY - 260, 'POP!', '#fff3d2', 70, 6); A.pop && A.pop(); }
+      this.clearMounds();
+      if (T.bar && T.bar.c) T.bar.c.setAlpha(1);
+      if (anim) await tw(this, { targets: T.squash, y: 0, alpha: 1, duration: 300, ease: 'Back.out' }); else { T.squash.y = 0; T.squash.setAlpha(1); }
+      this.setCards(false);
+    }
+    // a wrong mound, or a heal during the hide: PEEKABOO! the rival pops out and lands the sneak tickle
+    async sneak() {
+      const T = this.rival, P = this.hero, m = this.rmoves[this.hidden.k] || {}, d = m.dmg ? rnd(m.dmg[0], m.dmg[1]) : 12;
+      await this.unhide(true);
+      if (this.easy) { this.log(T.name + (this.R.plural ? ' pop' : ' pops') + ' out of the soil. Peekaboo!'); await wait(this, 500); return; } // EASY: no sneak damage ever
+      this.popWord(P.center().x, P.center().y - 260, 'PEEKABOO!', '#ff9ed8', 84, -6); A.peekaboo && A.peekaboo();
+      this.log(m.forest ? 'PEEKABOO! Trees can\'t hide... but I can!' : 'PEEKABOO! ' + T.name + ' sneaks up on ' + P.name + '!');
+      await this.tickleRun(T, P, d);
+    }
+    // the player taps mound i
+    async seek(i) {
+      const Hd = this.hidden; if (!Hd || this.busy || this.over || !this.mounds) return;
+      const M = this.mounds[i], T = this.rival, P = this.hero, m = this.rmoves[Hd.k] || {};
+      if (i !== Hd.right && this.easy) { // EASY: a wrong mound costs nothing, tap again
+        A.nope && A.nope(); A.bounce(); this.popWord(M.x, this.groundY + M.top - 120, 'Nope! Try again!', '#ffd6e8', 52, -4);
+        this.tweens.add({ targets: M, angle: { from: -8, to: 8 }, duration: 70, yoyo: true, repeat: 2, onComplete: () => M.setAngle(0) }); return;
+      }
+      this.busy = true; this.acted = true; this.setCards(false); this.stopTells(); this.seekSeen();
+      if (i !== Hd.right) {
+        A.nope && A.nope(); this.popWord(M.x, this.groundY + M.top - 120, 'NOPE!', '#ffd6e8', 70, -4);
+        await tw(this, { targets: M, scaleY: 1.2, duration: 160, yoyo: true });
+        await this.sneak();
+        if (this.checkEnd()) return;
+        await this.afterPlayer(); return;
+      }
+      // FOUND YOU!: a pillow bonk on the mound, the rival pops out giggling and dizzy
+      emit('found', {}, this);
+      const spot = { center: () => ({ x: M.x, y: this.groundY + M.top / 2 }) };
+      await this.lunge(P, 60); await this.throwThing(P, spot, 'pillow'); this.back(P);
+      this.popWord(M.x, this.groundY + M.top - 160, 'FOUND YOU!', '#7fe39a', 84, -6);
+      await this.unhide(true);
+      this.log(m.forest ? 'FOUND YOU! ...Fine, I\'m a veggie.' : 'FOUND YOU! ' + T.name + (this.R.plural ? ' giggle and are' : ' giggles and is') + ' all dizzy!');
+      await this.impact(T, 15);
+      if (this.checkEnd()) return;
+      T.dizzy = true; this.setStatus(T); A.dizzy();
+      await wait(this, 600);
+      await this.afterPlayer();
+    }
+    // ?debug: __psHide = 'found' | 'miss' resolves the next seek after 300 ms (tests run at 2-3 fps, too slow for the tells)
+    autoSeek() {
+      const Hd = this.hidden, how = DEBUG && window.__psHide;
+      if (!Hd || !how) return;
+      this.time.delayedCall(300, () => { if (this.hidden === Hd) this.seek(how === 'found' ? Hd.right : (Hd.right + 1) % Hd.n); });
+    }
     checkEnd() {
       if (this.rival.hp <= 0) { this.finish(true); return true; }
       if (this.hero.hp <= 0 && this.hero.spare) {
@@ -2686,9 +3267,11 @@
       return false;
     }
     async finish(won) {
-      this.over = true; this.busy = true; this.setCards(false);
+      this.over = true; this.busy = true; this.setCards(false); this.unspin(false); this.spinNext = null;
       const P = this.hero, T = this.rival;
       if (T.charging) this.endCharge(T);
+      if (T.asleep) { T.asleep = false; this.sleepFx(T); }
+      if (this.hidden) { this.stopTells(); this.hidden = null; this.clearMounds(); }
       this.dropExtinguisher();
       A.music(null); // duel music stops for the win / lose jingle
       if ((P.beamed || []).length) {
@@ -3013,7 +3596,7 @@
   // ---------- Comics: a short animated comic page the first time the player arrives in a world (#31, #62; docs/gdd/0.9-world-comics.md)
   // One script per comic: 3 panels (functions (scene, panel, instant) drawn with the scene helpers) + the title page.
   // Each panel function must also work with instant = true (fast taps, coming back after a rotation).
-  const COMIC_OF_WORLD = ['hills', 'space', 'canada', 'spooky'];
+  const COMIC_OF_WORLD = ['hills', 'space', 'canada', 'ocean', 'veggie', 'spooky'];
   const COMIC_SCRIPTS = {
     canada: {
       world: CANADA, title: 'CANADA!', len: [2700, 2500, 3500],
@@ -3240,11 +3823,137 @@
     },
     sting: s => s.time.delayedCall(1300, () => A.boo()),
   };
+  // v1.0 Ocean "Foggy Business" (docs/gdd/1.0-ocean.md 6c): fog, a cheeky gull, the ship with Captain Fog; Thully's nightcap peeks out of the water
+  COMIC_SCRIPTS.ocean = {
+    world: OCEAN, title: 'OCEAN!', len: [2800, 2600, 3500],
+    confetti: { key: 'bubbles', rise: true, speedY: { min: -320, max: -160 }, scale: { min: 0.12, max: 0.26 }, lifespan: Math.round(H / 160 * 1000) + 1500 },
+    panels: [
+      (s, c, instant) => {
+        s.bg(c, 'sky5');
+        const fog = s.actor(c, 'glow', 0.5, 0.75, 0.3, 1).setTint(0xffffff).setAlpha(0.3); s.anim({ targets: fog, x: fog.x + c.r.w * 0.1, duration: 3000, yoyo: true, repeat: -1 });
+        // the lighthouse at the left edge, its beam sweeping
+        const lx = -c.r.w / 2 + c.r.w * 0.08, ly = c.r.h / 2 - 10, th = c.r.h * 0.45, tw0 = Math.min(c.r.w * 0.07, 50), g = s.add.graphics();
+        for (let k = 0; k < 5; k++) { g.fillStyle(k % 2 ? 0xffffff : 0xe2524a); g.fillRect(lx - tw0 / 2, ly - (k + 1) * th / 5, tw0, th / 5); }
+        g.fillStyle(0xffe08a); g.fillCircle(lx, ly - th - 12, 14); c.add(g);
+        const beam = s.add.graphics().setPosition(lx, ly - th - 12); beam.fillStyle(0xfff3b0, 0.25); beam.fillTriangle(0, 0, c.r.w * 0.35, -40, c.r.w * 0.35, 40); c.add(beam);
+        s.anim({ targets: beam, angle: { from: -15, to: 15 }, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        const jack = s.actor(c, 'jack_side', instant ? 0.42 : -0.3, 0.92, 0.5, 0.36);
+        s.anim({ targets: jack, angle: { from: -3, to: 3 }, duration: 90, yoyo: true, repeat: -1 });
+        if (!instant) { s.anim({ targets: jack, x: (0.42 - 0.5) * c.r.w, duration: 800, ease: 'Quad.out' }); A.whirr && A.whirr(); }
+        const cp = s.actor(c, 'compass', 0.74, 0.62, 0.2, 0.14); s.anim({ targets: cp, angle: 360, duration: 900, repeat: -1 });
+        s.caption(c, 'MEANWHILE, IN THE FOGGY SEA...', instant);
+        const say = inst => s.bubble(c, PORTRAIT ? 0.66 : 0.5, PORTRAIT ? 0.36 : 0.4, 'My compass is doing the Six-Seven!', -1, inst);
+        instant ? say(true) : s.at(1000, say);
+      },
+      (s, c, instant) => {
+        s.bg(c, 'sky5');
+        const jack = s.actor(c, 'jack_front', 0.3, 0.98, 0.6, 0.3);
+        const dx = jack.x + jack.displayWidth * 0.45, dy = jack.y - jack.displayHeight * 0.45;
+        const dump = s.actor(c, 'dumpling', 0, 0, 0.14, 0.1); dump.x = dx; dump.y = dy + dump.displayHeight / 2;
+        const gull = s.add.image(0, dy, 'icons', 'bird').setTint(0xffffff).setFlipX(true); gull.setScale(Math.min(0.26 * c.r.h / gull.height, 0.2 * c.r.w / gull.width)); c.add(gull);
+        const gx = (0.7 - 0.5) * c.r.w, gy = -c.r.h * 0.18;
+        const grab = inst => {
+          s.burst(c, PORTRAIT ? 0.8 : 0.78, PORTRAIT ? 0.22 : 0.2, 'SQUAWK!', PORTRAIT ? 72 : 60, inst);
+          if (inst) { gull.x = gx; gull.y = gy; dump.x = gx; dump.y = gy + gull.displayHeight * 0.3; }
+          else {
+            s.anim({ targets: [gull], x: gx, y: gy, duration: 500, ease: 'Quad.out' }); s.anim({ targets: [dump], x: gx, y: gy + gull.displayHeight * 0.3, duration: 500, ease: 'Quad.out' });
+            const fe = s.add.particles(dx, dy, 'feather', { speed: { min: 120, max: 300 }, angle: { min: 0, max: 360 }, scale: { min: 0.25, max: 0.45 }, lifespan: 900, gravityY: 300, emitting: false }); c.add(fe); fe.explode(10);
+            A.squawk && A.squawk(); A.whoosh();
+          }
+        };
+        if (instant) grab(true); else { gull.x = dx; s.at(400, grab); }
+        const say = inst => s.bubble(c, PORTRAIT ? 0.62 : 0.5, PORTRAIT ? 0.56 : 0.62, 'Mine now, matey!', 0.3, inst);
+        instant ? say(true) : s.at(1300, say);
+      },
+      (s, c, instant) => {
+        s.bg(c, 'sky5');
+        s.strip(c, 0x2c8a8f, 0.8, 1);
+        s.peekObj = s.actor(c, 'nightcap', PORTRAIT ? 0.5 : 0.52, 1.0, PORTRAIT ? 0.2 : 0.14, 0.14).setVisible(false);
+        const ship = s.actor(c, 'ship', 0.8, 0.9, 0.62, 0.4).setTint(0xdfe6f5);
+        s.anim({ targets: ship, angle: { from: -2, to: 2 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        s.actor(c, 'fogcap', 0.82, 0.48, 0.26, 0.18);
+        s.actor(c, 'crab', 0.64, 0.66, 0.14, 0.1);
+        s.actor(c, 'jack_front', 0.2, 0.98, 0.48, 0.26);
+        const s1 = inst => s.bubble(c, 0.34, PORTRAIT ? 0.22 : 0.3, 'Is this a GHOST ship?', -1, inst);
+        const s2 = inst => { s.bubble(c, 0.6, PORTRAIT ? 0.12 : 0.14, 'Nope! The crew is on a picnic.', 0.3, inst); if (!inst) A.honk(); };
+        if (instant) { s1(true); s2(true); } else { s.at(200, s1); s.at(1400, s2); }
+      },
+    ],
+    // Thully's nightcap rises out of the water in panel 3 and wobbles
+    peek: s => {
+      const o = s.peekObj; if (!o) return;
+      const y = o.y; o.setVisible(true); o.y = y + o.displayHeight * 0.5; o.setAlpha(0);
+      s.tweens.add({ targets: o, y, alpha: 1, duration: 700, ease: 'Back.out', onComplete: () => s.tweens.add({ targets: o, angle: { from: -8, to: 8 }, duration: 600, yoyo: true, repeat: -1 }) });
+    },
+    sting: s => s.time.delayedCall(1300, () => A.snore()),
+  };
+  // v1.0 Veggie Patch "Who Planted Jack?" (docs/gdd/1.0-veggie.md 6c): fireflies, PEEKABOO! from a mound, the Peas roll in; Brock Lee winks from behind the fence
+  COMIC_SCRIPTS.veggie = {
+    world: VEGGIE, title: 'VEGGIE PATCH!', len: [2700, 2600, 3500],
+    confetti: { key: 'dot', tint: [0x8fd96b, 0x7fe36a, 0xb6f08c], speedY: { min: 200, max: 400 }, scale: { min: 0.12, max: 0.22 }, lifespan: 5000 },
+    panels: [
+      (s, c, instant) => {
+        s.bg(c, 'sky6');
+        const g = s.add.graphics(); g.fillStyle(0xb98a5a); const fy = c.r.h / 2 - 10;
+        g.fillRect(-c.r.w / 2 + 5, fy - c.r.h * 0.12, c.r.w - 10, 10); g.fillRect(-c.r.w / 2 + 5, fy - c.r.h * 0.06, c.r.w - 10, 10);
+        for (let x = -c.r.w / 2 + 20; x < c.r.w / 2 - 20; x += 70) g.fillRect(x, fy - c.r.h * 0.16, 16, c.r.h * 0.16);
+        c.add(g);
+        for (let i = 0; i < 10; i++) { const f = s.add.image((Math.random() - 0.5) * c.r.w * 0.85, (Math.random() - 0.6) * c.r.h * 0.7, 'dot').setScale(0.12).setTint(0xd8ff6a); c.add(f); s.anim({ targets: f, alpha: { from: 1, to: 0.2 }, duration: 600 + i * 70, yoyo: true, repeat: -1 }); }
+        const jack = s.actor(c, 'jack_side', instant ? 0.4 : -0.3, 0.86, 0.5, 0.36);
+        s.anim({ targets: jack, angle: { from: -4, to: 4 }, duration: 400, yoyo: true, repeat: -1 });
+        if (!instant) { s.anim({ targets: jack, x: (0.4 - 0.5) * c.r.w, duration: 800, ease: 'Quad.out' }); A.whoosh(); }
+        s.caption(c, 'MEANWHILE, IN THE VEGGIE PATCH...', instant);
+        const say = inst => s.bubble(c, PORTRAIT ? 0.68 : 0.5, PORTRAIT ? 0.36 : 0.42, 'Mmm... smells like DINNER?', -1, inst);
+        instant ? say(true) : s.at(1000, say);
+      },
+      (s, c, instant) => {
+        s.bg(c, 'sky6');
+        s.strip(c, 0x7a4e2d, 0.72, 1);
+        const ms = [0.25, 0.5, 0.75].map(x => s.actor(c, 'mound', x, 0.98, 0.22, 0.22));
+        const olly = s.actor(c, 'onion', 0.5, 0.82, 0.36, 0.2), oy = olly.y; c.remove(olly); c.addAt(olly, c.getIndex(ms[1])); // behind the middle mound
+        const pop = inst => {
+          s.burst(c, PORTRAIT ? 0.2 : 0.22, PORTRAIT ? 0.28 : 0.22, 'PEEKABOO!', PORTRAIT ? 64 : 54, inst);
+          if (inst) return;
+          olly.y = oy + olly.displayHeight * 0.5; s.anim({ targets: olly, y: oy, duration: 400, ease: 'Back.out' });
+          s.anim({ targets: ms[1], angle: { from: -8, to: 8 }, duration: 80, yoyo: true, repeat: 3 }); A.pop && A.pop(); A.peekaboo && A.peekaboo();
+        };
+        instant ? pop(true) : s.at(300, pop);
+        const say = inst => s.bubble(c, PORTRAIT ? 0.62 : 0.5, PORTRAIT ? 0.3 : 0.4, 'Don\'t cry! ...oh wait, that\'s me.', 0, inst);
+        instant ? say(true) : s.at(1200, say);
+      },
+      (s, c, instant) => {
+        s.bg(c, 'sky6');
+        s.strip(c, 0x7a4e2d, 0.8, 1);
+        const tree = s.actor(c, 'broccoli', PORTRAIT ? 0.52 : 0.5, 0.82, 0.5, 0.26).setAlpha(0.95);
+        const g = s.add.graphics(); g.fillStyle(0xb98a5a); const fy = (0.82 - 0.5) * c.r.h;
+        g.fillRect(-c.r.w / 2 + 5, fy - c.r.h * 0.1, c.r.w - 10, 10); for (let x = -c.r.w / 2 + 20; x < c.r.w / 2 - 20; x += 70) g.fillRect(x, fy - c.r.h * 0.14, 14, c.r.h * 0.14); c.add(g);
+        s.peekTree = tree;
+        const peas = s.actor(c, 'peapod', instant ? 0.8 : 1.3, 0.98, 0.32, 0.22);
+        if (!instant) s.anim({ targets: peas, x: (0.8 - 0.5) * c.r.w, angle: -360, duration: 900, ease: 'Quad.out' });
+        s.actor(c, 'garlic', 0.62, 0.98, 0.26, 0.16);
+        s.actor(c, 'jack_front', 0.2, 0.98, 0.48, 0.26);
+        const s1 = inst => s.bubble(c, 0.34, PORTRAIT ? 0.22 : 0.3, 'I\'m a dragon. I eat DUMPLINGS!', -1, inst);
+        const s2 = inst => { s.bubble(c, 0.66, PORTRAIT ? 0.1 : 0.12, 'Good! We came to PLAY!', 0.3, inst); if (!inst) A.babble(20); };
+        if (instant) { s1(true); s2(true); } else { s.at(200, s1); s.at(1400, s2); }
+      },
+    ],
+    // the big broccoli "tree" behind the fence opens two eyes and winks (Brock Lee)
+    peek: s => {
+      const t = s.peekTree; if (!t || !t.parentContainer) return;
+      const c = t.parentContainer, ex = t.x, ey = t.y - t.displayHeight * 0.62, r = Math.max(8, t.displayWidth * 0.06), g = s.add.graphics();
+      const draw = wink => { g.clear(); g.fillStyle(0xffffff); g.fillCircle(ex - r * 2, ey, r * 1.3); g.fillStyle(0x1d2163); g.fillCircle(ex - r * 2, ey, r * 0.7); if (wink) { g.lineStyle(4, 0x1d2163); g.lineBetween(ex + r, ey, ex + r * 3, ey); } else { g.fillStyle(0xffffff); g.fillCircle(ex + r * 2, ey, r * 1.3); g.fillStyle(0x1d2163); g.fillCircle(ex + r * 2, ey, r * 0.7); } };
+      c.addAt(g, c.list.indexOf(t) + 1); draw(false);
+      s.time.addEvent({ delay: 900, loop: true, callback: () => { draw(true); s.time.delayedCall(300, () => draw(false)); } });
+    },
+    sting: s => s.time.delayedCall(1300, () => A.peekaboo && A.peekaboo()),
+  };
   const comicSeen = id => !!(Save.data.comics && Save.data.comics[id]);
   const COMIC_DUE = {
     hills: () => !Object.keys(Save.data.stars).some(k => Save.data.stars[k] > 0), // new players only: saves that played before v0.9 are marked seen by mig09; XP from a toy duel or a quest does not count (QA B65)
     space: () => worldOpen(SPACE), // everyone, once (also players already past Space)
     canada: () => worldOpen(CANADA),
+    ocean: () => worldOpen(OCEAN),
+    veggie: () => worldOpen(VEGGIE),
     spooky: () => EVENT_ON && worldOpen(SPOOKY), // during the event only
   };
   // a comic plays once, the first time its world opens (docs/gdd/0.9-world-comics.md section 4)
@@ -3388,7 +4097,8 @@
       A.comicSting && A.comicSting(); this.time.delayedCall(400, () => A.levelUp());
       if (S.sting) S.sting(this);
       const cf = S.confetti;
-      const conf = this.add.particles(0, 0, cf.key, { x: { min: 0, max: W }, y: -60, speedY: cf.speedY, speedX: { min: -120, max: 120 }, rotate: { min: 0, max: 360 }, lifespan: cf.lifespan, scale: cf.scale, quantity: 2, frequency: 120 }).setDepth(49);
+      // (v1.0: Ocean bubbles rise from the bottom; Veggie peas are tinted dots)
+      const conf = this.add.particles(0, 0, cf.key, Object.assign({ x: { min: 0, max: W }, y: cf.rise ? H + 60 : -60, speedY: cf.speedY, speedX: { min: -120, max: 120 }, rotate: { min: 0, max: 360 }, lifespan: cf.lifespan, scale: cf.scale, quantity: 2, frequency: 120 }, cf.tint ? { tint: cf.tint } : {})).setDepth(49);
       this.time.delayedCall(2500, () => conf.stop());
       const go = button(this, W / 2, H - 110, 460, 130, this.then.key === 'album' ? 'DONE!' : 'LET\'S GO!', C.star, () => {
         this.seen();
@@ -3792,7 +4502,7 @@
 
   // ---------- start
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
-  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA,
+  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA, OCEAN, VEGGIE,
     txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, press, backButton, muteButton, capsuleButton, drawCapsule,
     addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyStreak, worldOpen, bottomGround };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
@@ -3823,9 +4533,15 @@
   // ...and a rotation held back (duel turn, result celebration) is applied on the next screen if it is still waiting
   game.events.once('ready', () => game.scene.scenes.forEach(sc => {
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
-    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.R && sc.R.boss ? 'boss' : sc.R && sc.R.world === CANADA ? 'north' : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
+    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.track ? sc.track() : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
   window.__psJudgeSave = judgeSave; window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
+  if (DEBUG) {
+    // v1.0 test handles (headless tests run at 2-3 fps): a Compass Spin now or at the next turn, fill Thully's Wake-o-meter
+    const bt = () => game.scene.getScene('battle');
+    window.__psSpin = now => { const b = bt(); if (!b || !b.hero) return; if (now && !b.busy) { b.startSpin({}); b.setCards(true); } else b.spinNext = {}; };
+    window.__psWake = () => { const b = bt(); if (b && b.rival && b.rival.asleep) { b.rival.meter = b.wakeNeed(); b.wakeUp(); } };
+  }
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
   window.__psSnapshot = () => snapshot(game);
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)

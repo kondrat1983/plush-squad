@@ -111,6 +111,14 @@
     { id: 'kraken', name: 'Kraken Fighter', desc: 'Fight the weekly Pillow Kraken', icon: 'kraken', title: 'Kraken Fighter', ok: d => (d.stats.krakenHits || 0) >= 1 },
     // v0.9: Pillow Week (#32), one tier only (no 30-day or 100-day stickers that would push kids to play daily)
     { id: 'pillowweek', name: 'Pillow Week', desc: 'Reach day 7 of Pillow Week', icon: 'pillow', title: 'Sleepy Champ', ok: d => ((d.streak || {}).weeks || 0) >= 1 },
+    // v1.0 Ocean (docs/gdd/1.0-ocean.md section 6)
+    { id: 'thully', name: 'Good Morning!', desc: 'Beat Sleepy Thully', icon: 'thully', title: "Thully's Alarm Clock", ok: d => (d.stars.thully || 0) > 0 },
+    { id: 'alarm5', name: 'Rise and Shine', desc: 'Ring the ALARM! 5 times', icon: 'j:alarm', title: 'Early Bird', ok: d => (d.stats.alarms || 0) >= 5 },
+    { id: 'lucky10', name: 'Lucky Current', desc: 'Play 10 LUCKY CURRENT cards', icon: 'compass', title: 'Sea Navigator', ok: d => (d.stats.lucky || 0) >= 10 },
+    // v1.0 Veggie Patch (docs/gdd/1.0-veggie.md section 6)
+    { id: 'brocklee', name: 'Tree Hugger', desc: 'Beat Brock Lee', icon: 'brocklee', title: 'Tree Hugger', ok: d => (d.stars.brocklee || 0) > 0 },
+    { id: 'seek10', name: 'Super Seeker', desc: 'Find 10 hidden veggies', icon: 'mound', title: 'Super Seeker', ok: d => (d.stats.found || 0) >= 10 },
+    { id: 'dancefind', name: 'Dance Detective', desc: 'Find a hidden veggie with the Six-Seven Dance', icon: 'dance', title: 'Dance Detective', ok: d => (d.stats.danceFind || 0) >= 1 },
   ];
   const ACH_BY_ID = {}; ACH.forEach(a => ACH_BY_ID[a.id] = a);
   const titles = () => ['Plush Friend'].concat(ACH.filter(a => a.title && S().ach && S().ach[a.id]).map(a => a.title));
@@ -137,6 +145,14 @@
     { id: 'fort', text: 'Build a pillow fort', icon: 'shield' }, { id: 'pancakes', text: 'Make pancakes (or breakfast) with a grown-up', icon: 'j:plate' },
     { id: 'leaf', text: 'Go outside and find a cool leaf or pinecone', icon: 'i:leaf' }, { id: 'polite', text: 'Say "please", "thank you" and "sorry" today', icon: 'j:hug' },
     { id: 'animal', text: 'Learn 3 facts about a moose, beaver or bear', icon: 'books' }, { id: 'birds', text: 'Feed the birds with a grown-up', icon: 'i:bird' },
+    // v1.0 (Ocean)
+    { id: 'boat', text: 'Make a paper boat with a grown-up', icon: 'i:wave' }, { id: 'bath', text: 'Take a bath with a toy boat or a rubber duck', icon: 'j:bath' },
+    { id: 'seafacts', text: 'Learn 3 facts about an ocean animal', icon: 'i:whale' }, { id: 'water', text: 'Drink a big glass of water', icon: 'i:droplet' },
+    { id: 'map', text: 'Draw a treasure map of your room', icon: 'j:pencil' }, { id: 'earlybed', text: 'Go to bed on time, no "five more minutes"!', icon: 'j:bed' },
+    // v1.0 (Veggie Patch)
+    { id: 'tryveg', text: 'Try one bite of a veggie you don\'t love yet (one bite is enough!)', icon: 'i:carrot' }, { id: 'seed', text: 'Plant a bean or a seed in a cup', icon: 'i:acorn' },
+    { id: 'washveg', text: 'Help wash the veggies for dinner', icon: 'j:water' }, { id: 'vegface', text: 'Make a funny face with the food on your plate', icon: 'j:plate' },
+    { id: 'rainbow', text: 'Eat something red, something orange and something green', icon: 'i:apple' }, { id: 'hideseek', text: 'Play hide and seek with someone', icon: 'j:friends' },
   ];
   const QBY = {}; QUESTS.forEach(q => QBY[q.id] = q);
   function todaysQuests() {
@@ -436,16 +452,16 @@
         this.streakLine = fit(txt(this, tx, ty + sy + sg * 2, streakLine(d.streak), PORTRAIT ? 28 : 30, '#ffd23f', { st: 5, ox, weight: '500' }), PORTRAIT ? cw - 60 : cw - 440);
         // costumes
         const owned = COSTUMES.filter(c => c.id === 'none' || (d.costumes || {})[c.id]);
-        const yC = cy + chh / 2 + (short ? 60 : 90), hy = yC + (short ? 100 : 110);
+        // more hats than fit in one row (v1.0: up to 10 + none): portrait wraps into two rows when the cards would get small
+        // (B26: 90 px+); short portrait screens (iPads) pull the rows up and keep the cards at 110 px, clear of the account box
+        const n = owned.length, one = Math.min(short ? 150 : 170, (W - 80) / n) - 20, wrap = PORTRAIT && one < 110;
+        const yC = cy + chh / 2 + (short ? (wrap ? 40 : 60) : 90), hy = yC + (short ? (wrap ? 80 : 100) : 110);
         txt(this, cx, yC, 'COSTUME', 40, '#ffd23f', { st: 7 });
-        // more hats than fit in one row (v0.8: up to 8 + none): tall portrait screens wrap into two rows, others shrink the cards
-        // (a second row must stay above the account box, which starts about H - 340 in portrait; iPad portrait has no room)
-        const wrap = PORTRAIT && owned.length * 170 > W - 80 && hy + 170 + 75 < H - 340;
-        const step = wrap ? 170 : Math.min(short ? 150 : 170, (W - 80) / owned.length), cs = step - 20;
-        const perRow = wrap ? Math.floor((W - 80) / 170) : owned.length;
+        const perRow = wrap ? Math.ceil(n / 2) : n, step = Math.min(short ? 150 : 170, (W - 80) / perRow);
+        const cs = wrap && short ? Math.min(110, step - 20) : step - 20, rowH = cs + (short ? 14 : 24);
         owned.forEach((c, i) => {
           const row = Math.floor(i / perRow), inRow = Math.min(perRow, owned.length - row * perRow), col = i % perRow;
-          const x = cx + (col - (inRow - 1) / 2) * step, y = hy + row * 170, on = d.costume === c.id;
+          const x = cx + (col - (inRow - 1) / 2) * step, y = hy + row * rowH, on = d.costume === c.id;
           const b = this.add.container(x, y);
           b.add(card(this, PS, 0, 0, cs, cs, on ? C.star : C.night2, on ? 0xffffff : C.seam));
           if (c.tex) { const im = PS.hatImage(this, 0, -8, c); im.setScale(cs * 0.66 / Math.max(im.width, im.height)); b.add(im); }
@@ -474,6 +490,8 @@
       { id: 'hills', title: 'Pillows at Dawn', icon: 'owl', bg: 'sky', jack: 'jack_upside', hint: 'Open the map to unlock' },
       { id: 'space', title: 'Beam Me Up... Oops', icon: 'mothership', bg: 'sky2', jack: 'jack_side', hint: 'Reach Space to unlock' },
       { id: 'canada', title: 'Welcome to Canada!', icon: 'mapleleaf', bg: 'sky4', aurora: true, jack: 'jack_side', hint: 'Reach Canada to unlock' },
+      { id: 'ocean', title: 'Foggy Business', icon: 'nightcap', bg: 'sky5', jack: 'jack_side', hint: 'Reach the Ocean to unlock' },
+      { id: 'veggie', title: 'Who Planted Jack?', icon: 'broccoli', bg: 'sky6', jack: 'jack_side', hint: 'Reach the Veggie Patch to unlock' },
       { id: 'spooky', title: 'Hats for Everyone', icon: 'pumpkin', bg: 'sky3', jack: 'jack_upside', hint: 'Visit Spooky to unlock' },
     ];
     class AlbumScene extends Phaser.Scene {
@@ -523,12 +541,15 @@
     AlbumScene.prototype.comics = function () {
       const d = Save.data, seen = d.comics || {};
       txt(this, W / 2, PORTRAIT ? 270 : 150, 'Tap a comic to watch it again', 32, '#ffd23f', { st: 6 });
-      // a 2 x 2 shelf, clear of the STICKERS / COMICS switch; Spooky out of season only if it was seen (like the fang sticker)
+      // v1.0: 5-6 covers. Portrait 2 columns x 3 rows, landscape 3 x 2; the shelf shrinks to stay clear of the STICKERS / COMICS switch.
+      // Spooky out of season only if it was seen (like the fang sticker)
       const list = COMICS.filter(cm => cm.id !== 'spooky' || PS.EVENT_ON || seen.spooky);
-      const cw = PORTRAIT ? 470 : 560, ch = PORTRAIT ? 340 : 330, top = PORTRAIT ? 340 : 210, gap = 30;
+      const cols = PORTRAIT ? 2 : 3, rows = Math.ceil(list.length / cols), top = PORTRAIT ? 330 : 200, gap = PORTRAIT ? 26 : 24;
+      const bottom = H - (PORTRAIT ? 90 : 70) - 50 - 24; // the switch's top edge, minus a gap
+      const cw = Math.min(PORTRAIT ? 470 : 420, (W - 80 - gap * (cols - 1)) / cols), ch = Math.min(PORTRAIT ? 290 : 300, (bottom - top - gap * (rows - 1)) / rows);
       list.forEach((cm, i) => {
-        const has = !!seen[cm.id], lone = i === list.length - 1 && i % 2 === 0;
-        const x = lone ? W / 2 : W / 2 + ((i % 2) - 0.5) * (cw + gap), y = top + ch / 2 + Math.floor(i / 2) * (ch + gap);
+        const has = !!seen[cm.id], row = Math.floor(i / cols), inRow = Math.min(cols, list.length - row * cols);
+        const x = W / 2 + ((i % cols) - (inRow - 1) / 2) * (cw + gap), y = top + ch / 2 + row * (ch + gap);
         const c = this.add.container(x, y);
         c.add(card(this, PS, 0, 0, cw, ch, has ? C.cream : 0x161946, has ? C.star : C.seam));
         if (has) {
@@ -688,12 +709,18 @@
     // Umbrella Hero counts full Tractor Beams only, not the Blips' Mini Beam (G38)
     if (name === 'block' && !(d && d.mini)) bump(d && d.tool === 'umbrella' ? 'beamBlocks' : 'blocks');
     if (name === 'move' && d.type === 'nap') bump('naps');
+    // v1.0 Ocean: ALARM! rung (Captain's Nap counts), LUCKY CURRENT cards played, crackers tossed to gulls;
+    // Veggie Patch: hidden veggies found (a find with the Six-Seven Dance counts for both)
+    if (name === 'alarm') bump('alarms');
+    if (name === 'lucky') bump('lucky');
+    if (name === 'gull') bump('gulls');
+    if (name === 'found') { bump('found'); if (d.dance) bump('danceFind'); }
     if (name === 'save' && d.result === 'perfect') bump('perfectSaves');
     if (name === 'hockey') { const st = S().stats; st.hockeyStreak = Math.max(st.hockeyStreak || 0, d.streak || 0); }
     if (name === 'capsule') { bump('capsOpened'); if (d.boost && d.boost.r === 3) bump('superRares'); }
     if (name === 'friendAdded') bump('friends');
     if (name === 'giftSent') bump('gifts');
-    if (['duel', 'block', 'save', 'hockey', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene'].includes(name)) checkAch();
+    if (['duel', 'block', 'save', 'hockey', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene', 'alarm', 'lucky', 'gull', 'found'].includes(name)) checkAch();
     if (name === 'scene') {
       // bedtime / daily limit: checked whenever a menu screen opens (never in the middle of a duel)
       // a new duel counts too (REMATCH / NEXT RIVAL), a duel restored after rotating does not (QA B03)

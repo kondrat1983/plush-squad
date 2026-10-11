@@ -2,9 +2,9 @@
 const { test, expect } = require('@playwright/test');
 const { BASE_SAVE, boot, go, wait, fast, offscreen, noErrors } = require('./helpers');
 
-const IDS = ['hills', 'space', 'canada', 'spooky'];
-const TITLES = { hills: 'PILLOW HILLS!', space: 'SPACE!', canada: 'CANADA!', spooky: 'SPOOKY!' };
-const COVERS = ['Pillows at Dawn', 'Beam Me Up... Oops', 'Welcome to Canada!', 'Hats for Everyone'];
+const IDS = ['hills', 'space', 'canada', 'ocean', 'veggie', 'spooky']; // v1.0: Ocean and Veggie Patch
+const TITLES = { hills: 'PILLOW HILLS!', space: 'SPACE!', canada: 'CANADA!', ocean: 'OCEAN!', veggie: 'VEGGIE PATCH!', spooky: 'SPOOKY!' };
+const COVERS = ['Pillows at Dawn', 'Beam Me Up... Oops', 'Welcome to Canada!', 'Foggy Business', 'Who Planted Jack?', 'Hats for Everyone'];
 const OPEN = { timmy: 3, moo: 3, sly: 3, hoot: 3, robot: 3, polandball: 3, ghost: 3, dragonboss: 1, moose: 1, beaver: 1, bear: 1, sasquatch: 1 };
 const save = extra => Object.assign({}, BASE_SAVE, extra);
 const scenes = page => page.evaluate(() => __game.scene.getScenes(true).map(s => s.scene.key));
@@ -59,7 +59,7 @@ test('each comic starts by its id: panels, taps, SKIP (top right, 90 px+) sets o
     expect(words.length).toBeGreaterThanOrEqual(5);
     for (const [s, fs] of words) { expect(s.length, s).toBeLessThan(42); expect(fs, s).toBeGreaterThanOrEqual(30); }
   }
-  expect(await flags(page)).toEqual({ hills: true, space: true, canada: true, spooky: true });
+  expect(await flags(page)).toEqual({ hills: true, space: true, canada: true, ocean: true, veggie: true, spooky: true });
   await page.evaluate(() => __game.scene.getScenes(true)[0].scene.start('comic', { world: 'nope' }));
   await until(page, () => scenes(page), ['map']);
   noErrors(page);
@@ -158,7 +158,7 @@ test('no comic in or after a duel: REMATCH of a Space duel and of a friend duel 
   noErrors(page);
 });
 
-test('?halloween: the Spooky tab plays the Spooky comic; NEXT RIVAL after Sasquatch to Pumpkin Pete goes through it', async ({ page }) => {
+test('?halloween: the Spooky tab plays the Spooky comic; NEXT RIVAL after Brock Lee (v1.0: the last world before the event) to Pumpkin Pete goes through it', async ({ page }) => {
   await boot(page, save({ stars: OPEN, comics: { hills: true, space: true, canada: true } }), '&halloween');
   await go(page, 'map', { world: 2 });
   await tapTab(page, 'SPOOKY');
@@ -167,9 +167,9 @@ test('?halloween: the Spooky tab plays the Spooky comic; NEXT RIVAL after Sasqua
   await page.evaluate(() => __game.scene.getScene('comic').skipBtn.emit('pointerup'));
   await tapLabel(page, 'comic', 'LET\'S GO!');
   await until(page, () => scenes(page), ['map']);
-  expect(await page.evaluate(() => [__game.scene.getScene('map').world, __save.data.comics.spooky])).toEqual([3, true]);
+  expect(await page.evaluate(() => [__game.scene.getScene('map').world, __save.data.comics.spooky])).toEqual([5, true]); // Spooky is world 5 since v1.0
   await page.evaluate(() => { __save.data.comics.spooky = false; });
-  const sq = await idx(page, 'sasquatch'), pete = await idx(page, 'pumpkin');
+  const sq = await idx(page, 'brocklee'), pete = await idx(page, 'pumpkin');
   await go(page, 'battle', { rival: sq });
   await resultWith(page, 'next', pete);
   await tapLabel(page, 'battle', 'NEXT RIVAL');
@@ -246,7 +246,7 @@ test('bedtime: a due comic does not start, the bedtime screen shows, the comic i
 
 // Album shelf and comic pages on the phone and iPad sizes (+ iPhone SE landscape for the cover titles)
 for (const [name, vp] of [['iPhone SE', [375, 667]], ['iPhone 15 Pro Max', [430, 932]], ['iPad mini', [744, 1133]], ['iPad 11 portrait', [834, 1194]], ['iPad landscape', [1194, 834]], ['iPhone SE landscape', [667, 375]]]) {
-  test(`layout on ${name}: Album 2 x 2 shelf clear of the switch, comic pages inside the screen`, async ({ page }) => {
+  test(`layout on ${name}: Album shelf (v1.0: 2 x 3 / 3 x 2) clear of the switch, comic pages inside the screen`, async ({ page }) => {
     await page.setViewportSize({ width: vp[0], height: vp[1] });
     await boot(page, save(), '&halloween');
     await go(page, 'album', { tab: 'comics' });
@@ -258,10 +258,13 @@ for (const [name, vp] of [['iPhone SE', [375, 667]], ['iPhone 15 Pro Max', [430,
       return { swTop: Math.min(...sw.map(o => o.y - o.height / 2)), cov };
     });
     expect(r.cov.map(c => c.title)).toEqual(COVERS);
-    const [a, b, c, d] = r.cov;
-    expect([a.y === b.y, c.y === d.y, a.x < b.x, c.x < d.x, a.x === c.x]).toEqual([true, true, true, true, true]);
-    expect(b.x - a.x).toBeGreaterThanOrEqual(a.w);
-    expect(c.y - a.y).toBeGreaterThanOrEqual(a.h);
+    // v1.0: 6 covers, portrait 2 columns x 3 rows, landscape 3 x 2
+    const cols = vp[0] < vp[1] ? 2 : 3;
+    r.cov.forEach((k, i) => {
+      expect(k.y).toBe(r.cov[i - (i % cols)].y);
+      if (i % cols) expect(k.x - r.cov[i - 1].x).toBeGreaterThanOrEqual(k.w);
+      if (i >= cols) { expect(k.x).toBe(r.cov[i - cols].x); expect(k.y - r.cov[i - cols].y).toBeGreaterThanOrEqual(k.h); }
+    });
     for (const k of r.cov) { expect(k.y + k.h / 2).toBeLessThanOrEqual(r.swTop); expect(k.tw).toBeLessThanOrEqual(k.w - 30); }
     for (const id of IDS) {
       await go(page, 'comic', { world: id, panel: 3 });

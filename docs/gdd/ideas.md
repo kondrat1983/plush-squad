@@ -4,6 +4,10 @@ Newest on top. ✅ = shipped (with version). Source: Kondrat, the chief tester, 
 
 | Date | Idea | Source | Status |
 |---|---|---|---|
+| 10 Oct 2026 | Ocean full design doc: Hermy, Puff, Jelly, Captain Fog (mini-boss), Sleepy Thully; Compass Spin + LUCKY CURRENT; WAKE UP! / ALARM!; Gull Swoop; Nightcap; `sea` + `lullaby`. See `1.0-ocean.md`. | `game-designer` | design doc, waits for Kondrat |
+| 10 Oct 2026 | Veggie Patch full design doc (#63): Olly the Onion, The Peas, Garlic Gus, Fun-Guy (mini-boss), boss Brock Lee the Broccoli; PEEKABOO! hide and seek; Broccoli Hair; `garden` track. See `1.0-veggie.md`. | `game-designer` | design doc, waits for Kondrat |
+| 10 Oct 2026 | "Sprout Pull": rivals plant sprouts that grow over 3 turns; pull one per turn for free before it pops. Backup mechanic for Veggie Patch. | `game-designer` | idea |
+| 10 Oct 2026 | Level drift tuning pass: boss win rates on NORMAL drop fast 1-2 levels after arrival (every world since Space). | `game-designer` (sims) | idea, after v1.0 |
 | 5 Oct 2026 | Ocean world sketch: foggy Bermuda Triangle sea, lighthouse, seagull snack thieves (nobody hurts them), Captain Fog, Sleepy Thully (plush Cthulhu) boss, "Compass Spin" mechanic. See `ocean-ideas.md`. | Kondrat / `game-designer` | idea, sketch only, needs a design doc |
 | 5 Oct 2026 | Veggie world: the yuckiest vegetables as rivals, Broccoli boss (#63). | Kondrat | idea, needs a design doc |
 | 5 Oct 2026 | Pillow Week: 7-day daily streak with a Sleepy Pillow, golden capsule on day 7 (#32). | GDD roadmap | approved, design: `0.9-daily-streak.md` |

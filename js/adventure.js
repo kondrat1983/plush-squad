@@ -9,12 +9,14 @@
   const X = () => window.PSExtra;
   const todayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const MAX_AWAY = 20, SQUAD_MAX = 14, CARDS = 3, SOUV_DAYS = 3, SOUV_XP = 20;
-  // worlds by key (not by index: WORLDS[3] exists only while the Spooky event runs)
-  const KEYS = ['hills', 'space', 'canada', 'spooky'];
+  // worlds by key, in world-index order (v1.0: Ocean 3, Veggie Patch 4, Spooky 5; WORLDS[5] exists only while the Spooky event runs)
+  const KEYS = ['hills', 'space', 'canada', 'ocean', 'veggie', 'spooky'];
   const WORLD = {
     hills: { name: 'PILLOW HILLS', icon: 'moon', prop: 'pillow', lines: ['Timmy taught me his funny roar. RRRR!', 'Moo shared her warm milk with me. Moooo-licious!', 'Professor Hoot gave me a gold star for napping.'] },
     space: { name: 'SPACE', icon: 'rocket', prop: 'planet', lines: ['Robo-Bop says BEEP BOOP. I think it means hi!', 'The Blips borrowed my snack. They gave me a moon rock back!', 'Boo and I played hide and seek. Boo always wins.'] },
     canada: { name: 'CANADA', icon: 'mapleleaf', prop: 'pine', lines: ['Max the Moose made me a pancake tower!', 'Beaver Bob taught me pond hockey. I scored once!', 'Sasquatch gave me a hug. A BIG soft one.'] },
+    ocean: { name: 'OCEAN', icon: 'compass', prop: 'ship', lines: ['Hermy the crab showed me his new shell. So shiny!', 'Puff puffed up like a balloon. I laughed so much!', 'Sleepy Thully snored so loud the waves wobbled.'] },
+    veggie: { name: 'VEGGIE PATCH', icon: 'broccoli', prop: 'sunflower', lines: ['Olly the Onion made me cry. Happy tears!', 'The Peas and I played hide and seek in the pod.', 'Brock Lee let me nap in his fluffy florets.'] },
     spooky: { name: 'SPOOKY', icon: 'pumpkin', prop: 'candy', lines: ['Pumpkin Pete told me a joke. It was corny!', 'Batty showed me how to sleep upside down. Like Jack!', 'Count Fang shared his candy. Only the red ones.'] },
   };
   const W_OF = k => WORLD[k] || WORLD.hills;
