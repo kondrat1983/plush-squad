@@ -455,7 +455,7 @@
         // more hats than fit in one row (v1.0: up to 10 + none): portrait wraps into two rows when the cards would get small
         // (B26: 90 px+); short portrait screens (iPads) pull the rows up and keep the cards at 110 px, clear of the account box
         const n = owned.length, one = Math.min(short ? 150 : 170, (W - 80) / n) - 20, wrap = PORTRAIT && one < 110;
-        const yC = cy + chh / 2 + (short ? (wrap ? 40 : 60) : 90), hy = yC + (short ? (wrap ? 80 : 100) : 110);
+        const yC = cy + chh / 2 + (short ? (wrap ? 28 : 60) : 90), hy = yC + (short ? (wrap ? 86 : 100) : 110); // wrapped: the title clears the 110 px cards, the 2nd row the account box
         txt(this, cx, yC, 'COSTUME', 40, '#ffd23f', { st: 7 });
         const perRow = wrap ? Math.ceil(n / 2) : n, step = Math.min(short ? 150 : 170, (W - 80) / perRow);
         const cs = wrap && short ? Math.min(110, step - 20) : step - 20, rowH = cs + (short ? 14 : 24);
