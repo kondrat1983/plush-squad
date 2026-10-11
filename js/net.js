@@ -21,7 +21,14 @@
   const T = () => window.PSToys || {};
   const okName = (n, fb) => T().badName && T().badName(n) ? fb : n;
   const okUser = n => n != null && BAD.test(n) ? 'Player' : okName(n, 'Player'); // the sign-up rule, then the toy-name filter
-  const okToy = meta => { if (meta && meta.name != null) meta.name = okName(meta.name, ((T().ARCH_BY_ID || {})[meta.arch] || { nicks: ['Plushie'] }).nicks[0]); return meta; };
+  // toy growth (v1.0): friends' toy XP is clamped to 0..300 and only known badge ids are kept (meta is client-written)
+  const okToy = meta => {
+    if (!meta) return meta;
+    if (meta.name != null) meta.name = okName(meta.name, ((T().ARCH_BY_ID || {})[meta.arch] || { nicks: ['Plushie'] }).nicks[0]);
+    if (meta.xp != null) meta.xp = Math.max(0, Math.min(T().TOY_XP_MAX || 300, Math.round(+meta.xp) || 0));
+    if (meta.badges != null) { const B = T().BADGES || {}, b = {}; if (typeof meta.badges === 'object') Object.keys(meta.badges).forEach(k => { if (B[k]) b[k] = 1; }); meta.badges = b; }
+    return meta;
+  };
 
   const Net = {
     ready: false, sb: null, user: null, unread: 0, inboxCache: [], boss: null, _push: 0, _lastInbox: 0,
@@ -139,15 +146,16 @@
       const d = S(); d.owner = this.user.id; d.savedAt = Date.now();
       try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
       await this.pushNow();
-      for (const t of d.toys || []) { try { const url = await window.__IDB.get(t.id); if (url) await this.uploadToy(t, url); } catch (e) {} }
+      const metas = this.toyMetas(d);
+      for (const t of allToys(d)) { try { const url = await window.__IDB.get(t.id); if (url) await this.uploadToy(t, url, metas[this.user.id + ':' + t.id]); } catch (e) {} }
     },
     async applyCloud(data) {
       if (S().owner === this.user.id) mergeStreak(data, S()); // same player on two devices: the streak merge rule (not for a guest save)
       data.owner = this.user.id;
       try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
       setMem(data);
-      // bring the toy pictures to this device
-      const ids = (data.toys || []).map(t => this.user.id + ':' + t.id);
+      // bring the toy pictures to this device (also of toys on an adventure: they can come home here, v1.0)
+      const ids = allToys(data).map(t => this.user.id + ':' + t.id);
       if (ids.length) {
         const { data: rows } = await this.sb.from('toys').select('id, img').in('id', ids);
         for (const r of rows || []) {
@@ -170,21 +178,41 @@
           stars: Object.values(d.stars || {}).reduce((a, b) => a + b, 0), title: d.title || 'Plush Friend',
           avatar: { hero: hero ? hero.id : 'jack', name: hero ? hero.name : 'Jack', img: hero ? this.toyUrl(hero.id) : null, costume: d.costume || 'none' },
           updated_at: new Date().toISOString() }).eq('id', this.user.id);
-        // toys deleted on this device disappear from the cloud too
-        const { data: rows } = await this.sb.from('toys').select('id').eq('owner', this.user.id);
-        const keep = new Set((d.toys || []).map(t => this.user.id + ':' + t.id));
-        const gone = (rows || []).map(r => r.id).filter(id => !keep.has(id));
-        if (gone.length) await this.sb.from('toys').delete().in('id', gone);
+        // toys deleted on this device disappear from the cloud too, with their picture in the bucket (#76).
+        // Toys on an adventure stay (v1.0); a row's meta follows the toy (away flag, toy growth), so friends see it
+        const { data: rows } = await this.sb.from('toys').select('id, meta').eq('owner', this.user.id);
+        const want = this.toyMetas(d);
+        const gone = (rows || []).map(r => r.id).filter(id => !want[id]);
+        if (gone.length) { await this.sb.from('toys').delete().in('id', gone); await this.removePics(gone.map(id => id.split(':').slice(1).join(':'))); }
+        for (const r of rows || []) { const m = want[r.id]; if (m && metaSig(m) !== metaSig(r.meta)) await this.sb.from('toys').update({ meta: m }).eq('id', r.id); }
       } catch (e) { console.warn('push', e); }
     },
+    // the cloud meta of every toy of this save: the squad as is, toys on an adventure with away: '<world>'
+    toyMetas(d) {
+      const out = {};
+      (d.toys || []).forEach(t => { if (t && t.id) out[this.user.id + ':' + t.id] = t; });
+      (Array.isArray(d.away) ? d.away : []).forEach(a => { if (a && a.toy && a.toy.id) out[this.user.id + ':' + a.toy.id] = Object.assign({}, a.toy, { away: (a.trip && a.trip.world) || 'hills' }); });
+      return out;
+    },
+    // pictures in the public bucket; storage policy "toy pics delete own" (supabase/schema.sql). Fails quietly
+    async removePics(ids) {
+      if (!this.user || !ids.length) return;
+      try { const r = await this.sb.storage.from('toys').remove(ids.map(id => this.user.id + '/' + id + '.png')); if (r && r.error) console.warn('toy pics', r.error); } catch (e) {}
+    },
+    // a real delete, for grown-ups (Adventures, SAY GOODBYE): the row and the picture go now, not only on the next push
+    async forgetToy(id) {
+      const d = S(); if (!this.user || !this.sb || d.owner !== this.user.id) return;
+      try { await this.sb.from('toys').delete().eq('id', this.user.id + ':' + id); } catch (e) {}
+      await this.removePics([id]);
+    },
     toyUrl(id) { return CFG.url + '/storage/v1/object/public/toys/' + this.user.id + '/' + encodeURIComponent(id) + '.png'; },
-    async uploadToy(t, dataUrl) {
+    async uploadToy(t, dataUrl, meta) {
       if (!this.user) return;
       try {
         const blob = await (await fetch(dataUrl)).blob();
         const path = this.user.id + '/' + t.id + '.png';
         await this.sb.storage.from('toys').upload(path, blob, { upsert: true, contentType: 'image/png' });
-        await this.sb.from('toys').upsert({ id: this.user.id + ':' + t.id, owner: this.user.id, meta: t, img: this.toyUrl(t.id) });
+        await this.sb.from('toys').upsert({ id: this.user.id + ':' + t.id, owner: this.user.id, meta: meta || t, img: this.toyUrl(t.id) });
       } catch (e) { console.warn('toy upload', e); }
     },
     // ---- friends + inbox
@@ -194,7 +222,8 @@
     },
     async addFriend(code) { const { data, error } = await this.sb.rpc('add_friend', { p_code: code }); if (error) throw new Error(error.message); return data; },
     async removeFriend(id) { await this.sb.rpc('remove_friend', { p_id: id }); },
-    async squad(id) { const { data } = await this.sb.from('toys').select('id, meta, img').eq('owner', id).order('created_at'); return (data || []).map(t => (okToy(t.meta), t)); },
+    // a friend's toys on an adventure are not in their squad (no duel), v1.0
+    async squad(id) { const { data } = await this.sb.from('toys').select('id, meta, img').eq('owner', id).order('created_at'); return (data || []).filter(t => t.meta && !t.meta.away).map(t => (okToy(t.meta), t)); },
     async send(to, kind, payload) { const { data, error } = await this.sb.rpc('send_inbox', { p_to: to, p_kind: kind, p_payload: payload || {} }); if (error) throw new Error(error.message); return data; },
     async inbox() {
       if (!this.user) return [];
@@ -211,11 +240,14 @@
     async bossClaim() { const { data } = await this.sb.rpc('boss_claim'); return !!data; },
     async submitCatch(n) { try { await this.sb.rpc('submit_catch', { p_score: n }); } catch (e) {} },
     async board() { const { data } = await this.sb.rpc('catch_board'); return (data || []).map(r => Object.assign(r, { username: okUser(r.username) })); },
-    async museum() { const { data } = await this.sb.rpc('museum'); return (data || []).map(t => (okToy(t.meta), Object.assign(t, { username: okUser(t.username) }))); },
+    async museum() { const { data } = await this.sb.rpc('museum'); return (data || []).filter(t => t.meta && !t.meta.away).map(t => (okToy(t.meta), Object.assign(t, { username: okUser(t.username) }))); },
     async like(id) { const { data } = await this.sb.rpc('toggle_like', { p_toy: id }); return data || 0; },
   };
   // Pillow Week (#32): where two saves of one player meet, `into` keeps the better streak of the two (js/extra.js mergeStreak)
   function mergeStreak(into, other) { const E = window.PSExtra; if (E && (into.streak || other.streak)) into.streak = E.mergeStreak(into.streak, other.streak); }
+  const allToys = d => (d.toys || []).concat((Array.isArray(d.away) ? d.away : []).map(a => a && a.toy).filter(t => t && t.id));
+  // what friends see of a toy: a change here sends the toy's meta again on the next push
+  const metaSig = m => m ? JSON.stringify([m.name, m.xp || 0, Object.keys(m.badges || {}).sort(), m.away || null, (m.souv || []).slice().sort()]) : '';
   const lvl = x => { let l = 1, r = x; while (r >= 100 + (l - 1) * 50) { r -= 100 + (l - 1) * 50; l++; } return l; };
   window.PSNet = Net;
   window.PSOnSave = d => { d.savedAt = Date.now(); if (Net.user && d.owner === Net.user.id) Net.schedulePush(); };
@@ -528,7 +560,7 @@
         list.slice(0, cols * maxRows).forEach(async (t, i) => {
           const x = W / 2 + ((i % cols) - (cols - 1) / 2) * (cw + 16), y = top + ch / 2 + Math.floor(i / cols) * (ch + 16);
           const c = this.add.container(x, y);
-          c.add(X().card(this, PS, 0, 0, cw, ch, t.owner === Net.user.id ? 0x2e3488 : C.night2));
+          c.add(X().card(this, PS, 0, 0, cw, ch, t.owner === Net.user.id ? 0x2e3488 : C.night2, T().toyLevel && T().toyLevel(t.meta.xp) >= 4 ? C.star : null)); // GOLDEN (v1.0)
           const key = 'mtoy_' + t.id.replace(/[^a-z0-9]/gi, '');
           if (this.textures.exists(key) || await PS.addTexture(this, key, t.img)) { if (!this.sys.isActive()) return; c.add(avatarImg(this, PS, 0, -40, key, cw - 50)); }
           c.add(fit(txt(this, 0, ch / 2 - 70, t.meta.name, 26, '#fff3d2', { st: 5 }), cw - 20));

@@ -89,6 +89,12 @@
     { id: 'superrare', name: 'Lucky Duck', desc: 'Get a SUPER RARE booster', icon: 'heart', title: 'Lucky Duck', ok: d => (d.stats.superRares || 0) >= 1 },
     { id: 'toy1', name: 'Toy Maker', desc: 'Add your first toy', icon: 'i:camera', title: 'Toy Maker', ok: d => (d.toys || []).length >= 1 },
     { id: 'toys5', name: 'Squad Goals', desc: 'Have 5 toys in your squad', icon: 'j:teddy', title: 'Squad Leader', ok: d => (d.toys || []).length >= 5 },
+    // v1.0: toys go on an adventure (js/adventure.js)
+    { id: 'explorer', name: 'Explorer', desc: 'A toy came home with a souvenir', icon: 'j:ticket', title: 'Explorer', ok: d => (d.stats.souvenirs || 0) >= 1 },
+    // v1.0: toy growth (docs/gdd/1.0-toy-growth.md)
+    { id: 'goldtoy', name: 'Golden Toy', desc: 'Make a toy GOLDEN', icon: 'j:glowstar', title: 'Toy Trainer',
+      ok: d => (d.toys || []).concat((d.away || []).map(a => a && a.toy)).some(t => t && (t.xp || 0) >= 300) },
+    { id: 'toychamp', name: 'Toy Champion', desc: 'Beat a boss with your toy', icon: 'j:medal', title: 'Toy Champion', ok: d => (d.stats.toyBossWins || 0) >= 1 },
     { id: 'catch30', name: 'Star Catcher', desc: 'Score 30 in Star Catch', icon: 'star', title: 'Star Catcher', ok: d => (d.bestCatch || 0) >= 30 },
     { id: 'catch50', name: 'Galaxy Hands', desc: 'Score 50 in Star Catch', icon: 'planet', title: 'Galaxy Hands', ok: d => (d.bestCatch || 0) >= 50 },
     { id: 'nap10', name: 'Sleepyhead', desc: 'Take 10 Upside-Down Naps', icon: 'zzz', title: 'Sleepyhead', ok: d => (d.stats.naps || 0) >= 10 },
@@ -329,6 +335,9 @@
     const { W, H, PORTRAIT, C, A, txt, fit, img, iconScale, button, drawCapsule } = PS;
     scene._psHold = true;
     const lay = scene._psStreak = scene.add.container(0, 0).setDepth(96);
+    // postcards (js/adventure.js) wait while a map popup is open; also cleared if the map goes away (rotation, leave)
+    window.__psPopup = true;
+    lay.once('destroy', () => { window.__psPopup = false; });
     lay.add(scene.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0.88).setInteractive());
     const slot = PORTRAIT ? 130 : 160, gap = PORTRAIT ? 10 : 14, rowW = 7 * slot + 6 * gap;
     const napped = st.nap === last, pw = Math.min(W - 40, rowW + 80), ph = 700 + (napped ? 70 : 0), top = H / 2 - ph / 2;
@@ -384,7 +393,7 @@
       const s = S().streak; if (s && lastDay(s) === last) { s.seen = last; store(); }
       const all = [], walk = o => { all.push(o); (o.list || []).forEach(walk); }; walk(lay);
       scene.tweens.killTweensOf(all);
-      lay.destroy(true); scene._psStreak = null; scene._psHold = false;
+      lay.destroy(true); scene._psStreak = null; scene._psHold = false; window.__psPopup = false;
       onClose && onClose();
       flushToasts(scene, PS);
     };

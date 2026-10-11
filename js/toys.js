@@ -88,17 +88,56 @@
     const tex = 'i:' + (ARCH_BY_ID[arch] ? ARCH_BY_ID[arch].snack : 'cookie');
     return T('Snack Break', 'heal', { tex, amt: 20, uses: 2, icon: tex });
   }
-  // Build the 4-move kit: pillow + signature + element + quirk
+  // ---- toy growth (v1.0, docs/gdd/1.0-toy-growth.md): toy XP as the hero, levels at 50 / 150 / 300 (4 = GOLDEN)
+  const TOY_XP_MAX = 300;
+  const toyLevel = xp => { xp = +xp || 0; return xp >= 300 ? 4 : xp >= 150 ? 3 : xp >= 50 ? 2 : 1; };
+  // 6th move: one-use element volley (like the Feather Storm booster)
+  const SUPER = { ice: ['Snowflake Storm', 'snow', 'BRRR!'], fire: ['Ember Sparkles', 'i:fire', 'SIZZLE!'], leaf: ['Leaf Tornado', 'i:leaf', 'WHIRL!'],
+    sun: ['Sunbeam Shower', 'star', 'SHINE!'], candy: ['Sprinkle Shower', 'i:candy', 'YUM!'], magic: ['Star Shower', 'sparkles', 'ZING!'],
+    earth: ['Acorn Avalanche', 'i:acorn', 'BONK!'], snow: ['Snowball Party', 'snow', 'SPLAT!'], shadow: ['Moon Puffs', 'cloud', 'POOF!'] };
+  // 5th move: a second personality move, picked from the seed (same on every device, stored nowhere).
+  // Never a type the kit already has, never a second heal (the main "too easy" risk)
+  function buddyMove(toy, kit) {
+    const types = kit.map(m => m.type), heals = types.some(t => t === 'nap' || t === 'heal');
+    const c = QUIRK_IDS.filter(q => q !== toy.quirk && q !== 'hungry').map(q => QUIRKS[q].move)
+      .filter(m => !types.includes(m.type) && !(heals && (m.type === 'nap' || m.type === 'heal')));
+    if (!c.length) return Object.assign({}, QUIRKS.loud.move);
+    const r = rng(((toy.seed >>> 0) ^ 0x5eed) >>> 0);
+    return Object.assign({}, c[Math.floor(r() * c.length)]);
+  }
+  function superMove(toy) {
+    const el = ELEMENTS[toy.element] ? toy.element : 'magic', [title, tex, word] = SUPER[el];
+    return T(title, 'volley', { tex, dmg: [18, 26], word, sound: 'whoosh', uses: 1, icon: ELEMENTS[el].move.icon, log: '{a}: ' + title.toUpperCase() + '!' });
+  }
+  // Build the kit: pillow + signature + element + quirk, + Buddy Move at toy level 2, + Super Move at level 3
   function makeKit(toy) {
     const a = ARCH_BY_ID[toy.arch] || ARCH_BY_ID.mystery;
     const list = [
       T('Pillow Whack', 'throw', { tex: 'pillow', dmg: [12, 20], icon: 'pillow' }),
       Object.assign({}, a.sig),
       Object.assign({}, (ELEMENTS[toy.element] || ELEMENTS.magic).move),
-      Object.assign({}, toy.quirk === 'hungry' ? snackMove(toy.arch) : QUIRKS[toy.quirk].move),
+      Object.assign({}, toy.quirk === 'hungry' || !QUIRKS[toy.quirk] ? snackMove(toy.arch) : QUIRKS[toy.quirk].move),
     ];
+    const lv = toyLevel(toy.xp);
+    if (lv >= 2) list.push(buddyMove(toy, list));
+    if (lv >= 3) list.push(superMove(toy));
     return list.map((m, i) => Object.assign(m, { k: 'm' + i, sub: subFor(m), uses: m.uses || 0 }));
   }
+  // adds toy XP (capped at GOLDEN); returns { gain, from, to, note } with a level-up line for the result panel
+  function addToyXp(t, n) {
+    const x0 = Math.max(0, +t.xp || 0), x1 = Math.min(TOY_XP_MAX, x0 + Math.max(0, Math.round(n) || 0));
+    t.xp = x1;
+    const from = toyLevel(x0), to = toyLevel(x1);
+    let note = null;
+    if (to > from) {
+      if (to >= 4) note = t.name + ' is GOLDEN!';
+      else { const k = makeKit(t); note = t.name + ' grew to LEVEL ' + to + '! New move: ' + k[k.length - 1].title; }
+    }
+    return { gain: x1 - x0, from, to, note };
+  }
+  // badge ids a friend's toy may carry (cloud meta is client-written): campaign rivals + the Kraken, with their pictures
+  const BADGES = { timmy: ['tiger'], moo: ['cow'], sly: ['snake'], hoot: ['owl', 1], robot: ['robot'], polandball: ['aliens'], ghost: ['ghost'], dragonboss: ['mothership', 1],
+    moose: ['moose'], beaver: ['beaver'], mountie: ['bear'], sasquatch: ['sasquatch', 1], pumpkin: ['pumpkin'], batty: ['bat'], webster: ['spider'], fang: ['vampire', 1], kraken: ['kraken', 1] };
   function pickQuirk(arch, r) {
     const sigType = (ARCH_BY_ID[arch] || ARCH_BY_ID.mystery).sig.type;
     for (let i = 0; i < 20; i++) {
@@ -206,5 +245,5 @@
     return badLatin(look) || badLatin(trans) || badCyr(s) || badCyr(cyr);
   }
   const safeName = (name, fallback) => badName(name) ? fallback : name;
-  window.PSToys = { ARCH, ARCH_BY_ID, ELEMENTS, QUIRKS, makeKit, createToy, elementFromPixels, seedFromPixels, nameIdeas, subFor, badName, safeName };
+  window.PSToys = { ARCH, ARCH_BY_ID, ELEMENTS, QUIRKS, makeKit, createToy, elementFromPixels, seedFromPixels, nameIdeas, subFor, badName, safeName, toyLevel, addToyXp, TOY_XP_MAX, BADGES };
 })();
