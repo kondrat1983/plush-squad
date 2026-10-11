@@ -90,6 +90,7 @@
     store() { try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (e) {} if (window.PSOnSave) { try { window.PSOnSave(this.data); } catch (e) {} } },
   };
   Save.load(); A.muted = !!Save.data.muted; if (!Save.data.stars) Save.data.stars = {}; if (!Array.isArray(Save.data.toys)) Save.data.toys = []; if (!Save.data.hero) Save.data.hero = 'jack';
+  if (!Array.isArray(Save.data.away)) Save.data.away = []; // toys on an adventure (v1.0, js/adventure.js)
   ['diff', 'caps', 'boosts', 'seen', 'stats', 'ach', 'costumes'].forEach((k, i) => { if (Save.data[k] == null) Save.data[k] = ['normal', 0, {}, {}, {}, {}, {}][i]; });
   if (!Save.data.costume) Save.data.costume = 'none';
   // v0.8 save migration (runs on every load, also after a cloud save is pulled in; never takes anything away)
@@ -1004,7 +1005,9 @@
       sky(this);
       txt(this, W / 2, PORTRAIT ? 190 : 95, 'MY SQUAD', PORTRAIT ? 80 : 72, '#fff3d2', { stroke: '#0f1240', st: 12 });
       txt(this, W / 2, PORTRAIT ? 270 : 165, 'Tap a toy to play as it or to duel it', 32, '#bcc0ee', { st: 5, weight: '500' });
-      const items = [{ jack: true }].concat(Save.data.toys.map(t => ({ toy: t }))).concat(Save.data.toys.length < 14 ? [{ add: true }] : []);
+      // toys on an adventure live in their own list, behind the ADVENTURES card (v1.0, js/adventure.js)
+      const items = [{ jack: true }].concat(Save.data.toys.map(t => ({ toy: t }))).concat(Save.data.toys.length < 14 ? [{ add: true }] : [])
+        .concat((Save.data.away || []).length ? [{ adv: true }] : []);
       const cols = PORTRAIT ? 3 : Math.min(5, Math.max(4, Math.floor((W - 120) / 300)));
       const cw = PORTRAIT ? 310 : Math.min(290, (W - 160) / cols - 20), top = PORTRAIT ? 360 : 225;
       // pages when the squad does not fit (QA B05): the cards get a little shorter first, then ◀ n/m ▶ like the Sticker Album
@@ -1030,12 +1033,15 @@
       backButton(this, () => fade(this, 'map'));
       muteButton(this);
       if (this.focus) { const t = toyById(this.focus); if (t) this.time.delayedCall(450, () => this.details({ toy: t })); }
+      // the "Where to?" card was open when the screen was rotated: show it again
+      const sd = this.sys.settings.data || {};
+      if (sd.send && window.PSAdventure) { const t = toyById(sd.send); if (t) this.time.delayedCall(300, () => window.PSAdventure.whereTo(this, t)); else delete sd.send; }
     }
     card(it, x, y, w, h, i) {
       const c = this.add.container(x, y).setDepth(5);
       const g = this.add.graphics();
       const isHero = it.jack ? Save.data.hero === 'jack' || !toyById(Save.data.hero) : Save.data.hero === (it.toy && it.toy.id);
-      const col = it.add ? 0x1b1f5a : C.night2;
+      const col = it.add || it.adv ? 0x1b1f5a : C.night2;
       g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-w / 2, -h / 2 + 10, w, h, 36);
       g.fillStyle(col); g.fillRoundedRect(-w / 2, -h / 2, w, h, 36);
       g.lineStyle(it.add ? 5 : 6, isHero ? C.star : C.seam); g.strokeRoundedRect(-w / 2, -h / 2, w, h, 36);
@@ -1044,6 +1050,12 @@
         const plus = txt(this, 0, -30, '+', 120, '#ffd23f', { st: 10 });
         c.add([plus, img(this, 50, -70, 'i:camera').setScale(0.5), txt(this, 0, h / 2 - 50, 'NEW TOY', 36, '#fff3d2', { st: 6 })]);
         this.tweens.add({ targets: plus, scale: 1.12, duration: 700, yoyo: true, repeat: -1 });
+      } else if (it.adv) {
+        // toys away exploring: a count chip, and a dot when a postcard is unread or a trip is done
+        const ic = img(this, 0, -36, 'j:ticket'); ic.setScale(iconScale('j:ticket', Math.min(150, h - 150)));
+        c.add([ic, fit(txt(this, 0, h / 2 - 50, 'ADVENTURES', 34, '#fff3d2', { st: 6 }), w - 30), chip(this, w / 2 - 44, -h / 2 + 40, String(Save.data.away.length), C.star, 26)]);
+        if (window.PSAdventure && window.PSAdventure.news()) c.add(this.add.circle(-w / 2 + 38, -h / 2 + 38, 16, C.coral).setStrokeStyle(4, 0x0f1240));
+        this.tweens.add({ targets: ic, angle: { from: -6, to: 6 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       } else {
         const key = it.jack ? 'jack_front' : 'toy_' + it.toy.id;
         if (this.textures.exists(key)) c.add(fitImage(this, 0, -22, key, w - 60, h - 110));
@@ -1054,7 +1066,7 @@
       }
       c.setScale(0); this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 50, ease: 'Back.out' });
       c.setSize(w, h).setInteractive({ useHandCursor: true }); press(this, c, 0.93, 1);
-      c.on('pointerup', () => { A.init(); A.click(); if (it.add) fade(this, 'studio'); else this.details(it); });
+      c.on('pointerup', () => { A.init(); A.click(); if (it.add) fade(this, 'studio'); else if (it.adv) fade(this, 'adventures'); else this.details(it); });
     }
     details(it) {
       const d = it.jack ? jackDef() : toyDef(it.toy);
@@ -1105,31 +1117,17 @@
           fade(this, 'battle', { toy: it.toy.id });
         }, { size: 42, color: '#fff3d2' });
         p.add(b2);
-        // a real button, big enough for small fingers (QA B50 / #48)
-        // portrait: top right; landscape: under the picture (the name row is full there)
-        const del = button(this, PORTRAIT ? pw / 2 - 150 : ix, PORTRAIT ? -ph / 2 + 75 : ph / 2 - 80, 230, 90, 'REMOVE', C.cream, () => this.confirmRemove(it.toy, close), { size: 30 });
-        del.add(img(this, -78, 0, 'i:trash').setScale(iconScale('i:trash', 50))); del.list[1].x = 22;
-        p.add(del);
+        // v1.0: REMOVE became ADVENTURE (#47); a real delete is in the Adventures list, behind the parent gate.
+        // A real button, big enough for small fingers (QA B50 / #48). Portrait: top right; landscape: under the picture
+        const adv = button(this, PORTRAIT ? pw / 2 - 175 : ix, PORTRAIT ? -ph / 2 + 75 : ph / 2 - 80, 280, 90, 'ADVENTURE', C.cream, () => window.PSAdventure && window.PSAdventure.ask(this, it.toy, close), { size: 30 });
+        adv.add(img(this, -100, 0, 'j:ticket').setScale(iconScale('j:ticket', 54))); adv.list[1].x = 26; fit(adv.list[1], 180);
+        p.add(adv);
       }
       const x = txt(this, -pw / 2 + 70, -ph / 2 + 70, '✕', 50, '#bcc0ee', { st: 0 }).setInteractive({ useHandCursor: true });
       x.on('pointerup', () => close()); press(this, x, 0.85); p.add(x);
       layer.add(p); p.setScale(0.7); p.alpha = 0;
       this.tweens.add({ targets: p, scale: 1, alpha: 1, duration: 260, ease: 'Back.out' });
       const close = () => { this.tweens.add({ targets: layer, alpha: 0, duration: 150, onComplete: () => layer.destroy() }); };
-    }
-    confirmRemove(t, closeDetails) {
-      const layer = this.add.container(0, 0).setDepth(80);
-      layer.add(this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0.6).setInteractive());
-      layer.add(panel(this, W / 2, H / 2, 820, 440, C.night2, 0));
-      layer.add(fit(txt(this, W / 2, H / 2 - 110, 'Remove ' + t.name + '?', 54, '#fff3d2', { st: 8 }), 740));
-      layer.add(txt(this, W / 2, H / 2 - 40, 'This toy will leave the squad.', 30, '#bcc0ee', { st: 0, weight: '500' }));
-      layer.add(button(this, W / 2 - 180, H / 2 + 100, 300, 104, 'KEEP', C.star, () => layer.destroy(), { size: 40 }));
-      layer.add(button(this, W / 2 + 180, H / 2 + 100, 300, 104, 'REMOVE', C.coral, () => {
-        Save.data.toys = Save.data.toys.filter(x => x.id !== t.id);
-        if (Save.data.hero === t.id) Save.data.hero = 'jack';
-        Save.store(); IDB.del(t.id).catch(() => {});
-        layer.destroy(); closeDetails(); this.scene.restart({ page: this.page });
-      }, { size: 40, color: '#fff3d2' }));
     }
     toast(s) {
       const t = txt(this, W / 2, H - 120, s, 34, '#fff3d2', { st: 6, wrap: W * 0.8 }).setDepth(90);
@@ -3679,7 +3677,7 @@
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
   PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA,
     txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, press, backButton, muteButton, capsuleButton, drawCapsule,
-    addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
+    addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule, worldOpen, bottomGround };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
   function snapshot(game) {
     const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');

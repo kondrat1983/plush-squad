@@ -25,6 +25,8 @@
     { id: 'superrare', name: 'Lucky Duck', desc: 'Get a SUPER RARE booster', icon: 'heart', title: 'Lucky Duck', ok: d => (d.stats.superRares || 0) >= 1 },
     { id: 'toy1', name: 'Toy Maker', desc: 'Add your first toy', icon: 'i:camera', title: 'Toy Maker', ok: d => (d.toys || []).length >= 1 },
     { id: 'toys5', name: 'Squad Goals', desc: 'Have 5 toys in your squad', icon: 'j:teddy', title: 'Squad Leader', ok: d => (d.toys || []).length >= 5 },
+    // v1.0: toys go on an adventure (js/adventure.js)
+    { id: 'explorer', name: 'Explorer', desc: 'A toy came home with a souvenir', icon: 'j:ticket', title: 'Explorer', ok: d => (d.stats.souvenirs || 0) >= 1 },
     { id: 'catch30', name: 'Star Catcher', desc: 'Score 30 in Star Catch', icon: 'star', title: 'Star Catcher', ok: d => (d.bestCatch || 0) >= 30 },
     { id: 'catch50', name: 'Galaxy Hands', desc: 'Score 50 in Star Catch', icon: 'planet', title: 'Galaxy Hands', ok: d => (d.bestCatch || 0) >= 50 },
     { id: 'nap10', name: 'Sleepyhead', desc: 'Take 10 Upside-Down Naps', icon: 'zzz', title: 'Sleepyhead', ok: d => (d.stats.naps || 0) >= 10 },
