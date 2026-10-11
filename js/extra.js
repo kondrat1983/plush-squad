@@ -219,11 +219,17 @@
       { icon: 'j:parents', title: 'For parents', text: 'Bedtime and daily play time. Plus: no more overlaps on screen!' },
     ],
   };
-  function whatsNew(scene, PS) {
-    const d = S(), v = PS.VERSION.split('.').slice(0, 2).join('.'), list = WHATS_NEW[v];
-    if (!list || d.seenVersion === v || window.__psWN) return;
-    if (!(d.xp || 0) && !(d.wins || 0)) { d.seenVersion = v; store(); return; } // brand-new players don't need patch notes
-    window.__psWN = true; // shown once per app launch
+  // force (WHAT'S NEW in Settings, v1.0): show it again, with the newest list if this version has none
+  function whatsNew(scene, PS, force) {
+    const d = S(); let v = PS.VERSION.split('.').slice(0, 2).join('.');
+    if (force && !WHATS_NEW[v]) v = Object.keys(WHATS_NEW).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0];
+    const list = WHATS_NEW[v];
+    if (!list) return;
+    if (!force) {
+      if (d.seenVersion === v || window.__psWN) return;
+      if (!(d.xp || 0) && !(d.wins || 0)) { d.seenVersion = v; store(); return; } // brand-new players don't need patch notes
+      window.__psWN = true; // shown once per app launch
+    }
     const { W, H, PORTRAIT, C, A, txt, fit, img, iconScale, button } = PS;
     const lay = scene.add.container(0, 0).setDepth(96);
     lay.add(scene.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0.88).setInteractive());
@@ -554,7 +560,7 @@
     else flushToasts(scene, PS);
   }
 
-  window.PSExtra = { ACH, QUESTS, todaysQuests, pendingQuests, blockedReason, toast, header, card, parentGate, checkAch, bump };
+  window.PSExtra = { ACH, QUESTS, todaysQuests, pendingQuests, blockedReason, toast, header, card, parentGate, checkAch, bump, whatsNew };
   (window.PSPlugins = window.PSPlugins || []).push({
     name: 'extra',
     nav: [
