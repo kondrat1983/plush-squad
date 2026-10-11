@@ -33,9 +33,8 @@ test('Veggie Patch: 5 rivals after Sleepy Thully, opens after one Thully star, n
   expect(r).toEqual([['onion', 165, 170, false, false], ['peas', 175, 180, false, true], ['garlic', 185, 190, false, false], ['fungi', 195, 200, false, false], ['brocklee', 240, 240, true, false]]);
   await go(page, 'map', { world: 4 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).not.toBe(4);
-  await page.evaluate(() => { const m = __game.scene.getScene('map'); m.children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96)[4].emit('pointerup'); });
-  await wait(page, 500);
-  expect(await texts(page, 'map')).toContain('Beat Sleepy Thully to open VEGGIE PATCH!');
+  const hint = await page.evaluate(() => { const m = __game.scene.getScene('map'); m.children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96)[4].emit('pointerup'); return m._hint && m._hint.text; });
+  expect(hint).toBe('Beat Sleepy Thully to open VEGGIE PATCH!');
   await page.evaluate(() => { __save.data.stars.thully = 1; });
   await go(page, 'map', { world: 4 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(4);

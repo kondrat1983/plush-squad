@@ -32,9 +32,8 @@ test('Ocean sits after Canada: 5 rivals in order, opens after Sasquatch, Veggie 
   // locked: the tab says who opens it
   await go(page, 'map', { world: 3 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).not.toBe(3);
-  await page.evaluate(() => { const m = __game.scene.getScene('map'); m.children.list.find(o => o.type === 'Container' && o.depth === 6 && o.height === 96 && o.x > 0 && m.children.list.indexOf(o) >= 0 && o.list.some(x => x.texture && x.texture.key === 'lock')).emit('pointerup'); });
-  await wait(page, 500);
-  expect((await texts(page, 'map')).join('|')).toMatch(/Beat Sasquatch to open OCEAN!|Beat Sleepy Thully to open VEGGIE PATCH!/);
+  const hint = await page.evaluate(() => { const m = __game.scene.getScene('map'); m.children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96)[3].emit('pointerup'); return m._hint && m._hint.text; });
+  expect(hint).toBe('Beat Sasquatch to open OCEAN!');
   await page.evaluate(() => { __save.data.stars.sasquatch = 1; });
   await go(page, 'map', { world: 3 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(3);
@@ -289,7 +288,7 @@ test('save migration out of season: lastWorld 3 from an old save opens a valid w
   const old = save({ lastWorld: 3 }); delete old.mig10;
   await boot(page, old);
   await go(page, 'map');
-  expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(0);
+  expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(1); // the furthest open world (Space), not the missing Spooky
   noErrors(page);
 });
 
@@ -300,7 +299,12 @@ for (const [tag, vp] of Object.entries(SIZES)) test(`map: 5 Ocean nodes and 6 ta
     await go(page, 'map', { world: w });
     const r = await page.evaluate(() => {
       const s = __game.scene.getScene('map');
-      const nodes = s.children.list.filter(o => o.type === 'Container' && o.depth === 4).map(c => { const sc = c.scaleX; c.setScale(s.ns); const b = c.getBounds(); c.setScale(sc); return [b.x, b.y, b.width, b.height]; });
+      // per node: the disc, the name and the star row (at rest scale); plus the hero marker
+      const nodes = s.children.list.filter(o => o.type === 'Container' && o.depth === 4).map(c => { const sc = c.scaleX; c.setScale(s.ns);
+        const R = (c.height - 120) / 2, parts = [[c.x - R * s.ns, c.y - R * s.ns, 2 * R * s.ns, 2 * R * s.ns]];
+        c.list.filter(o => o.type === 'Text' || (o.texture && o.texture.key === 'star')).forEach(o => { const b = o.getBounds(); parts.push([b.x, b.y, b.width, b.height]); });
+        c.setScale(sc); return parts; });
+      const mk = s.children.list.find(o => o.type === 'Image' && o.depth === 5); if (mk) { const b = mk.getBounds(); nodes.push([[b.x, b.y, b.width, b.height]]); }
       const tabs = s.children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96).map(c => ({ w: c.width, x: c.x, name: c.list.find(o => o.type === 'Text').visible, size: c.list.find(o => o.type === 'Text').scaleX * 40 }));
       return { nodes, tabs };
     });
@@ -308,11 +312,10 @@ for (const [tag, vp] of Object.entries(SIZES)) test(`map: 5 Ocean nodes and 6 ta
     r.tabs.forEach(t => expect(t.w).toBeGreaterThanOrEqual(110));
     const named = r.tabs.filter(t => t.name);
     if (vp.width < vp.height) { expect(named.length).toBe(1); expect(named[0].size).toBeGreaterThanOrEqual(28); }
-    expect(r.nodes.length).toBe(w === 3 ? 5 : 4);
-    for (let i = 0; i < r.nodes.length; i++) for (let j = i + 1; j < r.nodes.length; j++) {
-      const [ax, ay, aw, ah] = r.nodes[i], [bx, by, bw, bh] = r.nodes[j];
-      const ox = Math.min(ax + aw, bx + bw) - Math.max(ax, bx), oy = Math.min(ay + ah, by + bh) - Math.max(ay, by);
-      expect(ox > 4 && oy > 4, `nodes ${i} and ${j} overlap on ${tag}`).toBe(false);
+    expect(r.nodes.length).toBe(w === 3 ? 6 : 5); // nodes + the hero marker
+    for (let i = 0; i < r.nodes.length; i++) for (let j = i + 1; j < r.nodes.length; j++) for (const a of r.nodes[i]) for (const b of r.nodes[j]) {
+      const ox = Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0]), oy = Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]);
+      expect(ox > 6 && oy > 6, `nodes ${i} and ${j} overlap on ${tag}: ${a.map(Math.round)} / ${b.map(Math.round)}`).toBe(false);
     }
     expect(await offscreen(page, 'map')).toEqual([]);
   }

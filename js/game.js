@@ -1095,8 +1095,9 @@
       // hero marker at the furthest open node of this world
       const hero = heroDef(this);
       const [cx, cy] = pts[current];
-      const nr = (RIVALS[idx[current]].boss ? 130 : 110) * this.ns, off = nr + 80 * this.ns;
-      const j = this.add.image(cx - off < 90 ? cx + off : cx - off, cy + 40 * this.ns, hero.tex).setOrigin(0.5, 1).setDepth(5);
+      // (landscape with 5 nodes: closer and a little lower, clear of the next node's star row)
+      const low = five && !PORTRAIT, nr = (RIVALS[idx[current]].boss ? 130 : 110) * this.ns, off = nr + (low ? 70 : 80) * this.ns;
+      const j = this.add.image(cx - off < 90 ? cx + off : cx - off, cy + (low ? nr : 40 * this.ns), hero.tex).setOrigin(0.5, 1).setDepth(5);
       j.setScale(Math.min(150 / j.height, 150 / j.width) * this.ns);
       this.tweens.add({ targets: j, y: j.y - 20, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       // squad + mini-game buttons
