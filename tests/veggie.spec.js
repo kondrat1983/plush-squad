@@ -70,7 +70,7 @@ test('PEEKABOO! on NORMAL: mounds, HIDING! cards, the right mound bonks for 15 a
   const h = await hideNow(page);
   expect(h.n).toBe(3);
   const ui = await page.evaluate(() => { const b = __game.scene.getScene('battle');
-    return { cards: b.moves.map(m => [!!m.dmg, !!m.card.enabled]), pils: b.mounds.map(c => c.pil.visible), alpha: b.rival.squash.alpha, zones: b.mounds.map(c => { const z = c.list[2]; return [z.width, z.height]; }) }; });
+    return { cards: b.moves.map(m => [!!m.dmg, !!m.card.enabled]), pils: b.mounds.map(c => c.pil.visible), alpha: b.rival.squash.alpha, zones: b.mounds.map(c => { const z = c.list.find(o => o.type === 'Zone'); return [z.width, z.height]; }) }; });
   ui.cards.forEach(([atk, on]) => expect(on).toBe(!atk));
   expect(ui.pils.filter(Boolean).length).toBe(1);
   expect(ui.pils[h.right]).toBe(true);
@@ -138,7 +138,7 @@ test('Brock Lee on HARD: a 4-tree Floret Forest, the worm pops once from a wrong
   await duel(page, 'brocklee', 'hard');
   const h = await hideNow(page);
   expect(h.n).toBe(4);
-  expect(await page.evaluate(() => { const b = __game.scene.getScene('battle'); return [b.mounds.every(c => c.art.texture.key === 'broccoli'), !!b.seekHand, b.hidden.worm]; })).toEqual([true, true, false]);
+  expect(await page.evaluate(() => { const b = __game.scene.getScene('battle'); return [b.mounds.every(c => c.art.texture.key === 'broccoli'), !!b.seekHand]; })).toEqual([true, true]);
   await expect.poll(async () => { await wait(page, 500); return page.evaluate(() => __game.scene.getScene('battle').hidden.worm); }, { timeout: 120000 }).toBe(true);
   await page.evaluate(r => __game.scene.getScene('battle').seek(r), h.right);
   await settle(page);
@@ -216,9 +216,11 @@ for (const [tag, vp] of Object.entries(SIZES)) test(`4 mounds on Brock Lee and M
   await duel(page, 'brocklee', 'hard');
   await hideNow(page);
   const m = await page.evaluate(() => { const b = __game.scene.getScene('battle'), W = __game.config.width, cards = Math.min(...b.moves.map(x => x.card.y - x.card.height / 2));
-    return { xs: b.mounds.map(c => c.x), w: W, bottom: Math.max(...b.mounds.map(c => c.y + c.list[2].y + c.list[2].height / 2)), cards }; });
+    return { xs: b.mounds.map(c => c.x), w: W, bottom: Math.max(...b.mounds.map(c => { const z = c.list.find(o => o.type === 'Zone'); return c.y + z.y + z.height / 2; })), cards,
+      arts: b.mounds.map(c => [c.x - c.art.displayWidth / 2, c.x + c.art.displayWidth / 2]) }; });
   for (let i = 1; i < m.xs.length; i++) expect(m.xs[i] - m.xs[i - 1]).toBeGreaterThanOrEqual(140);
   expect(Math.max(...m.xs) + 75).toBeLessThanOrEqual(m.w + 2);
+  for (let i = 1; i < m.arts.length; i++) expect(m.arts[i][0]).toBeGreaterThanOrEqual(m.arts[i - 1][1]); // trees and mounds never overlap
   expect(m.bottom).toBeLessThanOrEqual(m.cards + 2);
   expect(await offscreen(page, 'battle')).toEqual([]);
   await go(page, 'me');

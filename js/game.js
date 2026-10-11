@@ -3051,15 +3051,18 @@
       if (T.bar && T.bar.c) T.bar.c.setAlpha(0.55);
       this.hideChip = chip(this, W * 0.73, (PORTRAIT ? 200 : 150) + (PORTRAIT ? 70 : 76), '?', 0xd8b07a, 34).setDepth(30);
       const xs = { 2: [0.55, 0.82], 3: [0.5, 0.68, 0.86], 4: [0.46, 0.6, 0.74, 0.88] }[Hd.n], gy = this.groundY;
-      const tree = !!m.forest, zw = Math.max(150, W * 0.13);
+      const tree = !!m.forest, zw = Math.max(150, W * 0.13), cardsTop = Math.min(...this.rects.map(r => r.y - r.h / 2));
       this.mounds = xs.map((fx, i) => {
         const c = this.add.container(W * fx, gy).setDepth(15);
         const art = tree ? this.add.image(0, 0, 'broccoli').setOrigin(0.5, 1) : this.add.image(0, 0, 'mound').setOrigin(0.5, 1);
-        art.setScale(tree ? Math.min(T.spr.displayHeight * 0.75, 300) / art.height : Math.min(140, (W * (xs[1] - xs[0])) - 10) / art.width);
+        const gapW = W * (xs[1] - xs[0]) - 10; // neighbours never overlap
+        art.setScale(tree ? Math.min(Math.min(T.spr.displayHeight * 0.75, 300) / art.height, gapW / art.width) : Math.min(140, gapW) / art.width);
         const top = -art.displayHeight;
         const pil = this.add.image(tree ? art.displayWidth * 0.35 : 0, top + 40, 'pillow').setScale(0.38).setAngle(-20).setVisible(i === Hd.right);
         c.add([pil, art]); c.pil = pil; c.top = top; c.art = art;
-        const z = this.add.zone(0, top / 2, zw, Math.max(220, -top + 40)).setInteractive({ useHandCursor: true }); c.add(z);
+        // the tap zone: 150 x 220+, grown upwards so it never reaches the cards
+        const bot = Math.min(40, cardsTop - gy - 4), zh = Math.max(220, bot - (top - 60));
+        const z = this.add.zone(0, bot - zh / 2, zw, zh).setInteractive({ useHandCursor: true }); c.add(z);
         z.on('pointerdown', () => { if (this.busy || this.over) return; this.tweens.add({ targets: c, scaleY: 0.88, scaleX: 1.06, duration: 70 }); });
         const up = () => this.tweens.add({ targets: c, scaleX: 1, scaleY: 1, duration: 160, ease: 'Back.out' });
         z.on('pointerout', up);
