@@ -337,7 +337,8 @@
           const b = this.add.container(x, ty);
           b.add(X().card(this, PS, 0, 0, tw, 80, on ? C.star : C.night2, on ? 0xffffff : C.seam));
           const im = img(this, -tw / 2 + 38, 0, ic); im.setScale(iconScale(ic, 50)); b.add(im);
-          b.add(fit(txt(this, 18, 0, l, 26, on ? C.ink : '#fff3d2', { st: 0, shadow: false }), tw - 80));
+          // the label is centred in the space right of the icon, with a gap (QA B63: the star covered the "T" of TOP CATCH)
+          b.add(fit(txt(this, 32, 0, l, 26, on ? C.ink : '#fff3d2', { st: 0, shadow: false }), tw - 92));
           if (k === 'mail' && Net.unread) { b.add(this.add.circle(tw / 2 - 8, -34, 18, C.coral)); b.add(txt(this, tw / 2 - 8, -34, String(Net.unread), 20, '#fff', { st: 0, shadow: false })); }
           b.setSize(tw, 80).setInteractive({ useHandCursor: true }); PS.press(this, b);
           b.on('pointerup', () => { if (!on) { A.click(); this.scene.restart({ tab: k }); } });
@@ -469,13 +470,14 @@
         if (!list.length) { txt(this, W / 2, H / 2, 'No new mail', 44, '#fff3d2', { st: 7 }); return; }
         // the 30 newest messages, a page at a time (QA B28 / #26)
         const w = Math.min(W - 80, 1100), h = 150, top = this.top + 40;
-        const per = Math.max(1, Math.floor((H - top - 110) / (h + 14))), pages = Math.ceil(list.length / per);
+        // the pager sits right below the last message of the page, arrows 160 x 100 (QA B62)
+        const PH = 100, per = Math.max(1, Math.floor((H - top - PH - 50) / (h + 14))), pages = Math.ceil(list.length / per);
         this.mailPage = Math.max(0, Math.min(this.mailPage || 0, pages - 1));
         if (pages > 1) {
-          const py = top + per * (h + 14) + 40;
-          txt(this, W / 2, py, (this.mailPage + 1) + ' / ' + pages, 30, '#bcc0ee', { st: 5 });
-          if (this.mailPage > 0) button(this, W / 2 - 160, py, 120, 64, '◀', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage - 1 }), { size: 30 });
-          if (this.mailPage < pages - 1) button(this, W / 2 + 160, py, 120, 64, '▶', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage + 1 }), { size: 30 });
+          const shown = Math.min(per, list.length - this.mailPage * per), py = top + shown * (h + 14) + 10 + PH / 2;
+          txt(this, W / 2, py, (this.mailPage + 1) + ' / ' + pages, 34, '#bcc0ee', { st: 5 });
+          if (this.mailPage > 0) button(this, W / 2 - 190, py, 160, PH, '◀', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage - 1 }), { size: 40 });
+          if (this.mailPage < pages - 1) button(this, W / 2 + 190, py, 160, PH, '▶', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage + 1 }), { size: 40 });
         }
         list.slice(this.mailPage * per, this.mailPage * per + per).forEach((m, i) => {
           const y = top + h / 2 + i * (h + 14), from = m.from_name || 'A friend';
