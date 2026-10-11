@@ -38,7 +38,7 @@
     checkName(name) {
       name = (name || '').trim().toLowerCase();
       if (!/^[a-z0-9_]{3,16}$/.test(name)) return 'Use 3-16 letters, numbers or _';
-      if (BAD.test(name)) return 'Please pick a different name';
+      if (BAD.test(name) || (T().badName && T().badName(name))) return 'Please pick a different name'; // plus the toy-name list (QA B61 / #69)
       return null;
     },
     async loadProfile(u) {

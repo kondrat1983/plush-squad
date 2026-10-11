@@ -161,17 +161,49 @@
   const BAD_WORD = ['ass', 'arse', 'dick', 'cock', 'tit', 'tits', 'boob', 'boobs', 'sex', 'sexy', 'kill', 'die', 'damn', 'crap', 'piss',
     'fag', 'rape', 'suka', 'hui', 'idiot', 'stupid', 'dumb', 'moron', 'loser', 'poopface'];
   const LEET = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b', '@': 'a', $: 's', '!': 'i', '|': 'i', '+': 't' };
-  function badName(name) {
-    const s = String(name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[0-9@$!|+]/g, ch => LEET[ch] || ch);
-    const words = s.split(/[^a-z]+/).filter(Boolean);
-    // letters spelled out one by one ("f u c k") are glued back into one word; real words are checked one at a time,
-    // so two harmless words never make a bad one where they meet ("Sushi Tiger", "Kung Fu Kitty": code review)
+  // Cyrillic (QA B61 / #69): look-alike letters hidden in a Latin word ("fuсk" with a Cyrillic "с") are read as the Latin letter
+  // they look like; whole Cyrillic words are also read transliterated ("сука" -> "suka") and checked against Russian roots below
+  const LOOK = { а: 'a', в: 'b', е: 'e', ё: 'e', к: 'k', м: 'm', н: 'h', о: 'o', р: 'p', с: 'c', т: 't', у: 'y', х: 'x', ь: 'b', і: 'i', ї: 'i', ј: 'j', ѕ: 's', ԁ: 'd', ԛ: 'q', ԝ: 'w', ү: 'y' };
+  const TRANS = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'i', к: 'k', л: 'l', м: 'm', н: 'n',
+    о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e',
+    ю: 'yu', я: 'ya', і: 'i', ї: 'i', є: 'e', ґ: 'g', ј: 'j', ѕ: 's', ԁ: 'd', ԛ: 'q', ԝ: 'w', ү: 'u' };
+  const CYR = /[\u0400-\u04ff\u0500-\u052f]/;
+  // Latin letters that look like Cyrillic ones, for words typed mostly in Cyrillic ("cyкa")
+  const TO_CYR = { a: 'а', b: 'в', e: 'е', o: 'о', p: 'р', c: 'с', y: 'у', x: 'х', k: 'к', m: 'м', t: 'т', h: 'н' };
+  // Russian roots (ё is read as е), checked on Cyrillic words only, so English names never meet them: anywhere inside a word, at the start, or as a whole word
+  const CYR_ANY = ['хуй', 'хуе', 'хуя', 'хую', 'пизд', 'ебан', 'ебал', 'ебат', 'ебло', 'еблан', 'заеб', 'уеб', 'выеб', 'мудак', 'мудил',
+    'пидор', 'пидар', 'педик', 'гандон', 'залуп', 'шлюх', 'бляд', 'блят', 'сучк', 'сучар', 'дерьм', 'говн', 'жоп', 'дебил', 'сдохн'];
+  const CYR_START = ['бля', 'сук', 'урод', 'дурак', 'тупо', 'секс', 'убей', 'убить', 'убью'];
+  const CYR_WORD = ['дура', 'чмо', 'лох', 'хер', 'член', 'фак', 'шит', 'козел'];
+  // harmless names that a rule above would catch (QA B61): these words and phrases are taken out before the check
+  const ALLOW = ['shiitake', 'shitake', 'swank', 'scunthorpe', 'blue tit', 'great tit', 'coal tit', 'tit mouse', 'titmouse', 'die hard', 'cockatoo', 'cockatiel', 'peacock'];
+  // splits into words; letters spelled out one by one ("f u c k") are glued back into one word; real words are checked one at a time,
+  // so two harmless words never make a bad one where they meet ("Sushi Tiger", "Kung Fu Kitty": code review)
+  function tokens(s, re) {
     const toks = []; let run = '';
-    words.forEach(w => { if (w.length === 1) run += w; else { if (run) toks.push(run); run = ''; toks.push(w); } });
+    s.split(re).filter(Boolean).forEach(w => { if (w.length === 1) run += w; else { if (run) toks.push(run); run = ''; toks.push(w); } });
     if (run) toks.push(run);
-    const once = w => w.replace(/(.)\1+/g, '$1'); // "fuuuck" -> "fuck"
+    return toks;
+  }
+  const once = w => w.replace(/(.)\1+/g, '$1'); // "fuuuck" -> "fuck"
+  function badLatin(s) {
+    s = ' ' + s.replace(/[^a-z]+/g, ' ') + ' ';
+    ALLOW.forEach(a => { s = s.split(a).join(' '); });
     // long words count anywhere inside a word; short ones only as a whole word, so Cassie, Grape or Skills stay fine
-    return toks.some(w => BAD_ANY.some(b => w.includes(b) || once(w).includes(b)) || BAD_WORD.includes(w) || BAD_WORD.includes(once(w)));
+    return tokens(s, /[^a-z]+/).some(w => BAD_ANY.some(b => w.includes(b) || once(w).includes(b)) || BAD_WORD.includes(w) || BAD_WORD.includes(once(w)));
+  }
+  function badCyr(s) {
+    return tokens(s, /[^а-яёіїєґ]+/).some(w => [w, once(w)].some(v => CYR_ANY.some(b => v.includes(b)) || CYR_START.some(b => v.startsWith(b)) || CYR_WORD.includes(v)));
+  }
+  function badName(name) {
+    const s = String(name || '').toLowerCase().replace(/ё/g, 'е').replace(/й/g, '\u0000') // keep й and ё whole through NFD
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0000/g, 'й').replace(/[0-9@$!|+]/g, ch => LEET[ch] || ch);
+    if (!CYR.test(s)) return badLatin(s);
+    const look = s.replace(/./g, ch => LOOK[ch] || TRANS[ch] || ch);
+    const trans = s.replace(/./g, ch => TRANS[ch] !== undefined ? TRANS[ch] : ch);
+    // words in Cyrillic with Latin look-alikes mixed in are read fully in Cyrillic
+    const cyr = s.replace(/[a-zа-яёіїєґ]+/g, w => CYR.test(w) ? w.replace(/[a-z]/g, ch => TO_CYR[ch] || ch) : w);
+    return badLatin(look) || badLatin(trans) || badCyr(s) || badCyr(cyr);
   }
   const safeName = (name, fallback) => badName(name) ? fallback : name;
   window.PSToys = { ARCH, ARCH_BY_ID, ELEMENTS, QUIRKS, makeKit, createToy, elementFromPixels, seedFromPixels, nameIdeas, subFor, badName, safeName };
