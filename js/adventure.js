@@ -34,6 +34,7 @@
   function hint(scene, s) {
     const { W, H, txt } = P;
     if (scene._advHint) scene._advHint.destroy();
+    window.PSAdventure.lastHint = s; // for the tests (a hint fades fast on a slow test machine)
     const t = scene._advHint = txt(scene, W / 2, H - 140, s, 36, '#ff9ed8', { st: 7, wrap: W - 100 }).setDepth(99);
     scene.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 500, onComplete: () => t.destroy() });
   }
@@ -285,7 +286,8 @@
         A.levelUp && A.levelUp();
         if (r.souv && r.cap) A.starDing && this.time.delayedCall(300, () => A.starDing(1));
         const wd = W_OF(r.world);
-        const lines = r.souv ? ['A souvenir from ' + wd.name + '!'].concat(r.cap ? ['+1 capsule! Open it on the map'] : []).concat(r.grew ? [r.grew] : [])
+        const g = r.grew, lines = r.souv ? ['A souvenir from ' + wd.name + '!'].concat(r.cap ? ['+1 capsule! Open it on the map'] : [])
+          .concat(g && g.gain ? ['+' + g.gain + ' toy XP'] : []).concat(g && g.note ? [g.note] : [])
           : ['Next time stay longer for a souvenir.'];
         const lay = dialog(this, r.souv ? t.name + ' is home with a souvenir!' : t.name + ' is home!', lines.join('\n'), [['YAY!', C.star, () => this.scene.restart({ page: this.page })]], { depth: 86, h: 560 });
         if (r.souv) { const si = img(this, W / 2, H / 2 - 280 - 10, wd.icon); si.setScale(iconScale(wd.icon, 90)); lay.add(si); this.tweens.add({ targets: si, angle: { from: -12, to: 12 }, duration: 600, yoyo: true, repeat: -1 }); }

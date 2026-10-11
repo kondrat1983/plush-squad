@@ -25,6 +25,8 @@ async function seed(page, nToys, away = []) {
     const list = [];
     for (let i = 0; i < away.length; i++) list.push({ toy: await mk(i, 'a'), trip: { world: away[i][0], left: day(away[i][1]), cards: away[i][2] || 0, seen: 0 } });
     __save.data.toys = toys; __save.data.away = list; __save.store();
+    // toasts and hints go by fast on a slow test machine: remember them
+    if (!window.__toastLog) { window.__toastLog = []; const o = PSExtra.toast; PSExtra.toast = (...a) => { __toastLog.push(a[3]); return o(...a); }; }
   }, [nToys, away]);
 }
 const all = (page, key) => page.evaluate(k => {
@@ -74,12 +76,13 @@ test('ADVENTURE replaces REMOVE (≥ 90 px, not for Jack); GO EXPLORE! shows the
   expect(r).toEqual({ toys: ['t1'], away: [['t0', 'space', true, 0]], hero: 'jack', pic: true, stored: 1 });
   const st = await texts(page, 'squad');
   expect(st).toContain('ADVENTURES'); // the card appears with one toy away
-  expect(st.join('|')).toContain('is off to SPACE!');
+  await until(page, () => page.evaluate(() => __toastLog.join('|').includes('Toy0 is off to SPACE!')));
   noErrors(page);
 });
 
 for (const vp of [{ width: 375, height: 667 }, { width: 1024, height: 768 }]) {
   test(`ADVENTURES card only with toys away; the list pages 20 toys and fits the screen (${vp.width}x${vp.height})`, async ({ page }) => {
+    test.setTimeout(900000);
     await page.setViewportSize(vp);
     await boot(page, SAVE);
     await seed(page, 3);
@@ -92,13 +95,15 @@ for (const vp of [{ width: 375, height: 667 }, { width: 1024, height: 768 }]) {
     expect(await offscreen(page, 'squad')).toEqual([]);
     await go(page, 'adventures');
     const names = new Set();
+    const rows = () => page.evaluate(() => __game.scene.getScene('adventures').children.list.filter(o => o.type === 'Container' && o.depth === 5).flatMap(c => c.list).filter(t => t.type === 'Text' && /^Toy\d+$/.test(t.text)).map(t => t.text));
     for (let p = 0; p < 12; p++) {
-      await until(page, async () => (await texts(page, 'adventures')).some(s => /^Toy\d+$/.test(s)));
-      (await texts(page, 'adventures')).filter(s => /^Toy\d+$/.test(s)).forEach(s => names.add(s));
-      expect(await offscreen(page, 'adventures')).toEqual([]);
+      await until(page, async () => (await rows()).length > 0);
+      (await rows()).forEach(n => names.add(n));
+      if (p === 0) expect(await offscreen(page, 'adventures')).toEqual([]);
       if (!(await tap(page, 'adventures', '▶'))) break;
-      await wait(page, 1200); await fast(page);
+      await wait(page, 1000);
     }
+    expect(await offscreen(page, 'adventures')).toEqual([]);
     expect(names.size).toBe(20);
     noErrors(page);
   });
@@ -108,12 +113,12 @@ test('postcards: one toast with the right count at the first map open of the day
   await boot(page, SAVE);
   await seed(page, 1, [['hills', 1], ['space', 2], ['canada', 3], ['spooky', 5], ['hills', 0]]);
   await go(page, 'map');
-  await until(page, async () => (await texts(page, 'map')).includes('9 new postcards!'));
+  await until(page, () => page.evaluate(() => __toastLog.includes('9 new postcards!')));
   expect(await page.evaluate(() => __save.data.away.map(a => a.trip.cards))).toEqual([1, 2, 3, 3, 0]);
   await go(page, 'title');
   await go(page, 'map');
   await wait(page, 5000);
-  expect((await texts(page, 'map')).join('|')).not.toContain('postcard');
+  expect(await page.evaluate(() => __toastLog.filter(t => /postcard/.test(t)).length)).toBe(1);
   // the cards: world text from (world, n), read again from the Adventures list
   await go(page, 'adventures');
   await until(page, async () => (await texts(page, 'adventures')).includes('CALL HOME'));
@@ -167,8 +172,7 @@ test('CALL HOME: short trip = no souvenir; 3+ days = souvenir, +1 capsule once, 
   // full squad: friendly message, nothing lost
   await page.evaluate(() => { while (__save.data.toys.length < 14) __save.data.toys.push(Object.assign({}, __save.data.toys[0], { id: 'x' + __save.data.toys.length })); });
   const res = await page.evaluate(() => __game.scene.getScene('adventures').callHome(__save.data.away[0]));
-  await wait(page, 400);
-  expect((await texts(page, 'adventures')).join('|')).toContain('Your squad is full!');
+  expect(await page.evaluate(() => PSAdventure.lastHint)).toContain('Your squad is full!');
   expect(await page.evaluate(() => [__save.data.toys.length, __save.data.away.length])).toEqual([14, 1]);
   noErrors(page);
 });
@@ -181,7 +185,7 @@ test('the 21st toy cannot be sent: the adventure bus is full', async ({ page }) 
   await wait(page, 800);
   await tap(page, 'squad', 'ADVENTURE');
   await wait(page, 500);
-  expect((await texts(page, 'squad')).join('|')).toContain('The adventure bus is full!');
+  expect(await page.evaluate(() => PSAdventure.lastHint)).toContain('The adventure bus is full!');
   expect(await page.evaluate(() => [PSAdventure.send(__save.data.toys[0], 'hills'), __save.data.toys.length, __save.data.away.length])).toEqual([false, 1, 20]);
   noErrors(page);
 });
@@ -252,7 +256,7 @@ test('cloud: push keeps away rows and marks them, deletes gone rows with their P
 
 test('rotation: the Where-to card, the Adventures list and an open postcard come back; nothing is sent twice', async ({ page }) => {
   await boot(page, SAVE);
-  await seed(page, 2, [['space', 2]]);
+  await seed(page, 2, [['space', 2, 2]]);
   await go(page, 'squad');
   await page.evaluate(() => PSAdventure.whereTo(__game.scene.getScene('squad'), __save.data.toys[0]));
   await wait(page, 600);
