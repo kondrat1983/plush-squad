@@ -21,7 +21,14 @@
   const T = () => window.PSToys || {};
   const okName = (n, fb) => T().badName && T().badName(n) ? fb : n;
   const okUser = n => n != null && BAD.test(n) ? 'Player' : okName(n, 'Player'); // the sign-up rule, then the toy-name filter
-  const okToy = meta => { if (meta && meta.name != null) meta.name = okName(meta.name, ((T().ARCH_BY_ID || {})[meta.arch] || { nicks: ['Plushie'] }).nicks[0]); return meta; };
+  // toy growth (v1.0): friends' toy XP is clamped to 0..300 and only known badge ids are kept (meta is client-written)
+  const okToy = meta => {
+    if (!meta) return meta;
+    if (meta.name != null) meta.name = okName(meta.name, ((T().ARCH_BY_ID || {})[meta.arch] || { nicks: ['Plushie'] }).nicks[0]);
+    if (meta.xp != null) meta.xp = Math.max(0, Math.min(T().TOY_XP_MAX || 300, Math.round(+meta.xp) || 0));
+    if (meta.badges != null) { const B = T().BADGES || {}, b = {}; if (typeof meta.badges === 'object') Object.keys(meta.badges).forEach(k => { if (B[k]) b[k] = 1; }); meta.badges = b; }
+    return meta;
+  };
 
   const Net = {
     ready: false, sb: null, user: null, unread: 0, inboxCache: [], boss: null, _push: 0, _lastInbox: 0,
@@ -542,7 +549,7 @@
         list.slice(0, cols * maxRows).forEach(async (t, i) => {
           const x = W / 2 + ((i % cols) - (cols - 1) / 2) * (cw + 16), y = top + ch / 2 + Math.floor(i / cols) * (ch + 16);
           const c = this.add.container(x, y);
-          c.add(X().card(this, PS, 0, 0, cw, ch, t.owner === Net.user.id ? 0x2e3488 : C.night2));
+          c.add(X().card(this, PS, 0, 0, cw, ch, t.owner === Net.user.id ? 0x2e3488 : C.night2, T().toyLevel && T().toyLevel(t.meta.xp) >= 4 ? C.star : null)); // GOLDEN (v1.0)
           const key = 'mtoy_' + t.id.replace(/[^a-z0-9]/gi, '');
           if (this.textures.exists(key) || await PS.addTexture(this, key, t.img)) { if (!this.sys.isActive()) return; c.add(avatarImg(this, PS, 0, -40, key, cw - 50)); }
           c.add(fit(txt(this, 0, ch / 2 - 70, t.meta.name, 26, '#fff3d2', { st: 5 }), cw - 20));

@@ -1044,7 +1044,8 @@
       const col = it.add || it.adv ? 0x1b1f5a : C.night2;
       g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-w / 2, -h / 2 + 10, w, h, 36);
       g.fillStyle(col); g.fillRoundedRect(-w / 2, -h / 2, w, h, 36);
-      g.lineStyle(it.add ? 5 : 6, isHero ? C.star : C.seam); g.strokeRoundedRect(-w / 2, -h / 2, w, h, 36);
+      const gold = !!(it.toy && TOYS.toyLevel(it.toy.xp) >= 4); // toy growth (v1.0): GOLDEN toys get a gold border
+      g.lineStyle(gold ? 8 : it.add ? 5 : 6, isHero || gold ? C.star : C.seam); g.strokeRoundedRect(-w / 2, -h / 2, w, h, 36);
       c.add(g);
       if (it.add) {
         const plus = txt(this, 0, -30, '+', 120, '#ffd23f', { st: 10 });
@@ -1063,6 +1064,15 @@
         c.add(fit(txt(this, 0, h / 2 - 46, name, 36, '#fff3d2', { st: 6 }), w - 30));
         if (!it.jack) { const a = TOYS.ARCH_BY_ID[it.toy.arch]; if (a) c.add(img(this, w / 2 - 36, -h / 2 + 36, 'i:' + (a.id === 'mystery' ? 'mystery' : a.id)).setScale(0.36)); }
         if (isHero) c.add(chip(this, 0, -h / 2 + 4, 'PLAYING', C.star, 24));
+        if (gold) {
+          c.add(chip(this, 0, h / 2 - 92, 'GOLDEN', C.star, 20));
+          const sp = this.add.image(-w / 2 + 40, h / 2 - 120, 'spark').setTint(C.star).setScale(0.5); c.add(sp);
+          this.tweens.add({ targets: sp, angle: 180, alpha: { from: 1, to: 0.2 }, duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        }
+        // souvenirs from adventures: small world icons down the left edge (v1.0)
+        if (it.toy && Array.isArray(it.toy.souv) && window.PSAdventure) it.toy.souv.forEach((k, j) => {
+          const wd = window.PSAdventure.WORLD[k]; if (wd) c.add(img(this, -w / 2 + 32, -h / 2 + 38 + j * 42, wd.icon).setScale(iconScale(wd.icon, 36)));
+        });
       }
       c.setScale(0); this.tweens.add({ targets: c, scale: 1, duration: 300, delay: i * 50, ease: 'Back.out' });
       c.setSize(w, h).setInteractive({ useHandCursor: true }); press(this, c, 0.93, 1);
@@ -1089,6 +1099,8 @@
       if (it.jack) chips.push(['Dragon', C.mint], ['Ice', 0x7fd0ff], ['Sleepy', 0xfff3d2]);
       else { const t = it.toy; const a = TOYS.ARCH_BY_ID[t.arch]; chips.push([a ? a.name : 'Toy', C.mint], [(TOYS.ELEMENTS[t.element] || {}).name || 'Magic', elColor(t)], [(TOYS.QUIRKS[t.quirk] || {}).name || '', 0xfff3d2]); }
       chips.push(['PEP ' + d.hp, 0xff9ed8]);
+      const tl = it.jack ? 0 : TOYS.toyLevel(it.toy.xp);
+      if (tl >= 4) { const gb = this.add.graphics(); gb.lineStyle(8, C.star); gb.strokeRoundedRect(-pw / 2 + 8, -ph / 2 + 8, pw - 16, ph - 16, 50); p.add(gb); }
       let cx0 = 0; const cs = chips.map(([l, col]) => chip(this, 0, ty + 90, l, col, 28));
       const total = cs.reduce((s, c) => s + c.w + 14, -14); cx0 = tx - total / 2;
       cs.forEach(c => { c.x = cx0 + c.w / 2; cx0 += c.w + 14; p.add(c); });
@@ -1096,8 +1108,33 @@
       // buttons first, so the move list knows how much room it has (QA B08)
       const isHero = it.jack ? (Save.data.hero === 'jack' || !toyById(Save.data.hero)) : Save.data.hero === it.toy.id;
       const by = ph / 2 - (PORTRAIT ? 230 : 110);
-      const ml = d.moves, more = it.jack && MOVES.length > ml.length;
-      const my0 = ty + 170, room = by - 55 - 30 - my0, rowsN = ml.length + (more ? 1 : 0);
+      // toy growth (v1.0): toy level with its bar, then the badges (beaten rivals, bosses ringed)
+      let gy = ty + 150;
+      if (!it.jack) {
+        const t = it.toy, xp = Math.max(0, t.xp || 0), lv = tl, lo = [0, 0, 50, 150, 300][lv], hi = [0, 50, 150, 300, 300][lv], bwid = 260;
+        const lt = txt(this, tx - 40, gy, 'LEVEL ' + lv, 34, '#ffd23f', { st: 5, ox: 1 });
+        p.add([lt, this.add.rectangle(tx, gy, bwid, 22, C.night3).setOrigin(0, 0.5).setStrokeStyle(3, C.seam),
+          this.add.rectangle(tx + 3, gy, Math.max(4, (bwid - 6) * (lv >= 4 ? 1 : (xp - lo) / (hi - lo))), 16, C.star).setOrigin(0, 0.5),
+          txt(this, tx + bwid + 16, gy, lv >= 4 ? 'GOLDEN!' : xp + ' / ' + hi + ' toy XP', 24, '#bcc0ee', { st: 0, shadow: false, ox: 0, weight: '500' })]);
+        const ids = Object.keys(t.badges || {}).filter(k => TOYS.BADGES[k]);
+        if (ids.length) {
+          gy += 58;
+          const bc = chip(this, 0, gy, '      ' + ids.length + (ids.length > 1 ? ' badges' : ' badge'), C.cream, 22); bc.x = tx - 260 + bc.w / 2; p.add(bc);
+          bc.add(img(this, -bc.w / 2 + 30, 0, 'j:medal').setScale(iconScale('j:medal', 34)));
+          // after the chip on the same line, or (many badges) on a line of their own
+          let x0 = tx - 260 + bc.w + 16, room = tx + 300 - x0;
+          if (ids.length * 40 > room) { gy += 52; x0 = tx - 260; room = 560; }
+          const bs = Math.min(48, room / ids.length);
+          ids.forEach((k, j) => {
+            const [tex, boss] = TOYS.BADGES[k], bx = x0 + bs / 2 + j * bs;
+            if (boss) p.add(this.add.circle(bx, gy, bs * 0.48).setStrokeStyle(3, C.star));
+            if (this.textures.exists(tex)) p.add(img(this, bx, gy, tex).setScale(iconScale(tex, bs * 0.82)));
+          });
+        }
+        gy += 30;
+      }
+      const ml = d.moves, more = it.jack ? MOVES.length > ml.length : tl < 3;
+      const my0 = it.jack ? ty + 170 : gy + 50, room = by - 55 - 30 - my0, rowsN = ml.length + (more ? 1 : 0);
       const step = Math.min(PORTRAIT ? 78 : (ml.length > 4 ? 62 : 80), room / Math.max(1, rowsN - 1 + 0.6));
       const ts = Math.min(34, Math.round(step * 0.6)), ss = Math.min(26, Math.round(step * 0.46));
       ml.forEach((m, i) => {
@@ -1105,7 +1142,7 @@
         const ic = img(this, tx - 250, my, m.icon || 'pillow'); ic.setScale(iconScale(m.icon || 'pillow', Math.min(56, step * 0.8)));
         p.add([ic, txt(this, tx - 205, my - 2, m.title, ts, '#fff3d2', { ox: 0, st: 5 }), txt(this, tx + 300, my, m.sub || '', ss, '#bcc0ee', { ox: 1, st: 0, weight: '500' })]);
       });
-      if (more) p.add(txt(this, tx, my0 + ml.length * step, 'More moves unlock as you level up!', ss, '#ffd23f', { st: 4, weight: '500' }));
+      if (more) p.add(txt(this, tx, my0 + ml.length * step, it.jack ? 'More moves unlock as you level up!' : 'Play as ' + d.name + ': a new move at toy LEVEL ' + (tl + 1) + '!', ss, '#ffd23f', { st: 4, weight: '500' }));
       const bxs = PORTRAIT ? [0, 0] : [tx - 170, tx + 170];
       const b1 = button(this, bxs[0], by, 320, 110, isHero ? 'PLAYING ✓' : 'PLAY AS', isHero ? 0x9fe3c0 : C.star, () => {
         if (isHero) return; Save.data.hero = it.jack ? 'jack' : it.toy.id; Save.store(); A.levelUp(); close(); this.scene.restart({ page: this.page });
@@ -1617,6 +1654,9 @@
       this.hero = this.fighter(W * (PORTRAIT ? 0.27 : 0.28), groundY, this.H.tex, heroScale, 1, heroMax, false);
       this.rival = this.fighter(W * (PORTRAIT ? 0.74 : 0.72), groundY, R.tex, rivScale, -1, this.rHp, !!(R.isToy || R.flip));
       this.addHat(this.hero);
+      const golden = d => !!(d && d.isToy && d.toy && TOYS.toyLevel(d.toy.xp) >= 4);
+      if (golden(this.H)) this.goldCopy(this.hero, W * 0.27, PORTRAIT ? 200 : 150, !!boost);
+      if (golden(R)) this.goldCopy(this.rival, W * 0.73, PORTRAIT ? 200 : 150, false);
       if (R.ghostly) this.tweens.add({ targets: this.rival.spr, alpha: 0.6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.hero.name = this.H.name; this.hero.napTex = this.H.napTex; this.hero.isJack = this.H.isJack;
       this.rival.name = R.nick || R.name;
@@ -1721,6 +1761,15 @@
       f.center = () => ({ x: root.x + (dir > 0 ? 40 : -10), y: root.y - spr.displayHeight * 0.55 });
       f.front = () => ({ x: root.x + dir * spr.displayWidth * 0.38, y: root.y - spr.displayHeight * (dir > 0 ? 0.72 : 0.62) });
       return f;
+    }
+    // toy growth (v1.0): a GOLDEN toy gets a gold copy of its picture, 6% bigger, behind it (fills the white sticker outline).
+    // Tint fill needs WebGL; on Canvas a GOLDEN chip under the pep bar instead
+    goldCopy(f, bx, by, low) {
+      if (this.game.renderer.type !== Phaser.WEBGL) { f.goldChip = chip(this, bx, by + (PORTRAIT ? 70 : 76) + (low ? 56 : 0), 'GOLDEN', C.star, 22).setDepth(30); return; }
+      const g = this.add.image(0, 0, f.key).setOrigin(0.5, 1).setFlipX(f.spr.flipX).setTintFill(0xffd23f);
+      f.squash.addAt(g, 0); f.gold = g;
+      const sync = () => { if (!g.active || !f.spr.active) return; g.setScale(f.spr.scaleX * 1.06, f.spr.scaleY * 1.06); g.x = f.spr.x; g.y = f.spr.y + f.spr.displayHeight * 0.03; g.setVisible(f.spr.visible).setAlpha(f.spr.alpha); };
+      sync(); this.events.on('update', sync); this.events.once('shutdown', () => this.events.off('update', sync));
     }
     // Halloween costume on the hero
     addHat(f) {
@@ -2642,6 +2691,19 @@
       if (isCampaign && stars > prevStars) Save.data.stars[id] = stars;
       const newCostume = won && R.reward && !Save.data.costumes[R.reward] ? COSTUMES.find(c => c.id === R.reward) : null;
       if (newCostume) Save.data.costumes[R.reward] = true;
+      // toy growth (v1.0): the hero toy (only the hero, never a rival toy) gets toy XP: win 10, boss 20, else 3, × the XP bonus;
+      // a badge for each campaign rival or Kraken it beats. The player's XP is unchanged
+      const ht = this.H && this.H.isToy && this.H.toy, toyNotes = [], toyFx = {};
+      if (ht && Save.data.toys.includes(ht)) {
+        const g = TOYS.addToyXp(ht, (won ? (R.boss ? 20 : 10) : 3) * (this.xpMul || 1));
+        const badge = won && (isCampaign || this.mode === 'boss') && TOYS.BADGES[id] && !(ht.badges && ht.badges[id]);
+        if (badge) ht.badges = Object.assign({}, ht.badges, { [id]: 1 });
+        if (won && R.boss) Save.data.stats.toyBossWins = (Save.data.stats.toyBossWins || 0) + 1; // the Toy Champion sticker
+        const l1 = (g.gain ? ht.name + ' +' + g.gain + ' toy XP' : '') + (badge ? (g.gain ? '  ·  ' : '') + 'New badge: ' + (R.nick || R.name) + '!' : '');
+        if (l1) toyNotes.push(l1);
+        if (g.note) toyNotes.push(g.note);
+        toyFx.badge = badge; toyFx.up = g.to > g.from; toyFx.gold = g.to >= 4 && g.from < 4;
+      }
       Save.store();
       const hadCrown = !!Save.data.costumes.crown;
       emit('duel', { won, mode: this.mode, rival: R, rivalIdx: this.rivalIdx, stars, firstClear, diff: Save.data.diff, boss: !!R.boss,
@@ -2662,6 +2724,9 @@
       if (!hadCrown && Save.data.costumes.crown) notes.push('Superstar! New costume: Royal Crown!'); // the Superstar sticker's reward (QA B42)
       if (this.mode === 'boss') notes.push('You hit the Kraken for ' + Math.max(0, this.rival.max - Math.max(0, this.rival.hp)) + '! Everyone\'s hits add up');
       if (this.xpMul > 1) notes.push((this.boost && this.boost.id === 'superstar' ? 'Super Star ' : '') + (Save.data.diff === 'hard' ? 'Hard mode ' : '') + 'bonus XP!');
+      notes.push(...toyNotes);
+      if (toyFx.badge) this.time.delayedCall(2200, () => A.starDing(0));
+      if (toyFx.up) this.time.delayedCall(2600, () => { A.levelUp(); if (toyFx.gold) A.starDing(2); });
       const primary = isCampaign && won && nextIdx < RIVALS.length && isUnlocked(nextIdx) ? 'next' : this.mode === 'boss' ? 'boss' : 'rematch';
       // kept so a rotation on the result panel can rebuild the panel without giving the rewards again (QA B31)
       this.shown = { won, stars, gain, before, after, notes, primary, nextIdx };

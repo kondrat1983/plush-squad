@@ -27,6 +27,10 @@
     { id: 'toys5', name: 'Squad Goals', desc: 'Have 5 toys in your squad', icon: 'j:teddy', title: 'Squad Leader', ok: d => (d.toys || []).length >= 5 },
     // v1.0: toys go on an adventure (js/adventure.js)
     { id: 'explorer', name: 'Explorer', desc: 'A toy came home with a souvenir', icon: 'j:ticket', title: 'Explorer', ok: d => (d.stats.souvenirs || 0) >= 1 },
+    // v1.0: toy growth (docs/gdd/1.0-toy-growth.md)
+    { id: 'goldtoy', name: 'Golden Toy', desc: 'Make a toy GOLDEN', icon: 'j:glowstar', title: 'Toy Trainer',
+      ok: d => (d.toys || []).concat((d.away || []).map(a => a && a.toy)).some(t => t && (t.xp || 0) >= 300) },
+    { id: 'toychamp', name: 'Toy Champion', desc: 'Beat a boss with your toy', icon: 'j:medal', title: 'Toy Champion', ok: d => (d.stats.toyBossWins || 0) >= 1 },
     { id: 'catch30', name: 'Star Catcher', desc: 'Score 30 in Star Catch', icon: 'star', title: 'Star Catcher', ok: d => (d.bestCatch || 0) >= 30 },
     { id: 'catch50', name: 'Galaxy Hands', desc: 'Score 50 in Star Catch', icon: 'planet', title: 'Galaxy Hands', ok: d => (d.bestCatch || 0) >= 50 },
     { id: 'nap10', name: 'Sleepyhead', desc: 'Take 10 Upside-Down Naps', icon: 'zzz', title: 'Sleepyhead', ok: d => (d.stats.naps || 0) >= 10 },
