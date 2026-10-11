@@ -2,14 +2,24 @@
 (function () {
   const Audio = {
     ctx: null, master: null, sfxGain: null, musicGain: null, noiseBuf: null, muted: false,
+    // v1.0 Settings: volume steps OFF, 1-4 (level 3 = the gains before v1.0); the mute button still mutes all
+    MUSIC_STEPS: [0, 0.10, 0.20, 0.32, 0.45], SFX_STEPS: [0, 0.30, 0.55, 0.80, 1.00], musicLevel: 3, sfxLevel: 3,
+    _lvl(v) { if (v == null || v === '') return 3; v = Math.round(Number(v)); return v >= 0 && v <= 4 ? v : 3; },
+    setVolumes(music, sfx) {
+      this.musicLevel = this._lvl(music); this.sfxLevel = this._lvl(sfx);
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime, run = this.ctx.state === 'running';
+      const set = (g, v) => { if (!g) return; g.gain.cancelScheduledValues(t); if (run) { g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(v, t + 0.12); } else g.gain.value = v; };
+      set(this.musicGain, this.MUSIC_STEPS[this.musicLevel]); set(this.sfxGain, this.SFX_STEPS[this.sfxLevel]);
+    },
     init() {
       if (this.ctx) { if (this.ctx.state !== 'running') this.ctx.resume(); return; }
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       const c = this.ctx = new AC();
       this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : 1; this.master.connect(c.destination);
-      this.sfxGain = c.createGain(); this.sfxGain.gain.value = 0.8; this.sfxGain.connect(this.master);
-      this.musicGain = c.createGain(); this.musicGain.gain.value = 0.32; this.musicGain.connect(this.master);
+      this.sfxGain = c.createGain(); this.sfxGain.gain.value = this.SFX_STEPS[this.sfxLevel]; this.sfxGain.connect(this.master);
+      this.musicGain = c.createGain(); this.musicGain.gain.value = this.MUSIC_STEPS[this.musicLevel]; this.musicGain.connect(this.master);
       const len = c.sampleRate * 1.5; const b = c.createBuffer(1, len, c.sampleRate); const d = b.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.noiseBuf = b;

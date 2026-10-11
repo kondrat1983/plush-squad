@@ -180,7 +180,11 @@
   }
   const need = l => 100 + (l - 1) * 50;
   function levelOf(x) { let l = 1, r = x; while (r >= need(l)) { r -= need(l); l++; } return { l, r, n: need(l) }; }
-  const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+  // v1.0 Settings (js/settings.js): BUZZ off = no vibration; CALM MODE = no sky extras; LEFT = mirrored move cards
+  const PREF = () => (window.PSPrefs && window.PSPrefs.data) || {};
+  const calm = () => !!PREF().calm;
+  const keep = cfg => (window.PSPrefs ? window.PSPrefs.keep(cfg) : cfg); // an endless tween that calm mode leaves running
+  const buzz = ms => { if (PREF().buzz === false) return; try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
   const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 
   function txt(scene, x, y, s, size, color = '#fff', o = {}) {
@@ -263,7 +267,7 @@
       const sp = 9000 + Math.random() * 12000;
       scene.tweens.add({ targets: cl, x: cl.x + W * 0.35, duration: sp * 2, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
-    scene.time.addEvent({ delay: 4200, loop: true, callback: () => { if (Math.random() < 0.6) shootingStar(scene); } });
+    scene.time.addEvent({ delay: 4200, loop: true, callback: () => { if (!calm() && Math.random() < 0.6) shootingStar(scene); } });
     bottomFade(scene);
   }
   // Halloween world: bats flapping across, an orange glow, cobwebs in the corners
@@ -271,6 +275,7 @@
     const wb = scene.add.image(W - 70, 70, 'web').setScale(0.9).setAlpha(0.35).setAngle(10);
     const wb2 = scene.add.image(70, 70, 'web').setScale(0.7).setAlpha(0.3).setFlipX(true);
     scene.time.addEvent({ delay: 3500, loop: true, callback: () => {
+      if (calm()) return;
       const y = H * (0.08 + Math.random() * 0.35), dir = Math.random() < 0.5 ? 1 : -1;
       const b = scene.add.image(dir > 0 ? -100 : W + 100, y, 'bat').setScale(0.3).setFlipX(dir < 0).setAlpha(0.85);
       scene.tweens.add({ targets: b, scaleY: 0.18, duration: 140, yoyo: true, repeat: -1 });
@@ -286,7 +291,7 @@
     const snow = scene.add.particles(0, 0, 'dot', { x: { min: -40, max: W + 40 }, y: -30, speedY: { min: 60, max: 140 }, speedX: { min: -40, max: 40 }, lifespan: 16000, scale: { min: 0.1, max: 0.28 }, alpha: { min: 0.5, max: 0.95 }, frequency: 260 });
     snow.setDepth(3);
     scene.time.addEvent({ delay: 6500, loop: true, callback: () => {
-      if (Math.random() < 0.4) return;
+      if (calm() || Math.random() < 0.4) return;
       const y = H * (0.1 + Math.random() * 0.35), l = scene.add.image(-80, y, 'mapleleaf').setScale(0.22).setAlpha(0.9).setDepth(3);
       scene.tweens.add({ targets: l, angle: 720, x: W + 80, y: y + rnd(80, 260), duration: 9000, ease: 'Sine.inOut', onComplete: () => l.destroy() });
     } });
@@ -295,12 +300,13 @@
   function spaceDecor(scene, rocketEvery = 7000) {
     const pl = scene.add.image(W * 0.12, H * (PORTRAIT ? 0.1 : 0.16), 'planet').setScale(0.7).setAlpha(0.55).setTint(0xc9b6ff);
     scene.tweens.add({ targets: pl, angle: 360, duration: 60000, repeat: -1 });
-    if (!(scene.R && scene.R.id === 'dragonboss')) { // no second UFO flying around the Mothership
+    if (!calm() && !(scene.R && scene.R.id === 'dragonboss')) { // no second UFO flying around the Mothership (no flyby in calm mode)
       const u = scene.add.image(-150, H * (PORTRAIT ? 0.33 : 0.3), 'ufo').setScale(0.42).setAlpha(0.8);
       scene.tweens.add({ targets: u, x: W + 150, duration: 26000, repeat: -1, delay: 1500 });
       scene.tweens.add({ targets: u, y: u.y - 40, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
     scene.time.addEvent({ delay: rocketEvery, loop: true, callback: () => {
+      if (calm()) return;
       const y = H * (0.08 + Math.random() * 0.3);
       const r = scene.add.image(W + 140, y, 'rocket').setScale(0.4).setAngle(-135).setAlpha(0.9);
       const tr = scene.add.particles(0, 0, 'dot', { follow: r, frequency: 30, lifespan: 600, scale: { start: 0.35, end: 0 }, alpha: { start: 0.7, end: 0 }, tint: [0xffd23f, 0xff8a3d, 0xffffff], speed: 30 });
@@ -820,8 +826,10 @@
       button(this, bx, byy + (PORTRAIT ? 135 : 150), PORTRAIT ? 480 : 420, PORTRAIT ? 92 : 100, '+ ADD A TOY', C.cream, () => { A.init(); A.startMusic(); fade(this, 'studio'); }, { size: 40 });
       // menu from plugins: Me, Friends, Album, Quests, Parents...
       const nav = [].concat(...PLUGINS.map(p => p.nav || [])).sort((a, b) => (a.order || 9) - (b.order || 9));
+      // landscape column: the last item stays above the level panel (top at H * 0.7 - 95), also with SETTINGS as the 6th (v1.0)
+      const navStep = Math.min(112, (H * 0.7 - 95 - 66 - 85) / Math.max(1, nav.length - 1));
       nav.forEach((it, i) => {
-        const x = PORTRAIT ? 90 + i * Math.min(170, (W - 300) / Math.max(1, nav.length - 1)) : 90, y = PORTRAIT ? 85 : 85 + i * 112;
+        const x = PORTRAIT ? 90 + i * Math.min(170, (W - 300) / Math.max(1, nav.length - 1)) : 90, y = PORTRAIT ? 85 : 85 + i * navStep;
         const c = this.add.container(x, y).setDepth(50);
         c.add(this.add.circle(0, 0, 46, it.color || C.night2).setStrokeStyle(4, C.seam));
         const ic = img(this, 0, 0, typeof it.icon === 'function' ? it.icon(PS) : it.icon); ic.setScale(iconScale(ic.texture.key === 'icons2' || ic.texture.key === 'icons' ? 'j:x' : ic.texture.key, 62)); c.add(ic);
@@ -1586,6 +1594,8 @@
         }
         top = rects[0].y - h / 2;
       }
+      // left-handed (Settings): the cards mirror, card 0 is top right; recomputed on every setup, so a rotation keeps it
+      if (PREF().hand === 'left') rects.forEach(r => { r.x = W - r.x; });
       const compact = !PORTRAIT && n > 4;
       // portrait: fighters stand just above the cards (room for the log line) and shrink when space is short
       const groundY = PORTRAIT ? top - 150 : (compact ? top - 80 : H * 0.68);
@@ -1832,7 +1842,7 @@
         [this.diffChip, this.boostChip].forEach(o => o && o.setVisible(!btns));
         if (this.boostChip && slap) this.boostChip.setVisible(false);
         // HARD: the two buttons swap sides at random each charge (this.toolSwap is set in startCharge)
-        const dx = 230, sw = this.toolSwap ? -1 : 1;
+        const dx = 230, sw = (this.toolSwap ? -1 : 1) * (PREF().hand === 'left' ? -1 : 1); // left-handed: FOAM! on the right
         this.extBtn.x = W / 2 - dx * sw; this.umbBtn.x = two ? W / 2 + dx * sw : W / 2;
       }
     }
@@ -2230,14 +2240,14 @@
         // SLAPSHOT wind-up: frosty tint, snowflakes rising around the rival
         this.fireFx.fillColor = 0x9fdcff;
         this.tweens.add({ targets: this.fireFx, fillAlpha: 0.14, duration: 600 });
-        this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: 0.06, duration: 800, yoyo: true, repeat: -1, delay: 600 });
+        this.chargeTw = this.tweens.add(keep({ targets: this.fireFx, fillAlpha: 0.06, duration: 800, yoyo: true, repeat: -1, delay: 600 }));
         T.spr.setTint(0xcfeaff);
         this.embers = this.add.particles(0, 0, 'snow', { x: { min: T.root.x - 160, max: T.root.x + 160 }, y: T.root.y - 20, speedY: { min: -360, max: -160 }, speedX: { min: -50, max: 50 }, lifespan: 1300, scale: { start: 0.14, end: 0 }, rotate: { min: 0, max: 360 }, frequency: 90 }).setDepth(12);
         return;
       }
       this.fireFx.fillColor = beam ? 0xc8ff3d : 0xff3b1f;
       this.tweens.add({ targets: this.fireFx, fillAlpha: beam ? 0.2 : 0.3, duration: 600 });
-      this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: beam ? 0.08 : 0.14, duration: 700, yoyo: true, repeat: -1, delay: 600 });
+      this.chargeTw = this.tweens.add(keep({ targets: this.fireFx, fillAlpha: beam ? 0.08 : 0.14, duration: 700, yoyo: true, repeat: -1, delay: 600 }));
       if (beam) {
         // Tractor Beam: a yellow-green spotlight from the saucer sweeps over the ground in front of the hero
         T.spr.setTint(0xe6ffb0);
@@ -2247,7 +2257,7 @@
         const o = { x: P.root.x + 160 };
         draw(o.x);
         this.beamSweep = this.tweens.add({ targets: o, x: P.root.x - 120, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', onUpdate: () => draw(o.x) });
-        this.tweens.add({ targets: g, alpha: 0.85, duration: 500, yoyo: true, repeat: -1 });
+        this.tweens.add(keep({ targets: g, alpha: 0.85, duration: 500, yoyo: true, repeat: -1 }));
         this.embers = this.add.particles(0, 0, 'dot', { x: { min: sx - 100, max: sx + 100 }, y: sy, speedY: { min: -200, max: 200 }, speedX: { min: -200, max: 200 }, lifespan: 700, scale: { start: 0.3, end: 0 }, tint: [0xd8ff6a, 0xffffff, 0x8cff7a], blendMode: 'ADD', frequency: 60 }).setDepth(12);
         return;
       }
