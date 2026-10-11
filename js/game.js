@@ -117,6 +117,12 @@
       if (played) d.comics = Object.assign({}, d.comics, { hills: true });
       d.mig09 = 1;
     }
+    // Pillow Week (#32, v0.9): a save that already took today's daily capsule starts on day 1 today (no extra reward);
+    // everyone else starts with an empty track. Nobody starts mid-week.
+    if (!d.streak || !Array.isArray(d.streak.days)) {
+      const E = window.PSExtra, t = E ? E.todayKey() : '';
+      d.streak = E && d.daily === new Date().toDateString() ? { days: [t], pillow: 0, at: Date.now(), weeks: 0, seen: t } : { days: [], pillow: 0, at: 0, weeks: 0, seen: '' };
+    }
   })(Save.data);
   // Halloween event: October + first week of November (or ?halloween to test)
   const NOW = new Date();
@@ -172,11 +178,21 @@
     for (const b of BOOSTS) { x -= RARITY[b.r].w; if (x <= 0) return b; }
     return BOOSTS[0];
   }
-  // one free capsule per day
-  function dailyCapsule() {
-    const today = new Date().toDateString();
-    if (Save.data.daily === today) return false;
-    Save.data.daily = today; Save.data.caps++; Save.store(); return true;
+  // Pillow Week (#32): replaces the daily capsule. One step of the 7-day track on the first map open of the local day;
+  // the reward is stored at once (a popup or a rotation never gives it twice). Returns js/extra.js streakStep()'s result.
+  function dailyStreak() {
+    const E = window.PSExtra; if (!E) return null;
+    const r = E.streakStep(Save.data.streak, E.todayKey(), Date.now());
+    Save.data.streak = r.st;
+    if (r.kind === 'none') return r;
+    if (r.reward) {
+      const w = r.reward;
+      Save.data.caps += w.caps; if (w.gold) Save.data.goldCaps = (Save.data.goldCaps || 0) + w.gold; if (w.xp) Save.data.xp += w.xp;
+      Save.data.daily = new Date().toDateString(); // the old daily-gift field, still written for older code
+      E.checkAch(); // the Pillow Week sticker on day 7
+    }
+    Save.store();
+    return r;
   }
   const need = l => 100 + (l - 1) * 50;
   function levelOf(x) { let l = 1, r = x; while (r >= need(l)) { r -= need(l); l++; } return { l, r, n: need(l) }; }
@@ -912,11 +928,29 @@
       let cbtn = capsuleButton(this, W - 200, 80, wd);
       backButton(this, () => fade(this, 'title'));
       muteButton(this);
-      if (dailyCapsule()) this.time.delayedCall(700, () => {
+      const wiggle = () => {
         cbtn.destroy(); cbtn = capsuleButton(this, W - 200, 80, wd);
-        this.hint('Daily gift: +1 capsule! Tap the capsule button'); A.levelUp();
         this.tweens.add({ targets: cbtn, angle: { from: -20, to: 20 }, duration: 120, yoyo: true, repeat: 5, onComplete: () => cbtn.setAngle(0) });
+      };
+      this.pillowWeek(r => {
+        if (r && r.reward && r.day === 1) this.time.delayedCall(700, () => { wiggle(); this.hint('Daily gift: +1 capsule! Tap the capsule button'); A.levelUp(); });
+        else if (r && r.reward) { cbtn.destroy(); cbtn = capsuleButton(this, W - 200, 80, wd); window.PSExtra.streakPopup(this, PS, r, wiggle); }
+        else if (window.PSExtra.streakDue(Save.data.streak)) window.PSExtra.streakPopup(this, PS, null, wiggle); // e.g. the map rebuilt after a rotation
       });
+    }
+    // Pillow Week (#32): the day counts on the first map open of the local day, never while bedtime or the daily limit
+    // sends the kid to the bedtime screen (#65). A logged-in device first syncs with the cloud save (Net.sync, at most
+    // 1.5 s; offline or slow: counts locally), so a day played on the other device is known before counting.
+    pillowWeek(done) {
+      const E = window.PSExtra; if (!E || E.blockedReason()) return;
+      const game = this.game, run = () => {
+        const st = this.sys.settings.status; // CREATING when called from create(), RUNNING after the cloud sync
+        if (window.__game !== game || this._leaving || (st !== Phaser.Scenes.CREATING && st !== Phaser.Scenes.RUNNING)) return; // rebuilt (rotation, newer cloud save) or left
+        done(dailyStreak());
+      };
+      const N = window.PSNet;
+      if (N && N.user && !E.streakCounted(Save.data.streak)) Promise.race([N.sync().catch(() => {}), new Promise(r => setTimeout(r, 1500))]).then(run);
+      else run();
     }
     // EASY / NORMAL / HARD switch (saved for all duels)
     diffSwitch(x, y) {
@@ -3679,7 +3713,7 @@
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
   PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA,
     txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, press, backButton, muteButton, capsuleButton, drawCapsule,
-    addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyCapsule };
+    addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyStreak };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
   function snapshot(game) {
     const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');

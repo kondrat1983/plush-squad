@@ -102,7 +102,7 @@
       if (!row) { await this.adoptLocal(); return null; }
       if (fresh) { await this.applyCloud(row.data); return null; }
       if (local.owner === this.user.id) {
-        if ((local.savedAt || 0) > (row.data.savedAt || 0)) { await this.adoptLocal(); return null; }
+        if ((local.savedAt || 0) > (row.data.savedAt || 0)) { mergeStreak(local, row.data); await this.adoptLocal(); return null; }
         await this.applyCloud(row.data); return null;
       }
       this._conflict = row.data;
@@ -110,7 +110,13 @@
     },
     // with a kept login (on start, and back in the app): the newer of this device and the cloud wins, so two
     // devices on one account no longer overwrite each other (#64). Until it has run once, nothing is pushed.
-    async sync() {
+    // (one sync at a time; a second caller, e.g. the map before counting a Pillow Week day, waits for the running one)
+    sync() {
+      if (this._syncP) return this._syncP;
+      const p = this._syncP = this._sync().finally(() => { if (this._syncP === p) this._syncP = null; });
+      return p;
+    },
+    async _sync() {
       if (this._syncing || !this.user) return;
       const d = S(); if (d.owner !== this.user.id) return;
       this._syncing = true; this._syncAt = Date.now();
@@ -119,7 +125,7 @@
         if (error) return;
         const cloud = row && row.data, ct = (cloud && cloud.savedAt) || 0, lt = d.savedAt || 0;
         this.synced = true;
-        if (!cloud || lt > ct) { await this.pushNow(); return; }
+        if (!cloud || lt > ct) { if (cloud) mergeStreak(d, cloud); await this.pushNow(); return; }
         if (ct <= lt) return;
         // a newer cloud save: never swap it in under a running duel, photo or game; try again a bit later
         const g = window.__game;
@@ -136,6 +142,7 @@
       for (const t of d.toys || []) { try { const url = await window.__IDB.get(t.id); if (url) await this.uploadToy(t, url); } catch (e) {} }
     },
     async applyCloud(data) {
+      if (S().owner === this.user.id) mergeStreak(data, S()); // same player on two devices: the streak merge rule (not for a guest save)
       data.owner = this.user.id;
       try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
       setMem(data);
@@ -207,6 +214,8 @@
     async museum() { const { data } = await this.sb.rpc('museum'); return (data || []).map(t => (okToy(t.meta), Object.assign(t, { username: okUser(t.username) }))); },
     async like(id) { const { data } = await this.sb.rpc('toggle_like', { p_toy: id }); return data || 0; },
   };
+  // Pillow Week (#32): where two saves of one player meet, `into` keeps the better streak of the two (js/extra.js mergeStreak)
+  function mergeStreak(into, other) { const E = window.PSExtra; if (E && (into.streak || other.streak)) into.streak = E.mergeStreak(into.streak, other.streak); }
   const lvl = x => { let l = 1, r = x; while (r >= 100 + (l - 1) * 50) { r -= 100 + (l - 1) * 50; l++; } return l; };
   window.PSNet = Net;
   window.PSOnSave = d => { d.savedAt = Date.now(); if (Net.user && d.owner === Net.user.id) Net.schedulePush(); };

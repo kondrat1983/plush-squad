@@ -5,7 +5,71 @@
   'use strict';
   const S = () => (window.__save && window.__save.data) || {};
   const store = () => window.__save && window.__save.store();
+  // the one date helper for all day logic (quests, play time, bedtime, Pillow Week; #65): the local calendar date as YYYY-MM-DD
   const todayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  // a date key as a day number (calendar days, so a 23 h or 25 h DST day does not matter), and back
+  const dayNum = k => { const [y, m, d] = String(k).split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86400000); };
+  const keyOfNum = n => new Date(n * 86400000).toISOString().slice(0, 10);
+
+  // ---------- Pillow Week: the daily streak (docs/gdd/0.9-daily-streak.md, #32). Replaces the daily capsule gift.
+  // Save.data.streak = { days: [counted date keys of this week, max 7], pillow: 1 when the Sleepy Pillow was used this week,
+  //   at: Date.now() of the last count, weeks: finished weeks, seen: last day whose popup was closed }
+  const STREAK_REWARDS = [null, { caps: 1 }, { caps: 1, xp: 20 }, { caps: 2 }, { caps: 1, xp: 30 }, { caps: 2 }, { caps: 1, xp: 40 }, { caps: 1, gold: 1, xp: 50 }];
+  const blankStreak = () => ({ days: [], pillow: 0, at: 0, weeks: 0, seen: '' });
+  const okStreak = s => (s && Array.isArray(s.days) ? s : blankStreak());
+  const lastDay = s => { const d = okStreak(s).days; return d[d.length - 1] || ''; };
+  const H36 = 36 * 3600000;
+  // one map open on day `today`: moves the track and returns what happened. kind 'none' = nothing to count,
+  // 'fix' = the clock was far ahead before (quietly back to today, no reward); otherwise `day` (1-7) and its `reward`
+  function streakStep(s, today, now) {
+    const st = okStreak(s), last = lastDay(st);
+    let kind;
+    if (!last) kind = 'first';
+    else {
+      const gap = dayNum(today) - dayNum(last);
+      if (gap === 0 || gap === -1) return { kind: 'none', st };
+      if (gap <= -2) { // the whole track moves back with the clock, so the day number stays and the next real day counts as gap 1
+        const seen = st.seen === last;
+        st.days = st.days.map(k => keyOfNum(dayNum(k) + gap)); st.at = now;
+        if (seen) st.seen = today;
+        return { kind: 'fix', st };
+      }
+      if (st.days.length >= 7) kind = 'week';
+      else if (gap === 1 || (gap === 2 && now - (st.at || 0) < H36)) kind = 'next'; // gap 2 within 36 h: a time-zone jump east
+      else if (gap === 2 && !st.pillow) kind = 'pillow';
+      else kind = 'restart'; // never announced: day 1 looks like any day 1
+    }
+    if (kind === 'next' || kind === 'pillow') st.days.push(today); else { st.days = [today]; st.pillow = 0; }
+    if (kind === 'pillow') { st.pillow = 1; st.nap = today; } // nap: the popup of this day shows the Sleepy Pillow line
+    const day = st.days.length;
+    if (day === 7) st.weeks = (st.weeks || 0) + 1;
+    st.at = now;
+    if (day === 1) st.seen = today; // day 1 shows only the small hint, no popup
+    return { kind, st, day, reward: STREAK_REWARDS[day], napped: kind === 'pillow' };
+  }
+  // where two saves meet (cloud sync, login): keep the streak whose last day is later, on the same day the one with more days;
+  // weeks = the bigger one. A track that restarted only because this device did not know the other one's days is joined
+  // to it, so a merge never makes a streak shorter. Rewards are not merged (they live in the save that wins).
+  function mergeStreak(a, b) {
+    const A = okStreak(a), B = okStreak(b), la = lastDay(A), lb = lastDay(B);
+    const win = la > lb ? A : lb > la ? B : (B.days.length > A.days.length ? B : A), lose = win === A ? B : A;
+    const out = Object.assign({}, win, { days: win.days.slice(), weeks: Math.max(A.weeks || 0, B.weeks || 0) });
+    const wl = lastDay(win), ll = lastDay(lose);
+    out.seen = A.seen === wl || B.seen === wl ? wl : (win.seen || '');
+    if (ll && win.days.length && lose.days.length < 7 && win.days[0] > ll) {
+      const g = dayNum(win.days[0]) - dayNum(ll), naps = (lose.pillow ? 1 : 0) + (win.pillow ? 1 : 0) + (g === 2 ? 1 : 0);
+      if ((g === 1 || g === 2) && naps <= 1 && lose.days.length + win.days.length < 7) { out.days = lose.days.concat(win.days); out.pillow = naps; }
+    }
+    return out;
+  }
+  // the popup is due on the map: today was counted as day 2-7 and its popup was not closed yet (also after a rotation)
+  const streakDue = s => { const st = okStreak(s), l = lastDay(st); return st.days.length >= 2 && l === todayKey() && st.seen !== l; };
+  const streakCounted = s => lastDay(s) === todayKey();
+  function streakLine(s) {
+    const st = okStreak(s);
+    if (!st.days.length) return 'Pillow Week: open the map to start!';
+    return 'Pillow Week: day ' + st.days.length + ' of 7  ·  Sleepy Pillow ' + (st.pillow ? 'is napping' : 'ready');
+  }
 
   // ---------- stickers (achievements). Each one gives a capsule and may unlock a title for the player card
   const ACH = [
@@ -39,6 +103,8 @@
     { id: 'slapshot', name: 'Slapshot Star', desc: 'Score 20 in Pond Hockey', icon: 'hockey', title: 'Slapshot Star', ok: d => (d.bestHockey || 0) >= 20 },
     { id: 'umbrella5', name: 'Umbrella Hero', desc: 'Block the Tractor Beam 5 times', icon: 'umbrella', title: 'Umbrella Hero', ok: d => (d.stats.beamBlocks || 0) >= 5 },
     { id: 'kraken', name: 'Kraken Fighter', desc: 'Fight the weekly Pillow Kraken', icon: 'kraken', title: 'Kraken Fighter', ok: d => (d.stats.krakenHits || 0) >= 1 },
+    // v0.9: Pillow Week (#32), one tier only (no 30-day or 100-day stickers that would push kids to play daily)
+    { id: 'pillowweek', name: 'Pillow Week', desc: 'Reach day 7 of Pillow Week', icon: 'pillow', title: 'Sleepy Champ', ok: d => ((d.streak || {}).weeks || 0) >= 1 },
   ];
   const ACH_BY_ID = {}; ACH.forEach(a => ACH_BY_ID[a.id] = a);
   const titles = () => ['Plush Friend'].concat(ACH.filter(a => a.title && S().ach && S().ach[a.id]).map(a => a.title));
@@ -130,6 +196,7 @@
   const queued = new Map();
   function flushToasts(scene, PS) {
     if (!pending.length || !scene || !scene.sys || !scene.sys.isActive()) return;
+    if (scene._psHold) return; // the Pillow Week popup is open: the stickers come after YAY! (they would slide in under it)
     if (!scene._psToasts || !scene._psToasts.alive) {
       const tk = scene._psToasts = { alive: true }, end = () => { tk.alive = false; scene.events.off('shutdown', end); scene.events.off('destroy', end); };
       scene.events.on('shutdown', end); scene.events.on('destroy', end);
@@ -246,6 +313,80 @@
     A.levelUp && A.levelUp();
   }
 
+  // ---------- Pillow Week popup on the map, day 2 to 7 (a card like What's new, over the sticker toasts).
+  // The reward is stored before it opens. `fresh`: the day was just counted (pillows tick in, sounds); the map rebuilt
+  // after a rotation shows it again, still and silent, until YAY! is tapped.
+  function streakPopup(scene, PS, fresh, onClose) {
+    const st = okStreak(S().streak), day = st.days.length, last = lastDay(st), R = STREAK_REWARDS[day];
+    const ss = scene.sys && scene.sys.settings.status; // (called from the map's create(), or after the cloud sync)
+    if (!R || day < 2 || (ss !== Phaser.Scenes.CREATING && ss !== Phaser.Scenes.RUNNING) || scene._psStreak) return null;
+    const { W, H, PORTRAIT, C, A, txt, fit, img, iconScale, button, drawCapsule } = PS;
+    scene._psHold = true;
+    const lay = scene._psStreak = scene.add.container(0, 0).setDepth(96);
+    lay.add(scene.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0.88).setInteractive());
+    const slot = PORTRAIT ? 130 : 160, gap = PORTRAIT ? 10 : 14, rowW = 7 * slot + 6 * gap;
+    const napped = st.nap === last, pw = Math.min(W - 40, rowW + 80), ph = 700 + (napped ? 70 : 0), top = H / 2 - ph / 2;
+    lay.add(card(scene, PS, W / 2, H / 2, pw, ph, C.night2, C.star));
+    lay.add(fit(txt(scene, W / 2, top + 80, day === 7 ? 'DAY 7! GOLDEN!' : 'DAY ' + day + '!', 72, '#ffd23f', { stroke: '#0f1240', st: 10 }), pw - 60));
+    // the track: 7 pillows with their rewards (all shown up front)
+    const yP = top + 210, x0 = W / 2 - rowW / 2 + slot / 2, cr = PORTRAIT ? 15 : 18;
+    const capsule = (x, y, r, gold) => { const g = scene.add.graphics(); drawCapsule(g, x, y, r, gold ? 0xffd23f : 0x7fd6ff); return g; };
+    for (let i = 0; i < 7; i++) {
+      const x = x0 + i * (slot + gap), Ri = STREAK_REWARDS[i + 1], done = i < day - 1, today = i === day - 1;
+      const c = scene.add.container(x, yP); lay.add(c);
+      const p = scene.add.image(0, 0, 'pillow'); p.setScale(slot * 0.95 / p.width); c.add(p);
+      c.add(txt(scene, 0, -4, String(i + 1), Math.round(slot * 0.3), C.ink, { st: 0, shadow: false }));
+      const ph2 = p.displayHeight / 2, yc = ph2 + 34;
+      if (Ri.gold) { c.add(capsule(-cr * 0.9, yc, cr * 1.25, true)); c.add(capsule(cr * 1.3, yc + 4, cr * 0.85)); const sp = img(scene, -cr * 1.9, yc - cr, 'sparkles'); sp.setScale(iconScale('sparkles', cr * 1.4)); c.add(sp); }
+      else for (let k = 0; k < Ri.caps; k++) c.add(capsule((k - (Ri.caps - 1) / 2) * cr * 2.3, yc, cr));
+      if (Ri.xp) c.add(PS.chip(scene, 0, yc + cr + 30, '+' + Ri.xp + ' XP', 0x7fe39a, PORTRAIT ? 20 : 24));
+      if (done || today) { const s = scene.add.image(slot * 0.3, -ph2 * 0.55, 'star'); s.setScale(iconScale('star', slot * 0.36)); c.add(s); }
+      if (!done && !today) c.setAlpha(0.5);
+      if (fresh && done) { c.setAlpha(0); scene.time.delayedCall(250 + i * 140, () => { if (!lay.active) return; A.tick && A.tick(); scene.tweens.add({ targets: c, alpha: 1, duration: 200 }); }); }
+      if (fresh && today) {
+        c.setScale(0);
+        scene.time.delayedCall(350 + i * 140, () => {
+          if (!lay.active) return;
+          A.heal && A.heal(); scene.tweens.add({ targets: c, scale: 1, duration: 450, ease: 'Back.out' });
+          for (let k = 0; k < 8; k++) {
+            const sp = scene.add.image(x, yP, 'spark').setTint(C.star).setScale(0.5).setDepth(97), a = k / 8 * Math.PI * 2;
+            lay.add(sp);
+            scene.tweens.add({ targets: sp, x: x + Math.cos(a) * slot * 0.9, y: yP + Math.sin(a) * slot * 0.9, alpha: 0, scale: 0.15, duration: 700, onComplete: () => sp.destroy() });
+          }
+          if (day === 7) scene.time.delayedCall(450, () => lay.active && A.win && A.win());
+        });
+      }
+      if (today) scene.tweens.add({ targets: p, angle: { from: -4, to: 4 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+    // the Sleepy Pillow corner
+    const yS = top + 430, sp = scene.add.container(W / 2, yS); lay.add(sp);
+    const pi = scene.add.image(-260, 0, 'pillow'); pi.setScale(100 / pi.width); sp.add(pi);
+    const z = scene.add.image(-215, -38, 'zzz'); z.setScale(iconScale('zzz', 48)); sp.add(z);
+    sp.add(fit(txt(scene, -190, 0, st.pillow ? 'Sleepy Pillow is napping' : 'Sleepy Pillow ready', 34, st.pillow ? '#8a8fd6' : '#fff3d2', { st: 5, ox: 0 }), pw / 2 + 130));
+    if (st.pillow) { pi.setTint(0x8a8fd6).setAlpha(0.7); z.setAlpha(0.6); }
+    else scene.tweens.add({ targets: z, y: z.y - 10, alpha: 0.6, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    let y = top + 500;
+    if (napped) {
+      lay.add(fit(txt(scene, W / 2, y, 'Jack napped through a day. The Sleepy Pillow kept your place!', 30, '#bcc0ee', { st: 5, weight: '500', wrap: pw - 80 }), pw - 60));
+      if (fresh) scene.time.delayedCall(1300, () => lay.active && A.snore && A.snore());
+      y += 70;
+    }
+    const line = day === 7 ? 'GOLDEN capsule! +1 capsule +50 XP!' : '+' + R.caps + ' capsule' + (R.caps > 1 ? 's' : '') + (R.xp ? ' +' + R.xp + ' XP' : '') + '!';
+    lay.add(fit(txt(scene, W / 2, y, line, 48, '#ff9ed8', { st: 7 }), pw - 60));
+    const close = () => {
+      if (!lay.active) return;
+      const s = S().streak; if (s && lastDay(s) === last) { s.seen = last; store(); }
+      const all = [], walk = o => { all.push(o); (o.list || []).forEach(walk); }; walk(lay);
+      scene.tweens.killTweensOf(all);
+      lay.destroy(true); scene._psStreak = null; scene._psHold = false;
+      onClose && onClose();
+      flushToasts(scene, PS);
+    };
+    lay.add(button(scene, W / 2, y + 110, 380, 120, 'YAY!', C.star, close, { size: 54 }));
+    if (fresh) { lay.setAlpha(0); scene.tweens.add({ targets: lay, alpha: 1, duration: 300 }); A.levelUp && A.levelUp(); }
+    return lay;
+  }
+
   function scenes(PS) {
     const { W, H, PORTRAIT, C, A, Save, txt, fit, img, iconScale, button, chip, fade, heroDef, levelOf, totalStars, COSTUMES, RIVALS } = PS;
 
@@ -273,8 +414,11 @@
         tchip.setSize(tchip.w, 60).setInteractive({ useHandCursor: true }); PS.press(this, tchip);
         tchip.on('pointerup', () => { const t = titles(), i = t.indexOf(d.title); d.title = t[(i + 1) % t.length]; Save.store(); A.click(); this.scene.restart(); });
         const stats = 'Level ' + lv + '   ·   ★ ' + totalStars() + '   ·   Stickers ' + Object.keys(d.ach || {}).length + '/' + ACH.length + '   ·   Best catch ' + (d.bestCatch || 0);
-        fit(txt(this, tx, ty + 150, stats, 30, '#bcc0ee', { st: 5, ox, weight: '500' }), PORTRAIT ? cw - 60 : cw - 440);
-        txt(this, tx, ty + 205, 'Wins ' + (d.wins || 0) + '   ·   Toys ' + (d.toys || []).length, 30, '#bcc0ee', { st: 5, ox, weight: '500' });
+        const sy = PORTRAIT ? 130 : 150, sg = PORTRAIT ? 48 : 55; // portrait: a little tighter, so the Pillow Week line stays on the card
+        fit(txt(this, tx, ty + sy, stats, 30, '#bcc0ee', { st: 5, ox, weight: '500' }), PORTRAIT ? cw - 60 : cw - 440);
+        txt(this, tx, ty + sy + sg, 'Wins ' + (d.wins || 0) + '   ·   Toys ' + (d.toys || []).length, 30, '#bcc0ee', { st: 5, ox, weight: '500' });
+        // Pillow Week (#32): one text line
+        this.streakLine = fit(txt(this, tx, ty + sy + sg * 2, streakLine(d.streak), PORTRAIT ? 28 : 30, '#ffd23f', { st: 5, ox, weight: '500' }), PORTRAIT ? cw - 60 : cw - 440);
         // costumes
         const owned = COSTUMES.filter(c => c.id === 'none' || (d.costumes || {})[c.id]);
         const yC = cy + chh / 2 + (short ? 60 : 90), hy = yC + (short ? 100 : 110);
@@ -554,7 +698,8 @@
     else flushToasts(scene, PS);
   }
 
-  window.PSExtra = { ACH, QUESTS, todaysQuests, pendingQuests, blockedReason, toast, header, card, parentGate, checkAch, bump };
+  window.PSExtra = { ACH, QUESTS, todaysQuests, pendingQuests, blockedReason, toast, header, card, parentGate, checkAch, bump,
+    todayKey, dayNum, STREAK_REWARDS, blankStreak, streakStep, mergeStreak, streakDue, streakCounted, streakLine, streakPopup };
   (window.PSPlugins = window.PSPlugins || []).push({
     name: 'extra',
     nav: [
