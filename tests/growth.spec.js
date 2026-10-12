@@ -54,6 +54,7 @@ test('makeKit: 4 / 5 / 6 moves at toy XP 0 / 50 / 150 / 300; the 5th never repea
 });
 
 test('toy XP and badges in every mode with a toy hero: campaign, campaign boss, Kraken, toy, friend; player XP unchanged', async ({ page }) => {
+  test.setTimeout(1200000); // five full duels in one test: over 6 min on a slow CI runner
   await boot(page, SAVE);
   await toy(page, 0);
   // campaign win (Moo): +10, badge, player XP as for Jack (R.xp, no first-clear bonus: Moo has stars)
