@@ -12,16 +12,16 @@ test('the 5 new stickers are earned from their stats, the 6 new quests are in th
   });
   for (const id of ['sasquatch', 'goalie', 'hattrick', 'slapshot', 'umbrella5']) expect(r.ach).toContain(id);
   for (const id of ['fort', 'pancakes', 'leaf', 'polite', 'animal', 'birds']) expect(r.quests).toContain(id);
-  expect(r.quests.length).toBe(24);
-  expect(r.n).toBe(27);
+  expect(r.quests.length).toBe(36); // v1.0: +6 Ocean, +6 Veggie Patch
+  expect(r.n).toBe(37); // 27 in v0.8 + Pillow Week (v0.9) + Explorer, Golden Toy, Toy Champion, 3 Ocean, 3 Veggie Patch (v1.0)
   noErrors(page);
 });
 
-test('What\'s new 0.9 shows for a player coming from 0.8', async ({ page }) => {
-  await boot(page, save({ seenVersion: '0.8' })); // the title opens first and shows it (once per launch)
+test('What\'s new 1.0 shows for a player coming from 0.9', async ({ page }) => {
+  await boot(page, save({ seenVersion: '0.9' })); // the title opens first and shows it (once per launch)
   const texts = () => page.evaluate(() => __game.scene.getScene('title').children.list.flatMap(o => o.list || [o]).filter(o => o.type === 'Text').map(t => t.text).join(' | '));
-  await expect.poll(async () => { await wait(page, 500); return texts(); }, { timeout: 30000 }).toContain("WHAT'S NEW in v0.9!");
-  expect(await texts()).toContain('Comics');
+  await expect.poll(async () => { await wait(page, 500); return texts(); }, { timeout: 30000 }).toContain("WHAT'S NEW in v1.0!");
+  expect(await texts()).toContain('OCEAN');
   noErrors(page);
 });
 
@@ -78,7 +78,8 @@ test('Title on a small phone with a hat on: the hat stays clear of the level pan
   noErrors(page);
 });
 
-test('My Squad: REMOVE is a real button, at least 90 px tall, and still asks first', async ({ page }) => {
+// v1.0 (#47): REMOVE became ADVENTURE; same size rule (B50)
+test('My Squad: ADVENTURE is a real button, at least 90 px tall, and still asks first', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => {
     const t = PSToys.createToy({ arch: PSToys.ARCH[0].id, element: 'magic', seed: 1, aspect: 1 }); t.name = 'Bunny';
@@ -88,14 +89,14 @@ test('My Squad: REMOVE is a real button, at least 90 px tall, and still asks fir
   await go(page, 'squad');
   await page.evaluate(() => __game.scene.getScene('squad').details({ toy: __save.data.toys[0] }));
   await wait(page, 1000);
-  const all = () => page.evaluate(() => { const out = []; const walk = l => l.forEach(o => { out.push(o); if (o.list) walk(o.list); }); walk(__game.scene.getScene('squad').children.list); return out.filter(o => o.type === 'Container' && o.list && o.list.some(t => t.text === 'REMOVE')).map(b => b.height); });
-  const h = await all();
+  const find = "(() => { const out = []; const walk = l => l.forEach(o => { out.push(o); if (o.list) walk(o.list); }); walk(__game.scene.getScene('squad').children.list); return out.filter(o => o.type === 'Container' && o.list && o.list.some(t => t.text === 'ADVENTURE')); })()";
+  const h = await page.evaluate(f => eval(f).map(b => b.height), find);
   expect(h.length).toBe(1);
   expect(h[0]).toBeGreaterThanOrEqual(90);
-  await page.evaluate(() => { const out = []; const walk = l => l.forEach(o => { out.push(o); if (o.list) walk(o.list); }); walk(__game.scene.getScene('squad').children.list); out.find(o => o.type === 'Container' && o.list && o.list.some(t => t.text === 'REMOVE')).emit('pointerup'); });
+  await page.evaluate(f => eval(f)[0].emit('pointerup'), find);
   await wait(page, 500);
   const texts = await page.evaluate(() => { const out = []; const walk = l => l.forEach(o => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(__game.scene.getScene('squad').children.list); return out.join('|'); });
-  expect(texts).toContain('This toy will leave the squad.');
+  expect(texts).toContain('Send Bunny on an adventure?');
   expect(await page.evaluate(() => __save.data.toys.length)).toBe(1);
   noErrors(page);
 });

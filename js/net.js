@@ -21,7 +21,14 @@
   const T = () => window.PSToys || {};
   const okName = (n, fb) => T().badName && T().badName(n) ? fb : n;
   const okUser = n => n != null && BAD.test(n) ? 'Player' : okName(n, 'Player'); // the sign-up rule, then the toy-name filter
-  const okToy = meta => { if (meta && meta.name != null) meta.name = okName(meta.name, ((T().ARCH_BY_ID || {})[meta.arch] || { nicks: ['Plushie'] }).nicks[0]); return meta; };
+  // toy growth (v1.0): friends' toy XP is clamped to 0..300 and only known badge ids are kept (meta is client-written)
+  const okToy = meta => {
+    if (!meta) return meta;
+    if (meta.name != null) meta.name = okName(meta.name, ((T().ARCH_BY_ID || {})[meta.arch] || { nicks: ['Plushie'] }).nicks[0]);
+    if (meta.xp != null) meta.xp = Math.max(0, Math.min(T().TOY_XP_MAX || 300, Math.round(+meta.xp) || 0));
+    if (meta.badges != null) { const B = T().BADGES || {}, b = {}; if (typeof meta.badges === 'object') Object.keys(meta.badges).forEach(k => { if (B[k]) b[k] = 1; }); meta.badges = b; }
+    return meta;
+  };
 
   const Net = {
     ready: false, sb: null, user: null, unread: 0, inboxCache: [], boss: null, _push: 0, _lastInbox: 0,
@@ -38,7 +45,7 @@
     checkName(name) {
       name = (name || '').trim().toLowerCase();
       if (!/^[a-z0-9_]{3,16}$/.test(name)) return 'Use 3-16 letters, numbers or _';
-      if (BAD.test(name)) return 'Please pick a different name';
+      if (BAD.test(name) || (T().badName && T().badName(name))) return 'Please pick a different name'; // plus the toy-name list (QA B61 / #69)
       return null;
     },
     async loadProfile(u) {
@@ -102,7 +109,7 @@
       if (!row) { await this.adoptLocal(); return null; }
       if (fresh) { await this.applyCloud(row.data); return null; }
       if (local.owner === this.user.id) {
-        if ((local.savedAt || 0) > (row.data.savedAt || 0)) { await this.adoptLocal(); return null; }
+        if ((local.savedAt || 0) > (row.data.savedAt || 0)) { mergeStreak(local, row.data); await this.adoptLocal(); return null; }
         await this.applyCloud(row.data); return null;
       }
       this._conflict = row.data;
@@ -110,21 +117,35 @@
     },
     // with a kept login (on start, and back in the app): the newer of this device and the cloud wins, so two
     // devices on one account no longer overwrite each other (#64). Until it has run once, nothing is pushed.
-    async sync() {
+    // (one sync at a time; a second caller, e.g. the map before counting a Pillow Week day, waits for the running one)
+    sync() {
+      if (this._syncP) return this._syncP;
+      const p = this._syncP = this._sync().finally(() => { if (this._syncP === p) this._syncP = null; });
+      return p;
+    },
+    async _sync() {
       if (this._syncing || !this.user) return;
       const d = S(); if (d.owner !== this.user.id) return;
       this._syncing = true; this._syncAt = Date.now();
+      // this device's save as it was when the fetch went out: a Pillow Week day counted while a slow fetch runs (the map
+      // waits 1.5 s at most) sets a new savedAt, which must not make an older save win over a newer cloud save
+      const lt0 = d.savedAt || 0, st0 = d.streak ? JSON.parse(JSON.stringify(d.streak)) : null;
       try {
         const { data: row, error } = await this.sb.from('saves').select('data').eq('user_id', this.user.id).maybeSingle();
         if (error) return;
-        const cloud = row && row.data, ct = (cloud && cloud.savedAt) || 0, lt = d.savedAt || 0;
+        const cloud = row && row.data, ct = (cloud && cloud.savedAt) || 0;
         this.synced = true;
-        if (!cloud || lt > ct) { await this.pushNow(); return; }
-        if (ct <= lt) return;
+        if (!cloud || lt0 > ct) {
+          if (cloud) { mergeStreak(d, cloud); try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} }
+          await this.pushNow(); return;
+        }
+        if (ct <= lt0) return;
         // a newer cloud save: never swap it in under a running duel, photo or game; try again a bit later
         const g = window.__game;
         if (g && ['battle', 'studio', 'comic', 'catch', 'hockey', 'gacha', 'account'].some(k => g.scene.isActive(k))) { setTimeout(() => this.sync(), 10000); return; }
-        await this.applyCloud(cloud);
+        // the streak of the save as it was before the fetch: a day counted meanwhile on the old save is counted again,
+        // once, on the cloud save after the rebuild (its reward lands there)
+        await this.applyCloud(cloud, st0);
         if (window.__psRebuild) window.__psRebuild();
       } catch (e) {} finally { this._syncing = false; }
     },
@@ -133,21 +154,39 @@
       const d = S(); d.owner = this.user.id; d.savedAt = Date.now();
       try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
       await this.pushNow();
-      for (const t of d.toys || []) { try { const url = await window.__IDB.get(t.id); if (url) await this.uploadToy(t, url); } catch (e) {} }
+      const metas = this.toyMetas(d);
+      for (const t of allToys(d)) { try { const url = await window.__IDB.get(t.id); if (url) await this.uploadToy(t, url, metas[this.user.id + ':' + t.id]); } catch (e) {} }
     },
-    async applyCloud(data) {
+    async applyCloud(data, streak) {
+      const cur = S();
+      if (cur.owner === this.user.id) { // same player on two devices: the streak merge rule (not for a guest save)
+        mergeStreak(data, streak !== undefined ? { streak } : cur);
+        // toys a grown-up said goodbye to on this device stay gone (their cloud delete may still be pending)
+        const gone = Array.from(new Set(goneIds(data).concat(goneIds(cur))));
+        if (gone.length) {
+          data.gone = gone;
+          if (Array.isArray(data.toys)) data.toys = data.toys.filter(t => !t || data.gone.indexOf(t.id) < 0);
+          if (Array.isArray(data.away)) data.away = data.away.filter(a => !(a && a.toy && data.gone.indexOf(a.toy.id) >= 0));
+          if (data.gone.indexOf(data.hero) >= 0) data.hero = 'jack';
+        }
+      }
       data.owner = this.user.id;
       try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
       setMem(data);
-      // bring the toy pictures to this device
-      const ids = (data.toys || []).map(t => this.user.id + ':' + t.id);
+      // bring the toy pictures to this device (also of toys on an adventure: they can come home here, v1.0)
+      // (a toy without a row, e.g. deleted by an older client, still has its picture at the usual bucket path)
+      const ids = allToys(data).map(t => this.user.id + ':' + t.id);
       if (ids.length) {
-        const { data: rows } = await this.sb.from('toys').select('id, img').in('id', ids);
-        for (const r of rows || []) {
+        let rows = [];
+        try { rows = (await this.sb.from('toys').select('id, img').in('id', ids)).data || []; } catch (e) {}
+        const img = {}; rows.forEach(r => { if (r && r.id) img[r.id] = r.img; });
+        for (const id of ids) {
+          const tid = id.split(':').slice(1).join(':');
           try {
-            const blob = await (await fetch(r.img)).blob();
+            const res = await fetch(img[id] || this.toyUrl(tid)); if (!res.ok) continue;
+            const blob = await res.blob();
             const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
-            await window.__IDB.set(r.id.split(':').slice(1).join(':'), url);
+            await window.__IDB.set(tid, url);
           } catch (e) {}
         }
       }
@@ -163,21 +202,56 @@
           stars: Object.values(d.stars || {}).reduce((a, b) => a + b, 0), title: d.title || 'Plush Friend',
           avatar: { hero: hero ? hero.id : 'jack', name: hero ? hero.name : 'Jack', img: hero ? this.toyUrl(hero.id) : null, costume: d.costume || 'none' },
           updated_at: new Date().toISOString() }).eq('id', this.user.id);
-        // toys deleted on this device disappear from the cloud too
-        const { data: rows } = await this.sb.from('toys').select('id').eq('owner', this.user.id);
-        const keep = new Set((d.toys || []).map(t => this.user.id + ':' + t.id));
-        const gone = (rows || []).map(r => r.id).filter(id => !keep.has(id));
-        if (gone.length) await this.sb.from('toys').delete().in('id', gone);
+        // toys a grown-up said goodbye to on THIS device (save.gone) disappear from the cloud too, with their picture (#76).
+        // A cloud toy this save does not know is left alone: it may be new on another device. Toys on an adventure stay
+        // (v1.0); a row's meta follows the toy (away flag, toy growth), so friends see it
+        const { data: rows, error } = await this.sb.from('toys').select('id, meta').eq('owner', this.user.id);
+        if (error || !Array.isArray(rows)) return;
+        const want = this.toyMetas(d);
+        await this.dropGone(d, want);
+        for (const r of rows) { const m = want[r.id]; if (m && metaSig(m) !== metaSig(r.meta)) await this.sb.from('toys').update({ meta: m }).eq('id', r.id); }
+        // a toy of this save without a cloud row (e.g. deleted by an older client): upload it again from this device's picture
+        const have = new Set(rows.map(r => r.id));
+        for (const t of allToys(d)) {
+          const id = this.user.id + ':' + t.id; if (have.has(id)) continue;
+          let url = null; try { url = await window.__IDB.get(t.id); } catch (e) {}
+          if (url) await this.uploadToy(t, url, want[id]);
+        }
       } catch (e) { console.warn('push', e); }
     },
+    // the cloud meta of every toy of this save: the squad as is, toys on an adventure with away: '<world>'
+    toyMetas(d) {
+      const out = {};
+      (d.toys || []).forEach(t => { if (t && t.id) out[this.user.id + ':' + t.id] = t; });
+      (Array.isArray(d.away) ? d.away : []).forEach(a => { if (a && a.toy && a.toy.id) out[this.user.id + ':' + a.toy.id] = Object.assign({}, a.toy, { away: (a.trip && a.trip.world) || 'hills' }); });
+      return out;
+    },
+    // a real delete, for grown-ups (Adventures, SAY GOODBYE): the row and the picture go now, not only on the next push.
+    // The id waits in save.gone until the delete went through (offline: the next push tries again)
+    async forgetToy(id) {
+      const d = S(); if (!this.user || !this.sb || d.owner !== this.user.id) return;
+      if (goneIds(d).indexOf(id) < 0) { d.gone = goneIds(d).concat([id]); writeLocal(d); }
+      try { await this.dropGone(d, this.toyMetas(d)); } catch (e) {}
+    },
+    // deletes the rows and pictures of save.gone (never of a toy still in the save), then clears the ids that went
+    async dropGone(d, want) {
+      const ids = goneIds(d).filter(id => !want[this.user.id + ':' + id]);
+      if (!ids.length) { if (goneIds(d).length) { d.gone = []; writeLocal(d); } return; }
+      const r = await this.sb.from('toys').delete().in('id', ids.map(id => this.user.id + ':' + id));
+      if (r && r.error) return;
+      // pictures in the public bucket; storage policy "toy pics delete own" (supabase/schema.sql)
+      const p = await this.sb.storage.from('toys').remove(ids.map(id => this.user.id + '/' + id + '.png'));
+      if (p && p.error) { console.warn('toy pics', p.error); return; }
+      d.gone = goneIds(d).filter(id => ids.indexOf(id) < 0 && !want[this.user.id + ':' + id]); writeLocal(d);
+    },
     toyUrl(id) { return CFG.url + '/storage/v1/object/public/toys/' + this.user.id + '/' + encodeURIComponent(id) + '.png'; },
-    async uploadToy(t, dataUrl) {
+    async uploadToy(t, dataUrl, meta) {
       if (!this.user) return;
       try {
         const blob = await (await fetch(dataUrl)).blob();
         const path = this.user.id + '/' + t.id + '.png';
         await this.sb.storage.from('toys').upload(path, blob, { upsert: true, contentType: 'image/png' });
-        await this.sb.from('toys').upsert({ id: this.user.id + ':' + t.id, owner: this.user.id, meta: t, img: this.toyUrl(t.id) });
+        await this.sb.from('toys').upsert({ id: this.user.id + ':' + t.id, owner: this.user.id, meta: meta || t, img: this.toyUrl(t.id) });
       } catch (e) { console.warn('toy upload', e); }
     },
     // ---- friends + inbox
@@ -187,7 +261,8 @@
     },
     async addFriend(code) { const { data, error } = await this.sb.rpc('add_friend', { p_code: code }); if (error) throw new Error(error.message); return data; },
     async removeFriend(id) { await this.sb.rpc('remove_friend', { p_id: id }); },
-    async squad(id) { const { data } = await this.sb.from('toys').select('id, meta, img').eq('owner', id).order('created_at'); return (data || []).map(t => (okToy(t.meta), t)); },
+    // a friend's toys on an adventure are not in their squad (no duel), v1.0
+    async squad(id) { const { data } = await this.sb.from('toys').select('id, meta, img').eq('owner', id).order('created_at'); return (data || []).filter(t => t.meta && !t.meta.away).map(t => (okToy(t.meta), t)); },
     async send(to, kind, payload) { const { data, error } = await this.sb.rpc('send_inbox', { p_to: to, p_kind: kind, p_payload: payload || {} }); if (error) throw new Error(error.message); return data; },
     async inbox() {
       if (!this.user) return [];
@@ -204,9 +279,16 @@
     async bossClaim() { const { data } = await this.sb.rpc('boss_claim'); return !!data; },
     async submitCatch(n) { try { await this.sb.rpc('submit_catch', { p_score: n }); } catch (e) {} },
     async board() { const { data } = await this.sb.rpc('catch_board'); return (data || []).map(r => Object.assign(r, { username: okUser(r.username) })); },
-    async museum() { const { data } = await this.sb.rpc('museum'); return (data || []).map(t => (okToy(t.meta), Object.assign(t, { username: okUser(t.username) }))); },
+    async museum() { const { data } = await this.sb.rpc('museum'); return (data || []).filter(t => t.meta && !t.meta.away).map(t => (okToy(t.meta), Object.assign(t, { username: okUser(t.username) }))); },
     async like(id) { const { data } = await this.sb.rpc('toggle_like', { p_toy: id }); return data || 0; },
   };
+  // Pillow Week (#32): where two saves of one player meet, `into` keeps the better streak of the two (js/extra.js mergeStreak)
+  function mergeStreak(into, other) { const E = window.PSExtra; if (E && (into.streak || other.streak)) into.streak = E.mergeStreak(into.streak, other.streak); }
+  const goneIds = d => (Array.isArray(d && d.gone) ? d.gone.filter(x => typeof x === 'string') : []);
+  const writeLocal = d => { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} };
+  const allToys = d => (d.toys || []).concat((Array.isArray(d.away) ? d.away : []).map(a => a && a.toy).filter(t => t && t.id));
+  // what friends see of a toy: a change here sends the toy's meta again on the next push
+  const metaSig = m => m ? JSON.stringify([m.name, m.xp || 0, Object.keys(m.badges || {}).sort(), m.away || null, (m.souv || []).slice().sort()]) : '';
   const lvl = x => { let l = 1, r = x; while (r >= 100 + (l - 1) * 50) { r -= 100 + (l - 1) * 50; l++; } return l; };
   window.PSNet = Net;
   window.PSOnSave = d => { d.savedAt = Date.now(); if (Net.user && d.owner === Net.user.id) Net.schedulePush(); };
@@ -337,7 +419,8 @@
           const b = this.add.container(x, ty);
           b.add(X().card(this, PS, 0, 0, tw, 80, on ? C.star : C.night2, on ? 0xffffff : C.seam));
           const im = img(this, -tw / 2 + 38, 0, ic); im.setScale(iconScale(ic, 50)); b.add(im);
-          b.add(fit(txt(this, 18, 0, l, 26, on ? C.ink : '#fff3d2', { st: 0, shadow: false }), tw - 80));
+          // the label is centred in the space right of the icon, with a gap (QA B63: the star covered the "T" of TOP CATCH)
+          b.add(fit(txt(this, 32, 0, l, 26, on ? C.ink : '#fff3d2', { st: 0, shadow: false }), tw - 92));
           if (k === 'mail' && Net.unread) { b.add(this.add.circle(tw / 2 - 8, -34, 18, C.coral)); b.add(txt(this, tw / 2 - 8, -34, String(Net.unread), 20, '#fff', { st: 0, shadow: false })); }
           b.setSize(tw, 80).setInteractive({ useHandCursor: true }); PS.press(this, b);
           b.on('pointerup', () => { if (!on) { A.click(); this.scene.restart({ tab: k }); } });
@@ -469,13 +552,14 @@
         if (!list.length) { txt(this, W / 2, H / 2, 'No new mail', 44, '#fff3d2', { st: 7 }); return; }
         // the 30 newest messages, a page at a time (QA B28 / #26)
         const w = Math.min(W - 80, 1100), h = 150, top = this.top + 40;
-        const per = Math.max(1, Math.floor((H - top - 110) / (h + 14))), pages = Math.ceil(list.length / per);
+        // the pager sits right below the last message of the page, arrows 160 x 100 (QA B62)
+        const PH = 100, per = Math.max(1, Math.floor((H - top - PH - 50) / (h + 14))), pages = Math.ceil(list.length / per);
         this.mailPage = Math.max(0, Math.min(this.mailPage || 0, pages - 1));
         if (pages > 1) {
-          const py = top + per * (h + 14) + 40;
-          txt(this, W / 2, py, (this.mailPage + 1) + ' / ' + pages, 30, '#bcc0ee', { st: 5 });
-          if (this.mailPage > 0) button(this, W / 2 - 160, py, 120, 64, '◀', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage - 1 }), { size: 30 });
-          if (this.mailPage < pages - 1) button(this, W / 2 + 160, py, 120, 64, '▶', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage + 1 }), { size: 30 });
+          const shown = Math.min(per, list.length - this.mailPage * per), py = top + shown * (h + 14) + 10 + PH / 2;
+          txt(this, W / 2, py, (this.mailPage + 1) + ' / ' + pages, 34, '#bcc0ee', { st: 5 });
+          if (this.mailPage > 0) button(this, W / 2 - 190, py, 160, PH, '◀', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage - 1 }), { size: 40 });
+          if (this.mailPage < pages - 1) button(this, W / 2 + 190, py, 160, PH, '▶', C.cream, () => this.scene.restart({ tab: 'mail', mailPage: this.mailPage + 1 }), { size: 40 });
         }
         list.slice(this.mailPage * per, this.mailPage * per + per).forEach((m, i) => {
           const y = top + h / 2 + i * (h + 14), from = m.from_name || 'A friend';
@@ -517,7 +601,7 @@
         list.slice(0, cols * maxRows).forEach(async (t, i) => {
           const x = W / 2 + ((i % cols) - (cols - 1) / 2) * (cw + 16), y = top + ch / 2 + Math.floor(i / cols) * (ch + 16);
           const c = this.add.container(x, y);
-          c.add(X().card(this, PS, 0, 0, cw, ch, t.owner === Net.user.id ? 0x2e3488 : C.night2));
+          c.add(X().card(this, PS, 0, 0, cw, ch, t.owner === Net.user.id ? 0x2e3488 : C.night2, T().toyLevel && T().toyLevel(t.meta.xp) >= 4 ? C.star : null)); // GOLDEN (v1.0)
           const key = 'mtoy_' + t.id.replace(/[^a-z0-9]/gi, '');
           if (this.textures.exists(key) || await PS.addTexture(this, key, t.img)) { if (!this.sys.isActive()) return; c.add(avatarImg(this, PS, 0, -40, key, cw - 50)); }
           c.add(fit(txt(this, 0, ch / 2 - 70, t.meta.name, 26, '#fff3d2', { st: 5 }), cw - 20));

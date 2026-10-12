@@ -3,6 +3,15 @@
 What happened in Plush Squad, newest on top: game releases (what changed for the player), owner decisions, new or changed docs. Details: [decisions](gdd/decisions.md), [GitHub issues](https://github.com/kondrat1983/plush-squad/issues?q=is%3Aissue).
 
 
+## 11 Oct 2026
+**Game: v1.0.0**
+- Two new worlds: OCEAN (Hermy, Puff, Jelly, Captain Fog, boss Sleepy Thully; Compass Spin, WAKE UP! / ALARM!) and VEGGIE PATCH (Olly, The Peas, Garlic Gus, Fun-Guy, boss Brock Lee; PEEKABOO!). Comics, hats (Nightcap, Broccoli Hair), music, stickers and quests for both. Boss art by Kondrat.
+- Pillow Week daily streak with a Sleepy Pillow (#32); no daily gift at bedtime (#65).
+- Toys go on adventures instead of being deleted, with postcards and souvenirs (#47); a real delete also removes the photo from the cloud (#76).
+- Toy growth: toy levels, 5th and 6th move, GOLDEN look, badges.
+- Settings: music and sound volume, calm mode, left-handed cards, What's new replay.
+- Fixes: Cyrillic name filter (#69), mail arrows (#70), Friends tab icon (#71), comic layout (#72, #75).
+
 ## 5 Oct 2026
 **Game: v0.9.0**
 - Comics for every world (#62): Jack lands in Pillow Hills (new players), Space (everyone, once) and Spooky (during Halloween), like the Canada comic. All 4 in the Album COMICS shelf (2 x 2). The open map tab no longer replays a comic; SKIP jumps to the title page.

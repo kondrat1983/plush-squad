@@ -2,14 +2,24 @@
 (function () {
   const Audio = {
     ctx: null, master: null, sfxGain: null, musicGain: null, noiseBuf: null, muted: false,
+    // v1.0 Settings: volume steps OFF, 1-4 (level 3 = the gains before v1.0); the mute button still mutes all
+    MUSIC_STEPS: [0, 0.10, 0.20, 0.32, 0.45], SFX_STEPS: [0, 0.30, 0.55, 0.80, 1.00], musicLevel: 3, sfxLevel: 3,
+    _lvl(v) { if (v == null || v === '') return 3; v = Math.round(Number(v)); return v >= 0 && v <= 4 ? v : 3; },
+    setVolumes(music, sfx) {
+      this.musicLevel = this._lvl(music); this.sfxLevel = this._lvl(sfx);
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime, run = this.ctx.state === 'running';
+      const set = (g, v) => { if (!g) return; g.gain.cancelScheduledValues(t); if (run) { g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(v, t + 0.12); } else g.gain.value = v; };
+      set(this.musicGain, this.MUSIC_STEPS[this.musicLevel]); set(this.sfxGain, this.SFX_STEPS[this.sfxLevel]);
+    },
     init() {
       if (this.ctx) { if (this.ctx.state !== 'running') this.ctx.resume(); return; }
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       const c = this.ctx = new AC();
       this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : 1; this.master.connect(c.destination);
-      this.sfxGain = c.createGain(); this.sfxGain.gain.value = 0.8; this.sfxGain.connect(this.master);
-      this.musicGain = c.createGain(); this.musicGain.gain.value = 0.32; this.musicGain.connect(this.master);
+      this.sfxGain = c.createGain(); this.sfxGain.gain.value = this.SFX_STEPS[this.sfxLevel]; this.sfxGain.connect(this.master);
+      this.musicGain = c.createGain(); this.musicGain.gain.value = this.MUSIC_STEPS[this.musicLevel]; this.musicGain.connect(this.master);
       const len = c.sampleRate * 1.5; const b = c.createBuffer(1, len, c.sampleRate); const d = b.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.noiseBuf = b;
@@ -105,10 +115,27 @@
     blip() { [880, 1175, 1568].forEach((f, i) => this.tone(f, 0.09, { type: 'square', vol: 0.06, slide: 1.3, delay: i * 0.08 })); },
     beam() { for (let i = 0; i < 6; i++) this.tone(330 + i * 70, 0.24, { type: 'sine', vol: 0.12, slide: 1.12, delay: i * 0.18 }); this.tone(165, 1.2, { type: 'triangle', vol: 0.08, slide: 1.6, attack: 0.3 }); },
     umbrella() { this.tone(520, 0.08, { type: 'square', vol: 0.12, slide: 1.8 }); this.noise(0.25, { type: 'bandpass', f: 1200, q: 1, vol: 0.3, attack: 0.01, delay: 0.06 }); },
+    // v1.0 Ocean: compass whirr, alarm clock, Thully's yawn and grumble, Puff's puff and PFFFT, bubbles, a cartoon gull, a splash
+    whirr() { [0, 0.35].forEach(d => { this.noise(0.3, { f: 500, slide: 5, q: 4, vol: 0.2, attack: 0.05, delay: d }); }); this.tone(2200, 0.03, { type: 'square', vol: 0.06, delay: 0.7 }); },
+    alarm() { for (let i = 0; i < 12; i++) this.tone(i % 2 ? 1800 : 1500, 0.06, { type: 'square', vol: 0.06, delay: i * 0.066 }); this.tone(900, 0.03, { type: 'square', vol: 0.08, delay: 0.82 }); },
+    yawn() { this.tone(392, 1.2, { type: 'triangle', vol: 0.2, slide: 0.667, attack: 0.25 }); this.noise(1.1, { type: 'lowpass', f: 900, vol: 0.12, attack: 0.3, slide: 0.6 }); },
+    grumble() { this.tone(80, 0.7, { type: 'sawtooth', vol: 0.16, slide: 0.85, attack: 0.05 }); this.tone(90, 0.7, { type: 'sawtooth', vol: 0.1, slide: 0.8, attack: 0.1 }); this.noise(0.7, { type: 'lowpass', f: 300, vol: 0.2, attack: 0.05 }); },
+    puff() { this.noise(0.45, { type: 'lowpass', f: 300, slide: 6, vol: 0.3, attack: 0.3 }); this.tone(500, 0.06, { vol: 0.25, slide: 1.8, delay: 0.42 }); },
+    pffft() { this.noise(0.6, { f: 1800, slide: 0.2, q: 3, vol: 0.35, attack: 0.02 }); this.tone(300, 0.5, { type: 'sawtooth', vol: 0.05, slide: 0.5 }); },
+    bubble() { for (let i = 0; i < 4; i++) this.tone(500 + Math.random() * 400, 0.08, { vol: 0.15, slide: 2, delay: i * 0.08 }); },
+    squawk() { [0, 0.2].forEach(d => this.tone(1300, 0.14, { type: 'square', vol: 0.08, slide: 0.55, delay: d })); },
+    splash() { this.noise(0.5, { type: 'lowpass', f: 1600, slide: 0.3, vol: 0.4, attack: 0.005 }); },
+    // v1.0 Veggie Patch: digging, a mound popping up, "pee-ka-BOO!", garlic breath, a worm squeak, a wrong mound
+    dig() { for (let i = 0; i < 3; i++) this.noise(0.09, { f: 1200 + i * 200, q: 2, vol: 0.3, delay: i * 0.13 }); },
+    pop() { this.tone(400, 0.12, { vol: 0.25, slide: 2 }); this.noise(0.1, { f: 2000, vol: 0.15, delay: 0.02 }); },
+    peekaboo() { [[660, 0.12, 0], [660, 0.12, 0.16], [990, 0.35, 0.32]].forEach(([f, d, at]) => this.tone(f, d, { type: 'triangle', vol: 0.2, delay: at })); },
+    huff() { this.noise(0.8, { type: 'lowpass', f: 700, vol: 0.3, attack: 0.2, slide: 0.6 }); },
+    squeak() { this.tone(1800, 0.1, { vol: 0.12, slide: 1.4 }); },
+    nope() { [0, 0.14].forEach((d, i) => this.tone(220 - i * 40, 0.1, { type: 'square', vol: 0.08, delay: d })); },
     catchStar() { this.tone(1319 + Math.random() * 300, 0.18, { type: 'triangle', vol: 0.16 }); this.tone(1760, 0.2, { type: 'sine', vol: 0.08, delay: 0.05 }); },
     levelUp() { [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.2, delay: i * 0.09 })); },
 
-    // ---- music: four procedural tracks (calm lullaby for menus, 'battle' for duels, 'boss' for boss duels, 'north' for Canada duels)
+    // ---- music: procedural tracks (calm lullaby for menus, battle, boss, north for Canada, v1.0 sea and garden, lullaby while Sleepy Thully sleeps)
     // music(name) picks the track (crossfade); startMusic() starts the scheduler after the first tap.
     _timer: null, _next: 0, _step: 0, _track: null, _want: 'calm', _bus: null,
     mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); },
@@ -118,6 +145,7 @@
       const osc = c.createOscillator(), g = c.createGain();
       osc.type = o.type || 'triangle'; osc.frequency.setValueAtTime(this.mtof(m), at);
       if (o.det) osc.detune.setValueAtTime(o.det, at);
+      if (o.slide) osc.frequency.exponentialRampToValueAtTime(this.mtof(m) * o.slide, at + Math.max(0.01, dur));
       const v = o.vol == null ? 0.05 : o.vol, a = o.a || 0.008, r = o.r == null ? 0.08 : o.r;
       g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(v, at + a);
       g.gain.setValueAtTime(v, at + Math.max(a, dur)); g.gain.exponentialRampToValueAtTime(0.0001, at + Math.max(a, dur) + r);
@@ -136,6 +164,14 @@
       const f = c.createBiquadFilter(); f.type = o.type || 'bandpass'; f.Q.value = o.q || 0.8; f.frequency.setValueAtTime(o.f || 1000, at);
       const g = c.createGain(); g.gain.setValueAtTime(o.vol || 0.1, at); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
       src.connect(f); f.connect(g); g.connect(bus); src.start(at, Math.random() * 0.5); src.stop(at + dur + 0.05);
+    },
+    // a slow wave: low-pass noise rising and falling (the sea track)
+    swell(at, dur, vol = 0.05) {
+      const c = this.ctx, bus = this._bus; if (!c || !bus) return;
+      const src = c.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(300, at); f.frequency.linearRampToValueAtTime(1100, at + dur / 2); f.frequency.linearRampToValueAtTime(300, at + dur);
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(vol, at + dur / 2); g.gain.linearRampToValueAtTime(0.0001, at + dur);
+      src.connect(f); f.connect(g); g.connect(bus); src.start(at); src.stop(at + dur + 0.05);
     },
     drum(kind, at, v = 1) {
       const c = this.ctx, bus = this._bus; if (!c || !bus) return;
@@ -243,6 +279,55 @@
         const m = MEL[bar][s];
         if (m) { A.voice(m, t, sp * 0.8, { type: 'square', vol: 0.03, lp: 2800, r: 0.05, det: 6 }); A.voice(m, t, sp * 0.8, { type: 'sawtooth', vol: 0.012, lp: 2200, r: 0.05, det: -8 }); }
         if (partB && s === 0) A.voice(root + 48 + (bar % 2 ? 7 : 0), t, 0.001, { type: 'sine', vol: 0.05, r: sp * 4 }); // bells
+      } },
+      // v1.0 Ocean: a cozy sea shanty, D dorian 6/8 (2 beats of 3 eighths per bar), 16 bars: square "concertina", heave-ho bass, wave swell, claps in part B
+      sea: { bpm: 108, div: 3, len: 96, gain: 0.7, play(A, n, t, sp) {
+        const bar = Math.floor(n / 6), s = n % 6, partB = bar >= 8;
+        const roots = [38, 38, 36, 36, 38, 38, 43, 45, 41, 36, 38, 45, 43, 43, 38, 38]; // Dm Dm C C Dm Dm G Am | F C Dm Am G G Dm Dm
+        const minor = [1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1], root = roots[bar], third = minor[bar] ? 3 : 4;
+        if (s === 0) A.voice(root, t, sp * 2.2, { type: 'triangle', vol: 0.14, r: 0.08 });
+        if (s === 3) A.voice(root + 12, t, sp * 1.6, { type: 'triangle', vol: 0.1, r: 0.06 });
+        if (s === 1 || s === 4) [12, 12 + third, 19].forEach(iv => A.voice(root + 12 + iv, t, sp * 0.7, { type: 'square', vol: 0.01, lp: 1600, r: 0.04 }));
+        if (partB && s === 3) A.hit(t, 0.09, { f: 1500, q: 0.9, vol: 0.12 });
+        if (bar % 4 === 0 && s === 0) A.swell(t, sp * 24, 0.05);
+        const MEL = [
+          [69, 0, 69, 74, 0, 72], [69, 67, 65, 62, 0, 0], [67, 0, 67, 72, 0, 71], [72, 71, 69, 67, 0, 0],
+          [69, 0, 69, 74, 0, 76], [77, 76, 74, 72, 0, 69], [71, 0, 67, 71, 74, 71], [69, 0, 0, 69, 0, 0],
+          [72, 0, 72, 77, 0, 76], [74, 72, 71, 72, 0, 0], [74, 0, 74, 77, 0, 79], [81, 79, 77, 76, 0, 0],
+          [79, 0, 74, 71, 0, 74], [71, 69, 67, 71, 0, 0], [69, 0, 72, 74, 0, 72], [74, 0, 0, 62, 0, 0],
+        ];
+        const m = MEL[bar][s];
+        if (m) { A.voice(m, t, sp * 0.9, { type: 'square', vol: 0.028, lp: 2400, r: 0.06, det: 5 }); A.voice(m, t, sp * 0.9, { type: 'square', vol: 0.016, lp: 2000, r: 0.06, det: -9 }); }
+      } },
+      // v1.0 Sleepy Thully asleep: a music box lullaby, F major 3/4, 16 bars; sine tines two octaves up, a soft root drone
+      lullaby: { bpm: 72, div: 2, len: 96, gain: 0.6, play(A, n, t, sp) {
+        const bar = Math.floor(n / 6), s = n % 6;
+        const roots = [41, 36, 38, 34, 41, 36, 34, 41, 38, 34, 41, 36, 38, 34, 36, 41]; // F C Dm Bb F C Bb F | Dm Bb F C Dm Bb C F
+        if (s === 0) A.voice(roots[bar] + 12, t, sp * 5, { type: 'sine', vol: 0.06, a: 0.2, r: 0.5 });
+        const MEL = [
+          [77, 0, 81, 0, 84, 0], [79, 0, 76, 0, 72, 0], [74, 0, 77, 0, 81, 0], [82, 0, 81, 0, 77, 0],
+          [77, 0, 81, 0, 84, 0], [86, 0, 84, 0, 79, 0], [82, 81, 79, 0, 77, 0], [77, 0, 0, 0, 0, 0],
+          [81, 0, 77, 0, 74, 0], [77, 0, 74, 0, 70, 0], [72, 0, 77, 0, 81, 0], [79, 0, 0, 0, 76, 0],
+          [81, 0, 84, 0, 86, 0], [84, 0, 82, 0, 77, 0], [79, 0, 76, 0, 79, 0], [77, 0, 0, 0, 0, 0],
+        ];
+        const m = MEL[bar][s];
+        if (m) { A.voice(m + 12, t, 0.001, { type: 'sine', vol: 0.05, r: sp * 2.2 }); A.voice(m + 24, t, 0.001, { type: 'sine', vol: 0.015, r: sp * 1.2 }); }
+      } },
+      // v1.0 Veggie Patch: a bouncy garden polka, G major 2/4, 16 bars; plucked square "banjo", oom-pah bass, woodblock off-beats, a slide whistle every 8 bars
+      garden: { bpm: 132, div: 4, len: 128, gain: 0.7, play(A, n, t, sp) {
+        const bar = Math.floor(n / 8), s = n % 8;
+        const roots = [43, 43, 36, 43, 38, 38, 43, 43, 36, 36, 43, 40, 45, 38, 43, 43]; // G G C G D D G G | C C G Em A D G G
+        const minor = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], root = roots[bar], third = minor[bar] ? 3 : 4;
+        if (s === 0) A.voice(root, t, sp * 1.5, { type: 'triangle', vol: 0.14, r: 0.04 });
+        if (s === 4) A.voice(root + 7, t, sp * 1.5, { type: 'triangle', vol: 0.12, r: 0.04 });
+        if (s === 2 || s === 6) { A.hit(t, 0.04, { f: 2600, q: 6, vol: 0.12 }); [12, 12 + third, 19].forEach(iv => A.voice(root + 12 + iv, t, sp * 0.6, { type: 'square', vol: 0.01, lp: 1800, r: 0.03 })); }
+        if (bar % 8 === 7 && s === 4) A.voice(72, t, sp * 3.5, { type: 'sine', vol: 0.05, a: 0.03, r: 0.1, slide: 2 });
+        const MEL = [
+          [67, 71, 74, 71], [79, 0, 74, 0], [76, 72, 76, 79], [74, 0, 71, 0], [69, 72, 78, 74], [72, 71, 69, 66], [67, 71, 74, 79], [79, 0, 0, 0],
+          [76, 0, 76, 79], [76, 72, 76, 0], [74, 71, 74, 79], [83, 79, 76, 0], [81, 78, 81, 74], [78, 74, 72, 69], [71, 74, 79, 74], [79, 0, 67, 0],
+        ];
+        const m = s % 2 === 0 ? MEL[bar][s / 2] : 0;
+        if (m) { A.voice(m, t, sp * 0.5, { type: 'square', vol: 0.03, lp: 3200, env: 2, r: 0.12 }); A.voice(m - 12, t, sp * 0.4, { type: 'triangle', vol: 0.04, r: 0.1 }); }
       } },
     },
     music(name) {

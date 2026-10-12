@@ -18,7 +18,8 @@ test('Canada sits after Space: 4 rivals in order, opens after the Mothership, be
   const r = await page.evaluate(() => __RIVALS.map(r => [r.id, r.world, r.hp, r.xp, !!r.boss]));
   const ids = r.map(x => x[0]);
   const i = ids.indexOf('moose');
-  expect(ids.slice(i - 1, i + 5)).toEqual(['dragonboss', 'moose', 'beaver', 'mountie', 'sasquatch', 'pumpkin']);
+  expect(ids.slice(i - 1, i + 5)).toEqual(['dragonboss', 'moose', 'beaver', 'mountie', 'sasquatch', 'hermy']); // v1.0: Ocean comes next (Spooky after Veggie Patch)
+  expect(ids[ids.length - 4]).toBe('pumpkin');
   expect(r.slice(i, i + 4)).toEqual([['moose', 2, 145, 130, false], ['beaver', 2, 155, 140, false], ['mountie', 2, 165, 150, false], ['sasquatch', 2, 210, 200, true]]);
   await go(page, 'map', { world: 2 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).not.toBe(2); // locked: falls back
@@ -75,16 +76,16 @@ test('beating Sasquatch gives the Canada Toque; it shows in Me and on the title 
   noErrors(page);
 });
 
-test('map tabs: with 4 worlds in portrait the open tab has its name, the others only an icon; nothing off screen', async ({ page }) => {
+test('map tabs (v1.0: 6 with the event): the open tab has its short name, the others only an icon; landscape all icons; nothing off screen', async ({ page }) => {
   for (const vp of [{ width: 375, height: 667 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(vp);
     await boot(page, save({ stars: Object.assign({}, SPACE_DONE, { moose: 1 }) }), '&halloween');
     await go(page, 'map', { world: 2 });
     const tabs = await page.evaluate(() => __game.scene.getScene('map').children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96)
       .map(c => ({ w: c.width, name: c.list.find(o => o.type === 'Text').visible })));
-    expect(tabs.length).toBe(4);
-    expect(tabs.filter(t => t.name).length).toBe(vp.width < vp.height ? 1 : 4); // wide landscape: every name fits
-    expect(tabs[2].name).toBe(true);
+    expect(tabs.length).toBe(6);
+    expect(tabs.filter(t => t.name).length).toBe(vp.width < vp.height ? 1 : 0); // landscape with 6 tabs: the name is in the level line
+    expect(tabs[2].name).toBe(vp.width < vp.height);
     expect(await offscreen(page, 'map')).toEqual([]);
   }
   noErrors(page);
