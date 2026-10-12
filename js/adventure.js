@@ -149,7 +149,9 @@
     const id = e.toy.id;
     try { P.IDB.del(id).catch(() => {}); } catch (err) {}
     if (scene.textures.exists('toy_' + id)) scene.textures.remove('toy_' + id);
-    if (window.PSNet && window.PSNet.forgetToy) window.PSNet.forgetToy(id);
+    // the row and the picture go now (the id waits in save.gone until they did); then the save without the toy goes up
+    const N = window.PSNet;
+    if (N && N.forgetToy) N.forgetToy(id).then(() => N.pushNow && N.pushNow()).catch(() => {});
   }
 
   // ---------- postcards: at the first map open of the day, after any popup on the map (streak, mail, stickers)

@@ -215,15 +215,16 @@ test('SAY GOODBYE: parent gate first; a right answer deletes the toy, its pictur
   expect(await texts(page, 'adventures')).toContain('Delete Toy0\'s photo for good?');
   await tap(page, 'adventures', 'YES');
   await until(page, () => page.evaluate(() => __sbLog.includes('toys:remove:u1/a0.png')));
-  const r = await page.evaluate(async () => ({ away: __save.data.away.length, pic: await __IDB.get('a0'), log: __sbLog }));
+  await until(page, () => page.evaluate(() => (__save.data.gone || []).length === 0));
+  const r = await page.evaluate(async () => ({ away: __save.data.away.length, pic: await __IDB.get('a0'), log: __sbLog, ls: JSON.parse(localStorage.getItem('plushsquad_v1')).gone }));
   expect(r.away).toBe(0);
   expect(r.pic).toBeFalsy();
   expect(r.log).toContain('toys:delete');
-  expect(r.log).toContain('toys:eq:u1:a0');
+  expect(r.ls).toEqual([]); // save.gone is cleared once the cloud delete went through
   noErrors(page);
 });
 
-test('cloud: push keeps away rows and marks them, deletes gone rows with their PNG; friends do not see away toys; pictures of away toys come down', async ({ page }) => {
+test('cloud: push keeps away rows and marks them, deletes the rows of save.gone with their PNG; friends do not see away toys; pictures of away toys come down', async ({ page }) => {
   await boot(page, SAVE);
   await seed(page, 1, [['canada', 1]]);
   const r = await page.evaluate(async () => {
@@ -237,7 +238,7 @@ test('cloud: push keeps away rows and marks them, deletes gone rows with their P
       then(res) { res({ data: t === 'toys' && !this._in ? all.filter(r => r.id.startsWith(this._o + ':')) : [] }); } });
     PSNet.sb = { from: q, rpc: async () => ({ data: [{ id: 'u2:x', meta: { id: 'x', name: 'Fx', away: 'space' }, username: 'f' }, { id: 'u2:y', meta: { id: 'y', name: 'Fy' }, username: 'f' }] }),
       storage: { from: b => ({ remove: async p => { log.push('remove:' + p.join(',')); return {}; } }) } };
-    PSNet.user = { id: 'u1', name: 'tester' }; PSNet.synced = true; __save.data.owner = 'u1';
+    PSNet.user = { id: 'u1', name: 'tester' }; PSNet.synced = true; __save.data.owner = 'u1'; __save.data.gone = ['old']; // said goodbye on this device
     await PSNet.pushNow();
     const squad = (await PSNet.squad('u2')).map(t => t.meta.id), museum = (await PSNet.museum()).map(t => t.meta.id);
     log.push('--');

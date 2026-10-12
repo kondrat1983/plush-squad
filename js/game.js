@@ -2682,7 +2682,7 @@
         // Big Yawn: a sleepy lilac sky, zzz rising around the rival
         this.fireFx.fillColor = 0xb89cff;
         this.tweens.add({ targets: this.fireFx, fillAlpha: 0.14, duration: 600 });
-        this.chargeTw = this.tweens.add({ targets: this.fireFx, fillAlpha: 0.06, duration: 900, yoyo: true, repeat: -1, delay: 600 });
+        this.chargeTw = this.tweens.add(keep({ targets: this.fireFx, fillAlpha: 0.06, duration: 900, yoyo: true, repeat: -1, delay: 600 }));
         T.spr.setTint(0xe0d0ff);
         this.embers = this.add.particles(0, 0, 'zzz', { x: { min: T.root.x - 120, max: T.root.x + 120 }, y: T.root.y - T.height() * 0.8, speedY: { min: -200, max: -90 }, lifespan: 1500, scale: { start: 0.2, end: 0.06 }, alpha: { start: 1, end: 0 }, frequency: 260 }).setDepth(12);
         return;

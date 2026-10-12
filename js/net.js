@@ -127,17 +127,25 @@
       if (this._syncing || !this.user) return;
       const d = S(); if (d.owner !== this.user.id) return;
       this._syncing = true; this._syncAt = Date.now();
+      // this device's save as it was when the fetch went out: a Pillow Week day counted while a slow fetch runs (the map
+      // waits 1.5 s at most) sets a new savedAt, which must not make an older save win over a newer cloud save
+      const lt0 = d.savedAt || 0, st0 = d.streak ? JSON.parse(JSON.stringify(d.streak)) : null;
       try {
         const { data: row, error } = await this.sb.from('saves').select('data').eq('user_id', this.user.id).maybeSingle();
         if (error) return;
-        const cloud = row && row.data, ct = (cloud && cloud.savedAt) || 0, lt = d.savedAt || 0;
+        const cloud = row && row.data, ct = (cloud && cloud.savedAt) || 0;
         this.synced = true;
-        if (!cloud || lt > ct) { if (cloud) mergeStreak(d, cloud); await this.pushNow(); return; }
-        if (ct <= lt) return;
+        if (!cloud || lt0 > ct) {
+          if (cloud) { mergeStreak(d, cloud); try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} }
+          await this.pushNow(); return;
+        }
+        if (ct <= lt0) return;
         // a newer cloud save: never swap it in under a running duel, photo or game; try again a bit later
         const g = window.__game;
         if (g && ['battle', 'studio', 'comic', 'catch', 'hockey', 'gacha', 'account'].some(k => g.scene.isActive(k))) { setTimeout(() => this.sync(), 10000); return; }
-        await this.applyCloud(cloud);
+        // the streak of the save as it was before the fetch: a day counted meanwhile on the old save is counted again,
+        // once, on the cloud save after the rebuild (its reward lands there)
+        await this.applyCloud(cloud, st0);
         if (window.__psRebuild) window.__psRebuild();
       } catch (e) {} finally { this._syncing = false; }
     },
@@ -149,20 +157,36 @@
       const metas = this.toyMetas(d);
       for (const t of allToys(d)) { try { const url = await window.__IDB.get(t.id); if (url) await this.uploadToy(t, url, metas[this.user.id + ':' + t.id]); } catch (e) {} }
     },
-    async applyCloud(data) {
-      if (S().owner === this.user.id) mergeStreak(data, S()); // same player on two devices: the streak merge rule (not for a guest save)
+    async applyCloud(data, streak) {
+      const cur = S();
+      if (cur.owner === this.user.id) { // same player on two devices: the streak merge rule (not for a guest save)
+        mergeStreak(data, streak !== undefined ? { streak } : cur);
+        // toys a grown-up said goodbye to on this device stay gone (their cloud delete may still be pending)
+        const gone = Array.from(new Set(goneIds(data).concat(goneIds(cur))));
+        if (gone.length) {
+          data.gone = gone;
+          if (Array.isArray(data.toys)) data.toys = data.toys.filter(t => !t || data.gone.indexOf(t.id) < 0);
+          if (Array.isArray(data.away)) data.away = data.away.filter(a => !(a && a.toy && data.gone.indexOf(a.toy.id) >= 0));
+          if (data.gone.indexOf(data.hero) >= 0) data.hero = 'jack';
+        }
+      }
       data.owner = this.user.id;
       try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
       setMem(data);
       // bring the toy pictures to this device (also of toys on an adventure: they can come home here, v1.0)
+      // (a toy without a row, e.g. deleted by an older client, still has its picture at the usual bucket path)
       const ids = allToys(data).map(t => this.user.id + ':' + t.id);
       if (ids.length) {
-        const { data: rows } = await this.sb.from('toys').select('id, img').in('id', ids);
-        for (const r of rows || []) {
+        let rows = [];
+        try { rows = (await this.sb.from('toys').select('id, img').in('id', ids)).data || []; } catch (e) {}
+        const img = {}; rows.forEach(r => { if (r && r.id) img[r.id] = r.img; });
+        for (const id of ids) {
+          const tid = id.split(':').slice(1).join(':');
           try {
-            const blob = await (await fetch(r.img)).blob();
+            const res = await fetch(img[id] || this.toyUrl(tid)); if (!res.ok) continue;
+            const blob = await res.blob();
             const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
-            await window.__IDB.set(r.id.split(':').slice(1).join(':'), url);
+            await window.__IDB.set(tid, url);
           } catch (e) {}
         }
       }
@@ -178,13 +202,21 @@
           stars: Object.values(d.stars || {}).reduce((a, b) => a + b, 0), title: d.title || 'Plush Friend',
           avatar: { hero: hero ? hero.id : 'jack', name: hero ? hero.name : 'Jack', img: hero ? this.toyUrl(hero.id) : null, costume: d.costume || 'none' },
           updated_at: new Date().toISOString() }).eq('id', this.user.id);
-        // toys deleted on this device disappear from the cloud too, with their picture in the bucket (#76).
-        // Toys on an adventure stay (v1.0); a row's meta follows the toy (away flag, toy growth), so friends see it
-        const { data: rows } = await this.sb.from('toys').select('id, meta').eq('owner', this.user.id);
+        // toys a grown-up said goodbye to on THIS device (save.gone) disappear from the cloud too, with their picture (#76).
+        // A cloud toy this save does not know is left alone: it may be new on another device. Toys on an adventure stay
+        // (v1.0); a row's meta follows the toy (away flag, toy growth), so friends see it
+        const { data: rows, error } = await this.sb.from('toys').select('id, meta').eq('owner', this.user.id);
+        if (error || !Array.isArray(rows)) return;
         const want = this.toyMetas(d);
-        const gone = (rows || []).map(r => r.id).filter(id => !want[id]);
-        if (gone.length) { await this.sb.from('toys').delete().in('id', gone); await this.removePics(gone.map(id => id.split(':').slice(1).join(':'))); }
-        for (const r of rows || []) { const m = want[r.id]; if (m && metaSig(m) !== metaSig(r.meta)) await this.sb.from('toys').update({ meta: m }).eq('id', r.id); }
+        await this.dropGone(d, want);
+        for (const r of rows) { const m = want[r.id]; if (m && metaSig(m) !== metaSig(r.meta)) await this.sb.from('toys').update({ meta: m }).eq('id', r.id); }
+        // a toy of this save without a cloud row (e.g. deleted by an older client): upload it again from this device's picture
+        const have = new Set(rows.map(r => r.id));
+        for (const t of allToys(d)) {
+          const id = this.user.id + ':' + t.id; if (have.has(id)) continue;
+          let url = null; try { url = await window.__IDB.get(t.id); } catch (e) {}
+          if (url) await this.uploadToy(t, url, want[id]);
+        }
       } catch (e) { console.warn('push', e); }
     },
     // the cloud meta of every toy of this save: the squad as is, toys on an adventure with away: '<world>'
@@ -194,16 +226,23 @@
       (Array.isArray(d.away) ? d.away : []).forEach(a => { if (a && a.toy && a.toy.id) out[this.user.id + ':' + a.toy.id] = Object.assign({}, a.toy, { away: (a.trip && a.trip.world) || 'hills' }); });
       return out;
     },
-    // pictures in the public bucket; storage policy "toy pics delete own" (supabase/schema.sql). Fails quietly
-    async removePics(ids) {
-      if (!this.user || !ids.length) return;
-      try { const r = await this.sb.storage.from('toys').remove(ids.map(id => this.user.id + '/' + id + '.png')); if (r && r.error) console.warn('toy pics', r.error); } catch (e) {}
-    },
-    // a real delete, for grown-ups (Adventures, SAY GOODBYE): the row and the picture go now, not only on the next push
+    // a real delete, for grown-ups (Adventures, SAY GOODBYE): the row and the picture go now, not only on the next push.
+    // The id waits in save.gone until the delete went through (offline: the next push tries again)
     async forgetToy(id) {
       const d = S(); if (!this.user || !this.sb || d.owner !== this.user.id) return;
-      try { await this.sb.from('toys').delete().eq('id', this.user.id + ':' + id); } catch (e) {}
-      await this.removePics([id]);
+      if (goneIds(d).indexOf(id) < 0) { d.gone = goneIds(d).concat([id]); writeLocal(d); }
+      try { await this.dropGone(d, this.toyMetas(d)); } catch (e) {}
+    },
+    // deletes the rows and pictures of save.gone (never of a toy still in the save), then clears the ids that went
+    async dropGone(d, want) {
+      const ids = goneIds(d).filter(id => !want[this.user.id + ':' + id]);
+      if (!ids.length) { if (goneIds(d).length) { d.gone = []; writeLocal(d); } return; }
+      const r = await this.sb.from('toys').delete().in('id', ids.map(id => this.user.id + ':' + id));
+      if (r && r.error) return;
+      // pictures in the public bucket; storage policy "toy pics delete own" (supabase/schema.sql)
+      const p = await this.sb.storage.from('toys').remove(ids.map(id => this.user.id + '/' + id + '.png'));
+      if (p && p.error) { console.warn('toy pics', p.error); return; }
+      d.gone = goneIds(d).filter(id => ids.indexOf(id) < 0 && !want[this.user.id + ':' + id]); writeLocal(d);
     },
     toyUrl(id) { return CFG.url + '/storage/v1/object/public/toys/' + this.user.id + '/' + encodeURIComponent(id) + '.png'; },
     async uploadToy(t, dataUrl, meta) {
@@ -245,6 +284,8 @@
   };
   // Pillow Week (#32): where two saves of one player meet, `into` keeps the better streak of the two (js/extra.js mergeStreak)
   function mergeStreak(into, other) { const E = window.PSExtra; if (E && (into.streak || other.streak)) into.streak = E.mergeStreak(into.streak, other.streak); }
+  const goneIds = d => (Array.isArray(d && d.gone) ? d.gone.filter(x => typeof x === 'string') : []);
+  const writeLocal = d => { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} };
   const allToys = d => (d.toys || []).concat((Array.isArray(d.away) ? d.away : []).map(a => a && a.toy).filter(t => t && t.id));
   // what friends see of a toy: a change here sends the toy's meta again on the next push
   const metaSig = m => m ? JSON.stringify([m.name, m.xp || 0, Object.keys(m.badges || {}).sort(), m.away || null, (m.souv || []).slice().sort()]) : '';
