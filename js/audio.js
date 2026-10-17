@@ -132,10 +132,17 @@
     huff() { this.noise(0.8, { type: 'lowpass', f: 700, vol: 0.3, attack: 0.2, slide: 0.6 }); },
     squeak() { this.tone(1800, 0.1, { vol: 0.12, slide: 1.4 }); },
     nope() { [0, 0.14].forEach((d, i) => this.tone(220 - i * 40, 0.1, { type: 'square', vol: 0.08, delay: d })); },
+    // v1.1 Countryballs: a wet paint splat (COPYCAT!), a kettle whistle, castanets, a train ding-dong, Poland's countdown, a rocket fizzle
+    paint() { this.noise(0.35, { type: 'lowpass', f: 1400, slide: 0.25, vol: 0.45, attack: 0.005 }); this.tone(320, 0.25, { vol: 0.2, slide: 0.4 }); },
+    kettle() { this.tone(900, 0.9, { type: 'sine', vol: 0.1, slide: 1.8, attack: 0.25 }); this.noise(0.9, { type: 'highpass', f: 3000, vol: 0.05, attack: 0.3 }); },
+    castanet() { [0, 0.12, 0.2].forEach(d => this.noise(0.04, { f: 3500, q: 4, vol: 0.35, delay: d, attack: 0.002 })); },
+    train() { this.tone(784, 0.35, { type: 'triangle', vol: 0.18 }); this.tone(622, 0.45, { type: 'triangle', vol: 0.18, delay: 0.3 }); this.noise(0.6, { f: 500, slide: 5, vol: 0.3, attack: 0.1, delay: 0.5 }); },
+    countdown() { [0, 0.42, 0.84].forEach((d, i) => this.tone(660 + i * 110, 0.12, { type: 'square', vol: 0.08, delay: d })); this.noise(0.6, { f: 300, slide: 6, vol: 0.3, attack: 0.2, delay: 1.2 }); },
+    fizzle() { for (let i = 0; i < 5; i++) this.noise(0.06, { f: 1800 - i * 250, q: 3, vol: 0.2, delay: i * 0.09 }); this.tone(500, 0.5, { type: 'sawtooth', vol: 0.05, slide: 0.3 }); this.tone(220, 0.3, { vol: 0.25, slide: 2.2, delay: 0.55 }); },
     catchStar() { this.tone(1319 + Math.random() * 300, 0.18, { type: 'triangle', vol: 0.16 }); this.tone(1760, 0.2, { type: 'sine', vol: 0.08, delay: 0.05 }); },
     levelUp() { [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.2, delay: i * 0.09 })); },
 
-    // ---- music: procedural tracks (calm lullaby for menus, battle, boss, north for Canada, v1.0 sea and garden, lullaby while Sleepy Thully sleeps)
+    // ---- music: procedural tracks (calm lullaby for menus, battle, boss, north for Canada, v1.0 sea and garden, lullaby while Sleepy Thully sleeps, v1.1 parade)
     // music(name) picks the track (crossfade); startMusic() starts the scheduler after the first tap.
     _timer: null, _next: 0, _step: 0, _track: null, _want: 'calm', _bus: null,
     mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); },
@@ -328,6 +335,28 @@
         ];
         const m = s % 2 === 0 ? MEL[bar][s / 2] : 0;
         if (m) { A.voice(m, t, sp * 0.5, { type: 'square', vol: 0.03, lp: 3200, env: 2, r: 0.12 }); A.voice(m - 12, t, sp * 0.4, { type: 'triangle', vol: 0.04, r: 0.1 }); }
+      } },
+      // v1.1 Countryballs: an original marching-band tune (no anthem or folk tune), B flat major 4/4, 16 bars; glockenspiel lead (sine bells),
+      // square "brass" stabs on 2 and 4, tuba on 1 and 3, a snare roll every 4th bar, a whistle "pip!" every 8 bars
+      parade: { bpm: 116, div: 4, len: 256, gain: 0.65, play(A, n, t, sp) {
+        const bar = Math.floor(n / 16), s = n % 16;
+        const roots = [34, 34, 39, 34, 41, 41, 34, 34, 39, 39, 34, 43, 36, 41, 34, 34]; // Bb Bb Eb Bb F F Bb Bb | Eb Eb Bb Gm Cm F Bb Bb
+        const minor = bar === 11 || bar === 12, root = roots[bar], third = minor ? 3 : 4;
+        if (s === 0) A.voice(root, t, sp * 3, { type: 'triangle', vol: 0.16, lp: 900, r: 0.06 });
+        if (s === 8) A.voice(root + 7, t, sp * 3, { type: 'triangle', vol: 0.14, lp: 900, r: 0.06 });
+        if (s === 4 || s === 12) [12, 12 + third, 19].forEach(iv => A.voice(root + 12 + iv, t, sp * 1.2, { type: 'square', vol: 0.012, lp: 1500, r: 0.04 }));
+        if (s === 0 || s === 8) A.drum('kick', t, 0.5);
+        if (s === 4 || s === 12) A.drum('snare', t, 0.45);
+        if (bar % 4 === 3 && s >= 12) A.drum('snare', t, 0.25 + (s - 12) * 0.06);
+        if (bar % 8 === 7 && (s === 8 || s === 10)) A.voice(96, t, sp * 0.8, { type: 'sine', vol: 0.045, slide: 1.06, r: 0.03 });
+        const MEL = [
+          [70, 0, 74, 0, 77, 0, 74, 0], [82, 0, 0, 77, 74, 0, 70, 0], [75, 0, 79, 0, 82, 0, 79, 75], [74, 0, 77, 0, 74, 0, 0, 0],
+          [72, 0, 77, 0, 81, 0, 77, 0], [84, 0, 81, 77, 72, 0, 0, 0], [74, 77, 82, 0, 77, 0, 74, 0], [70, 0, 0, 0, 0, 0, 0, 0],
+          [79, 0, 75, 0, 79, 0, 82, 0], [84, 0, 82, 0, 79, 0, 75, 0], [77, 0, 74, 0, 77, 0, 82, 0], [79, 0, 74, 0, 70, 0, 74, 0],
+          [75, 0, 79, 0, 84, 0, 79, 0], [77, 0, 81, 0, 84, 0, 81, 0], [82, 0, 77, 0, 74, 0, 77, 0], [70, 0, 0, 0, 70, 0, 0, 0],
+        ];
+        const m = s % 2 === 0 ? MEL[bar][s / 2] : 0;
+        if (m) { A.voice(m + 12, t, 0.001, { type: 'sine', vol: 0.05, r: sp * 3 }); A.voice(m + 24, t, 0.001, { type: 'sine', vol: 0.012, r: sp * 1.5 }); }
       } },
     },
     music(name) {
