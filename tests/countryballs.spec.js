@@ -335,3 +335,60 @@ for (const [tag, vp] of Object.entries(SIZES)) test(`map with ?halloween: 7 tabs
   expect(await offscreen(page, 'map')).toEqual([]);
   noErrors(page);
 });
+
+test('COPYCAT! strips match the copy: hero booster per hit, ROCKET START!, his shield; Mini Copycat rounds per hit', async ({ page }) => {
+  test.setTimeout(600000);
+  await boot(page, save({ stars: BALLS_OPEN, stats: { copySeen: 1 } }));
+  await duel(page, 'spain', 'normal');
+  await armNow(page);
+  const lab = await page.evaluate(() => {
+    const b = __game.scene.getScene('battle'), L = k => b.copyLabel(b.moves.find(m => m.k === k));
+    const o = { plain: [L('pillow'), L('tailspin')] };
+    b.hero.bonus = 5; o.bonus = [L('pillow'), L('tailspin')];
+    b.hero.firstBonus = 4; o.first = [L('pillow'), L('tailspin')];
+    b.rival.shield = true; o.shield = L('pillow');
+    return o;
+  });
+  expect(lab.plain).toEqual(['COPY: 12-20 at you', 'COPY: 15-27 at you']);
+  expect(lab.bonus).toEqual(['COPY: 17-25 at you', 'COPY: 30-42 at you']);
+  expect(lab.first).toEqual(['COPY: 21-29 at you', 'COPY: 34-46 at you']);
+  expect(lab.shield).toBe('COPY: 11-15 at you');
+  // what really comes back lies inside the strip
+  await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.hero.firstBonus = 0; b.rival.shield = false; });
+  await armNow(page);
+  const strip = await page.evaluate(() => __game.scene.getScene('battle').moves.find(m => m.k === 'pillow').card.copyLabel);
+  const [lo, hi] = strip.match(/(\d+)-(\d+)/).slice(1).map(Number);
+  await page.evaluate(() => { __game.scene.getScene('battle').hero.bonus = 5; });
+  const p = await playCopied(page, 'pillow');
+  expect(p.dealt).toBeGreaterThanOrEqual(lo + 5); expect(p.dealt).toBeLessThanOrEqual(hi + 5);
+  expect(p.heroAfterMove - p.s1.h).toBe(p.dealt);
+  // Mini Copycat: half per hit, rounded like copyMove does
+  await duel(page, 'england', 'normal');
+  await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.copy = { k: 0, mini: true }; b.hero.bonus = 3; });
+  const mini = await page.evaluate(() => { const b = __game.scene.getScene('battle'), m = b.moves.find(x => x.k === 'tailspin'), h = v => Math.max(1, Math.round((v + 3) / 2)); return [b.copyLabel(m), 'COPY: ' + 3 * h(m.dmg[0]) + '-' + 3 * h(m.dmg[1]) + ' at you']; });
+  expect(mini[0]).toBe(mini[1]);
+  noErrors(page);
+});
+
+test('COPYCAT! log line after the paint fits 2 lines in portrait (390x844)', async ({ page }) => {
+  test.setTimeout(300000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page, save({ stars: BALLS_OPEN, stats: { copySeen: 1 } }));
+  await duel(page, 'spain', 'normal');
+  await armNow(page);
+  const r = await page.evaluate(() => { const b = __game.scene.getScene('battle'); return { lines: b.logT.getWrappedText().length, text: b.logT.text }; });
+  expect(r.text).toContain('JACKBALL!');
+  expect(r.lines).toBeLessThanOrEqual(2);
+  noErrors(page);
+});
+
+test('PUSH! on HARD counts the press: down on GO!, lifted after the loop wrapped, still a full push', async ({ page }) => {
+  test.setTimeout(600000);
+  await boot(page, save({ stars: BALLS_OPEN, stats: { pushSeen: 1 } }));
+  await duel(page, 'poland', 'hard');
+  expect((await countdown(page)).push).toBe(true);
+  await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.afterPlayer = async () => { b.busy = false; b.setCards(true); }; b.pushT0 = performance.now() - 1300; b.pushBtn.emit('pointerdown'); b.pushT0 = performance.now() - 100; b.pushBtn.emit('pointerup'); });
+  await settle(page);
+  expect(await page.evaluate(() => !!__game.scene.getScene('battle').rival.orbit)).toBe(true);
+  noErrors(page);
+});

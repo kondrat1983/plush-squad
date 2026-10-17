@@ -91,10 +91,10 @@
   };
   Save.load(); A.muted = !!Save.data.muted; if (!Save.data.stars) Save.data.stars = {}; if (!Array.isArray(Save.data.toys)) Save.data.toys = []; if (!Save.data.hero) Save.data.hero = 'jack';
   if (!Array.isArray(Save.data.away)) Save.data.away = []; // toys on an adventure (v1.0, js/adventure.js)
-  ['diff', 'caps', 'boosts', 'seen', 'stats', 'ach', 'costumes'].forEach((k, i) => { if (Save.data[k] == null) Save.data[k] = ['normal', 0, {}, {}, {}, {}, {}][i]; });
   if (!Save.data.costume) Save.data.costume = 'none';
   // v0.8 save migration (runs on every load, also after a cloud save is pulled in; never takes anything away)
-  (d => {
+  Save.migrate = d => {
+    ['diff', 'caps', 'boosts', 'seen', 'stats', 'ach', 'costumes'].forEach((k, i) => { if (d[k] == null) d[k] = ['normal', 0, {}, {}, {}, {}, {}][i]; }); // also for a cloud save (applyCloud)
     if (d.ach && d.ach.allstars) d.costumes.crown = true; // the crown is the Superstar sticker's reward
     // once, for saves from before v0.8 (fresh saves get the flag on their first load):
     if (!d.mig08) {
@@ -134,7 +134,8 @@
       if (d.lastWorld === 5) d.lastWorld = 6;
       d.mig11 = 1;
     }
-  })(Save.data);
+  };
+  Save.migrate(Save.data);
   // Halloween event: October + first week of November (or ?halloween to test)
   const NOW = new Date();
   const EVENT_ON = /[?&]halloween/.test(location.search) || NOW.getMonth() === 9 || (NOW.getMonth() === 10 && NOW.getDate() <= 7);
@@ -2048,6 +2049,7 @@
       this.alarmBtn = toolBtn('ALARM!', 0xffb347, 'j:alarm', () => this.playerAlarm());
       // v1.1 Poland's countdown: PUSH! helps him into space (costs the turn); HARD counts 3, 2, 1, GO! on the button
       this.pushBtn = toolBtn('PUSH!', C.orange, 'rocket', () => this.playerPush());
+      this.pushBtn.on('pointerdown', () => { this.pushDownGo = this.pushGo(); }); // HARD: the press counts, not the lift (button() fires on pointerup)
       this.alarmHand = img(this, W / 2, bby - 150, 'hand').setScale(iconScale('hand', 110)).setDepth(36).setVisible(false);
       this.tweens.add({ targets: this.alarmHand, y: bby - 120, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       // SLAPSHOT wind-up: a reminder by the hero instead of a button
@@ -2512,7 +2514,7 @@
       const d = m.dmg ? rnd(m.dmg[0], m.dmg[1]) : 0;
       switch (m.type) {
         case 'throw':
-          await this.lunge(att, 60); if (m.sound) this.sfx(m.sound);
+          await this.lunge(att, 60); if (m.sound && m.sound !== 'whoosh') this.sfx(m.sound); // throwThing whooshes already
           await this.throwThing(att, def, m.tex || 'pillow', 420, m.tint);
           if (m.word) this.popWord(def.center().x, def.center().y - 220, m.word, '#ffd23f', 84, rnd(-10, 10));
           await this.impact(def, d); await this.back(att); break;
@@ -3435,10 +3437,9 @@
       sp.explode(24); this.time.delayedCall(900, () => sp.destroy());
       await this.impact(P, d, 'spray');
       this.popWord(c.x, c.y - 300, 'JACKBALL!', '#7fd6c2', 76, 6);
-      const first = !(Save.data.stats || {}).copySeen;
       this.copy = { k: this.rmoves.indexOf(m), mini: !!m.mini };
       this.copyFx(true);
-      this.log(this.logT.text + ' He copies your next move!' + (first && this.copyHand ? ' Try the nap!' : ''));
+      this.log('JACKBALL! ' + T.name + ' paints himself like Jack and copies your next move!' + (!(Save.data.stats || {}).copySeen && this.copyHand ? ' Try the nap!' : ''));
       await wait(this, 700);
     }
     // armed: the mint tint, the COPYCAT chip under his pep bar and (the very first time) a hand on the nap card; off: all gone
@@ -3467,8 +3468,13 @@
       if (m.type === 'shield') return 'COPY: shield';
       if (m.type === 'heal') return this.easy ? 'COPY: flops!' : 'COPY: heals him';
       if (!m.dmg || this.easy) return 'COPY: flops!';
-      const n = m.type === 'multi' ? m.hits || 3 : 1, half = v => this.copy && this.copy.mini ? Math.max(1, Math.round(v / 2)) : v;
-      const lo = half(m.dmg[0] * n), hi = half(m.dmg[1] * n);
+      // the numbers impact() will record for the hero's next move: booster per hit, the one-time bonuses and his shield on the first hit, the dream bubble
+      const n = m.type === 'multi' ? m.hits || 3 : 1, R = this.rival, H = this.hero, mini = this.copy && this.copy.mini;
+      const sum = d => { let t = 0; for (let i = 0; i < n; i++) {
+        let v = d + (H.bonus || 0) + (i ? 0 : (H.firstBonus || 0) + (H.lucky5 || 0));
+        if (R.asleep) v = Math.ceil(v / 2); if (R.shield && !i) v = Math.ceil(v / 2);
+        t += mini ? Math.max(1, Math.round(v / 2)) : v; } return t; };
+      const lo = sum(m.dmg[0]), hi = sum(m.dmg[1]);
       return 'COPY: ' + (lo === hi ? lo : lo + '-' + hi) + ' at you';
     }
     // EASY: every copy flops, so the strongest card is the best one
@@ -3539,8 +3545,9 @@
     async playerPush() {
       const T = this.rival, m = T.charging;
       if (this.busy || this.over || !m || m.type !== 'launch') return;
-      const auto = DEBUG && window.__psPush, full = auto === 'soft' ? false : auto === 'go' ? true : !this.hard || this.pushGo();
+      const auto = DEBUG && window.__psPush, full = auto === 'soft' ? false : auto === 'go' ? true : !this.hard || (this.pushDownGo != null ? this.pushDownGo : this.pushGo());
       this.busy = true; this.acted = true; this.setCards(false); this.unspin(true);
+      this.pushDownGo = null;
       const st = Save.data.stats || (Save.data.stats = {}); st.pushSeen = 1;
       emit('push', { full }, this);
       const P = this.hero, c = T.center(); buzz(40); A.whoosh();
@@ -3571,13 +3578,13 @@
     // the turn after a full push: he waves from orbit, drops a Space Pierogi (+10 pep, EASY +15), floats down on a pierogi parachute
     async orbitTurn(T) {
       T.orbit = false;
-      const P = this.hero, n = this.easy ? 15 : 10, px = W * 0.72, py = this.bby || H * 0.25;
+      const P = this.hero, n = this.easy ? 15 : 10, px = W * 0.72, py = PORTRAIT ? 540 : 470; // a small planet up top, under the pep bars and the COPYCAT chip row
       const pl = this.add.image(px, py, 'planet').setScale(0).setDepth(8).setTint(0xc9b6ff);
       await tw(this, { targets: pl, scale: iconScale('planet', 170), duration: 400, ease: 'Back.out' });
-      T.root.setPosition(px + 110, py - 30).setScale(0.4);
+      T.shadow.setVisible(false); T.root.setPosition(px + 110, py - 30).setScale(0.4);
       await tw(this, { targets: T.root, y: py - 70, duration: 300, ease: 'Back.out' });
       this.tweens.add({ targets: T.root, angle: { from: -12, to: 12 }, duration: 220, yoyo: true, repeat: 3, onComplete: () => T.root.setAngle(0) });
-      this.popWord(px, py - 220, 'HELLO FROM SPACE!', '#ffd23f', 64, -6); A.blip();
+      this.popWord(px - 60, py + 150, 'HELLO FROM SPACE!', '#ffd23f', 64, -6); A.blip();
       await wait(this, 700);
       const pg = img(this, T.root.x, T.root.y, 'dumpling').setDepth(27).setScale(iconScale('dumpling', 70)), pc = P.center();
       await tw(this, { targets: pg, x: pc.x, y: pc.y, angle: 540, scale: iconScale('dumpling', 110), duration: 700, ease: 'Quad.in' });
@@ -3587,7 +3594,7 @@
       const hgt = T.height(), wid = T.spr.displayWidth, cg = this.add.graphics();
       cg.lineStyle(4, 0xfff3d2, 0.9); cg.lineBetween(-70, -hgt - 40, -wid * 0.3, -hgt * 0.75); cg.lineBetween(70, -hgt - 40, wid * 0.3, -hgt * 0.75);
       const chute = img(this, 0, -hgt - 70, 'dumpling').setScale(iconScale('dumpling', 220));
-      T.root.add([cg, chute]); T.root.setScale(1).setAngle(0).setPosition(T.home, -120);
+      T.shadow.setVisible(true); T.root.add([cg, chute]); T.root.setScale(1).setAngle(0).setPosition(T.home, -120);
       this.tweens.add({ targets: pl, scale: 0, alpha: 0, duration: 400, onComplete: () => pl.destroy() });
       this.log(T.name + ' floats down on a pierogi parachute. Best day ever!');
       await tw(this, { targets: T.root, y: this.groundY, duration: 1500, ease: 'Sine.out' });
@@ -4405,7 +4412,7 @@
         if (PORTRAIT) { const ph = (H - top - bot - gut * 2) / 3; rects.push({ x: W / 2, y: top + ph / 2 + i * (ph + gut), w: W - 80, h: ph }); }
         else { const pw = (W - 80 - gut * 2) / 3, ph = H - top - bot; rects.push({ x: 40 + pw / 2 + i * (pw + gut), y: top + ph / 2, w: pw, h: ph }); }
       }
-      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = []; this.titled = false; this.nextEv = null; this.peekObj = null; // the scene object is reused (replay)
+      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = []; this.titled = false; this.nextEv = null; this.peekObj = null; this.peekBall = null; this.peekY = this.peekH = 0; // the scene object is reused (replay)
       // SKIP (top right, inside the play area): straight to the title page, which counts as seen
       const skip = button(this, W - 150, PORTRAIT ? 80 : 70, 220, 90, 'SKIP', C.cream, () => this.toTitle(), { size: 40 }).setDepth(90);
       this.skipBtn = skip;

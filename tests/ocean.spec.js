@@ -320,3 +320,24 @@ for (const [tag, vp] of Object.entries(SIZES)) test(`map: 5 Ocean nodes and 7 ta
   }
   noErrors(page);
 });
+
+// out of season (no event, no &halloween): 6 tabs; in portrait the open tab shows its name. The date is pinned to July for js/game.js only
+test('map out of season: 6 tabs, the open one shows its name (>= 28 px) in portrait', async ({ page }) => {
+  await page.addInitScript(() => {
+    const gm = Date.prototype.getMonth;
+    Date.prototype.getMonth = function () { return /game\.js/.test(new Error().stack || '') ? 6 : gm.call(this); };
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page, save({ stars: Object.assign({}, OCEAN_DONE, { thully: 1 }) }));
+  expect(await page.evaluate(() => /halloween/.test(location.search))).toBe(false);
+  for (const w of [3, 2]) {
+    await go(page, 'map', { world: w });
+    const tabs = await page.evaluate(() => __game.scene.getScene('map').children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96).map(c => ({ w: c.width, name: c.list.find(o => o.type === 'Text').visible, size: c.list.find(o => o.type === 'Text').scaleX * 40 })));
+    expect(tabs.length).toBe(6);
+    tabs.forEach(t => expect(t.w).toBeGreaterThanOrEqual(90));
+    const named = tabs.filter(t => t.name);
+    expect(named.length).toBe(1);
+    expect(named[0].size).toBeGreaterThanOrEqual(28);
+  }
+  noErrors(page);
+});
