@@ -204,7 +204,7 @@ test('beating Brock Lee: Broccoli Hair (first win only), Tree Hugger sticker; 3 
   const pools = await page.evaluate(() => ({ ach: PSExtra.ACH.map(a => a.id), q: PSExtra.QUESTS.map(q => q.id) }));
   for (const id of ['thully', 'alarm5', 'lucky10', 'brocklee', 'seek10', 'dancefind']) expect(pools.ach).toContain(id);
   for (const id of ['boat', 'bath', 'seafacts', 'water', 'map', 'earlybed', 'tryveg', 'seed', 'washveg', 'vegface', 'rainbow', 'hideseek']) expect(pools.q).toContain(id);
-  expect(pools.q.length).toBe(36);
+  expect(pools.q.length).toBe(42); // v1.1: +6 Countryballs quests
   noErrors(page);
 });
 

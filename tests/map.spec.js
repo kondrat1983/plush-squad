@@ -11,7 +11,7 @@ test('B04: fresh player starts in Pillow Hills during the Halloween event', asyn
 
 test('B04: map reopens on the last world looked at', async ({ page }) => {
   await boot(page, undefined, '&halloween');
-  await go(page, 'map', { world: 5 }); await go(page, 'title'); await go(page, 'map'); // 5 = Spooky since v1.0 (Ocean 3, Veggie Patch 4)
-  expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(5);
+  await go(page, 'map', { world: 6 }); await go(page, 'title'); await go(page, 'map'); // 6 = Spooky since v1.1 (Ocean 3, Veggie Patch 4, Countryballs 5)
+  expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(6);
   noErrors(page);
 });
