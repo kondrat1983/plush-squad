@@ -2833,7 +2833,7 @@
         const h = T.height(), rk = this.rocketImg = this.add.image(-T.dir * T.spr.displayWidth * 0.18, -h * 0.5, 'rocket').setAngle(-45);
         rk.setScale(iconScale('rocket', h * 0.95)); T.root.addAt(rk, 1);
         this.tweens.add({ targets: rk, x: rk.x + 6, duration: 90, yoyo: true, repeat: -1 });
-        this.embers = this.add.particles(0, 0, 'dot', { x: { min: T.root.x - 60, max: T.root.x + 60 }, y: T.root.y - 10, speedY: { min: 40, max: 160 }, speedX: { min: -120, max: 120 }, lifespan: 600, scale: { start: 0.35, end: 0 }, tint: [0xffd23f, 0xff8a3d, 0xffffff], blendMode: 'ADD', frequency: 70 }).setDepth(12);
+        this.embers = this.add.particles(0, 0, 'dot', { x: { min: T.root.x - 60, max: T.root.x + 60 }, y: T.root.y - 10, speedY: { min: 10, max: 60 }, speedX: { min: -120, max: 120 }, lifespan: 450, scale: { start: 0.35, end: 0 }, tint: [0xffd23f, 0xff8a3d, 0xffffff], blendMode: 'ADD', frequency: 70 }).setDepth(12);
         return;
       }
       if (T.charging && T.charging.type === 'yawn') {
@@ -2877,7 +2877,7 @@
       T.charging = m;
       if (m.type === 'launch') {
         const first = !(Save.data.stats || {}).pushSeen;
-        this.log(T.name + ' straps on a cardboard rocket: "3... 2... 1..." ' + (first || this.easy ? 'Tap PUSH! to help ' + T.name + ' fly!' : 'Help him fly?'));
+        this.log('"3... 2... 1..." ' + (first || this.easy ? 'Tap PUSH! to help ' + T.name + ' fly!' : 'Help ' + T.name + ' fly?'));
         this.sfx(m.sound || 'countdown');
         this.chargeFx(T);
         for (const w of ['3...', '2...', '1...']) { this.popWord(T.center().x, T.center().y - 260, w, '#ffb36b', 90, 6); this.tweens.add({ targets: T.squash, scaleY: 1.08, duration: 150, yoyo: true }); await wait(this, 420); }
