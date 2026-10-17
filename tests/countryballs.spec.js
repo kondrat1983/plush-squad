@@ -105,7 +105,7 @@ test('Mini Copycat (England): the first COPYCAT! ever shows the hand on the nap 
   const a = await armNow(page);
   expect(a.hand).toBe(true);
   expect(a.labels.pillow).toBe('COPY: 6-10 at you');
-  const hand = await page.evaluate(() => { const b = __game.scene.getScene('battle'), c = b.moves.find(m => m.k === 'nap').card; return [Math.abs(b.copyHand.x - c.x) < 2, b.copyHand.y < c.y, b.logT.text]; });
+  const hand = await page.evaluate(() => { const b = __game.scene.getScene('battle'), c = b.moves.find(m => m.k === 'nap').card; return [Math.abs(b.copyHand.x - c.x) < c.width / 2, Math.abs(b.copyHand.y - c.y) < c.height / 2, b.logT.text]; });
   expect(hand.slice(0, 2)).toEqual([true, true]);
   expect(hand[2]).toContain('Try the nap!');
   const p = await playCopied(page, 'pillow');

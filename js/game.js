@@ -385,12 +385,14 @@
       const cl = scene.add.image(Math.random() * W, H * (0.08 + Math.random() * 0.3), 'cloud').setAlpha(0.18).setTint(0xffd9c0).setScale(0.8 + Math.random());
       scene.tweens.add({ targets: cl, x: cl.x + W * 0.3, duration: 24000 + Math.random() * 12000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
-    scene.time.addEvent({ delay: 9000, loop: true, callback: () => {
-      if (calm() || Math.random() < 0.3) return;
-      const dir = Math.random() < 0.5 ? 1 : -1, y = H * (0.1 + Math.random() * 0.2);
-      const b = scene.add.image(dir > 0 ? -120 : W + 120, y, 'balloon').setScale(0.35 + Math.random() * 0.15).setAlpha(0.85);
+    // one balloon at a time, below the pep bars and the map tabs
+    let bal = null;
+    scene.time.addEvent({ delay: 12000, loop: true, callback: () => {
+      if (calm() || (bal && bal.active) || Math.random() < 0.3) return;
+      const dir = Math.random() < 0.5 ? 1 : -1, y = H * (PORTRAIT ? 0.24 : 0.3) + Math.random() * H * 0.08;
+      const b = bal = scene.add.image(dir > 0 ? -120 : W + 120, y, 'balloon').setScale(0.3 + Math.random() * 0.1).setAlpha(0.8);
       scene.tweens.add({ targets: b, y: y - 30, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      scene.tweens.add({ targets: b, x: dir > 0 ? W + 120 : -120, duration: 22000, onComplete: () => b.destroy() });
+      scene.tweens.add({ targets: b, x: dir > 0 ? W + 120 : -120, duration: 26000, onComplete: () => b.destroy() });
     } });
     const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null;
     if (!gy) return;
@@ -3453,7 +3455,8 @@
         const P = this.hero, ok = m => !(m.uses && (P.used[m.k] || 0) >= m.uses) && !(P.beamed || []).includes(m.k);
         const t = this.moves.find(m => m.type === 'nap' && ok(m)) || this.moves.find(m => m.type === 'dance' && ok(m));
         if (t && t.card) {
-          const cd = t.card, hd = this.copyHand = img(this, cd.x, cd.y - cd.height / 2 - 40, 'hand').setScale(iconScale('hand', 96)).setDepth(36);
+          // inside the nap card, over its icon (above the card it would cover the strip of the card above)
+          const cd = t.card, hd = this.copyHand = img(this, cd.x + Math.min(90, cd.width * 0.3), cd.y - cd.height * 0.2, 'hand').setScale(iconScale('hand', 80)).setDepth(36);
           this.tweens.add({ targets: hd, y: hd.y + 26, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         }
       }
