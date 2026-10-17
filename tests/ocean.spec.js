@@ -26,9 +26,9 @@ test('Ocean sits after Canada: 5 rivals in order, opens after Sasquatch, Veggie 
   await boot(page, save({ stars: Object.assign({}, CANADA_DONE, { sasquatch: 0 }) }), '&halloween');
   const r = await page.evaluate(() => __RIVALS.map(r => [r.id, r.world, r.hp, r.xp, !!r.boss]));
   const ids = r.map(x => x[0]), i = ids.indexOf('hermy');
-  expect(ids.slice(i - 1, i + 11)).toEqual(['sasquatch', 'hermy', 'puff', 'jelly', 'fog', 'thully', 'onion', 'peas', 'garlic', 'fungi', 'brocklee', 'pumpkin']);
+  expect(ids.slice(i - 1, i + 11)).toEqual(['sasquatch', 'hermy', 'puff', 'jelly', 'fog', 'thully', 'onion', 'peas', 'garlic', 'fungi', 'brocklee', 'england']);
   expect(r.slice(i, i + 5)).toEqual([['hermy', 3, 155, 150, false], ['puff', 3, 165, 160, false], ['jelly', 3, 175, 170, false], ['fog', 3, 185, 180, false], ['thully', 3, 220, 220, true]]);
-  expect(await page.evaluate(() => __RIVALS.find(r => r.id === 'pumpkin').world)).toBe(5);
+  expect(await page.evaluate(() => __RIVALS.find(r => r.id === 'pumpkin').world)).toBe(6); // v1.1: Countryballs is 5
   // locked: the tab says who opens it
   await go(page, 'map', { world: 3 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).not.toBe(3);
@@ -268,12 +268,12 @@ test('beating Sleepy Thully: Nightcap costume (first win only), crown on the map
   noErrors(page);
 });
 
-test('save migration mig10: an old Spooky lastWorld (3) becomes 5; players past Sasquatch find Ocean open', async ({ page }) => {
+test('save migration mig10 + mig11: an old Spooky lastWorld (3) becomes 6; players past Sasquatch find Ocean open', async ({ page }) => {
   const old = save({ stars: CANADA_DONE, lastWorld: 3 }); delete old.mig10;
   await boot(page, old, '&halloween');
-  expect(await page.evaluate(() => [__save.data.lastWorld, __save.data.mig10])).toEqual([5, 1]);
+  expect(await page.evaluate(() => [__save.data.lastWorld, __save.data.mig10, __save.data.mig11])).toEqual([6, 1, 1]);
   await go(page, 'map');
-  expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(5);
+  expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(6);
   await go(page, 'map', { world: 3 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(3);
   noErrors(page);
@@ -292,7 +292,7 @@ test('save migration out of season: lastWorld 3 from an old save opens a valid w
   noErrors(page);
 });
 
-for (const [tag, vp] of Object.entries(SIZES)) test(`map: 5 Ocean nodes and 6 tabs fit, nothing overlaps (${tag})`, async ({ page }) => {
+for (const [tag, vp] of Object.entries(SIZES)) test(`map: 5 Ocean nodes and 7 tabs fit, nothing overlaps (${tag})`, async ({ page }) => {
   await page.setViewportSize(vp);
   await boot(page, save({ stars: Object.assign({}, OCEAN_DONE, { thully: 1 }) }), '&halloween');
   for (const w of [3, 2]) {
@@ -308,16 +308,36 @@ for (const [tag, vp] of Object.entries(SIZES)) test(`map: 5 Ocean nodes and 6 ta
       const tabs = s.children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96).map(c => ({ w: c.width, x: c.x, name: c.list.find(o => o.type === 'Text').visible, size: c.list.find(o => o.type === 'Text').scaleX * 40 }));
       return { nodes, tabs };
     });
-    expect(r.tabs.length).toBe(6);
-    r.tabs.forEach(t => expect(t.w).toBeGreaterThanOrEqual(110));
-    const named = r.tabs.filter(t => t.name);
-    if (vp.width < vp.height) { expect(named.length).toBe(1); expect(named[0].size).toBeGreaterThanOrEqual(28); }
+    expect(r.tabs.length).toBe(7); // v1.1: Countryballs + Spooky; all icon tabs, 90 px+ (a 4:3 iPad in landscape squeezes them a little)
+    r.tabs.forEach(t => expect(t.w).toBeGreaterThanOrEqual(90));
+    expect(r.tabs.filter(t => t.name).length).toBe(0);
     expect(r.nodes.length).toBe(w === 3 ? 6 : 5); // nodes + the hero marker
     for (let i = 0; i < r.nodes.length; i++) for (let j = i + 1; j < r.nodes.length; j++) for (const a of r.nodes[i]) for (const b of r.nodes[j]) {
       const ox = Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0]), oy = Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]);
       expect(ox > 6 && oy > 6, `nodes ${i} and ${j} overlap on ${tag}: ${a.map(Math.round)} / ${b.map(Math.round)}`).toBe(false);
     }
     expect(await offscreen(page, 'map')).toEqual([]);
+  }
+  noErrors(page);
+});
+
+// out of season (no event, no &halloween): 6 tabs; in portrait the open tab shows its name. The date is pinned to July for js/game.js only
+test('map out of season: 6 tabs, the open one shows its name (>= 28 px) in portrait', async ({ page }) => {
+  await page.addInitScript(() => {
+    const gm = Date.prototype.getMonth;
+    Date.prototype.getMonth = function () { return /game\.js/.test(new Error().stack || '') ? 6 : gm.call(this); };
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page, save({ stars: Object.assign({}, OCEAN_DONE, { thully: 1 }) }));
+  expect(await page.evaluate(() => /halloween/.test(location.search))).toBe(false);
+  for (const w of [3, 2]) {
+    await go(page, 'map', { world: w });
+    const tabs = await page.evaluate(() => __game.scene.getScene('map').children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96).map(c => ({ w: c.width, name: c.list.find(o => o.type === 'Text').visible, size: c.list.find(o => o.type === 'Text').scaleX * 40 })));
+    expect(tabs.length).toBe(6);
+    tabs.forEach(t => expect(t.w).toBeGreaterThanOrEqual(90));
+    const named = tabs.filter(t => t.name);
+    expect(named.length).toBe(1);
+    expect(named[0].size).toBeGreaterThanOrEqual(28);
   }
   noErrors(page);
 });

@@ -76,16 +76,15 @@ test('beating Sasquatch gives the Canada Toque; it shows in Me and on the title 
   noErrors(page);
 });
 
-test('map tabs (v1.0: 6 with the event): the open tab has its short name, the others only an icon; landscape all icons; nothing off screen', async ({ page }) => {
+test('map tabs (v1.1: 7 with the event): all icon tabs, the world name in the level line; nothing off screen', async ({ page }) => {
   for (const vp of [{ width: 375, height: 667 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(vp);
     await boot(page, save({ stars: Object.assign({}, SPACE_DONE, { moose: 1 }) }), '&halloween');
     await go(page, 'map', { world: 2 });
     const tabs = await page.evaluate(() => __game.scene.getScene('map').children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96)
       .map(c => ({ w: c.width, name: c.list.find(o => o.type === 'Text').visible })));
-    expect(tabs.length).toBe(6);
-    expect(tabs.filter(t => t.name).length).toBe(vp.width < vp.height ? 1 : 0); // landscape with 6 tabs: the name is in the level line
-    expect(tabs[2].name).toBe(vp.width < vp.height);
+    expect(tabs.length).toBe(7);
+    expect(tabs.filter(t => t.name).length).toBe(0); // 7 tabs: the name is in the level line
     expect(await offscreen(page, 'map')).toEqual([]);
   }
   noErrors(page);

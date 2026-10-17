@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -91,10 +91,10 @@
   };
   Save.load(); A.muted = !!Save.data.muted; if (!Save.data.stars) Save.data.stars = {}; if (!Array.isArray(Save.data.toys)) Save.data.toys = []; if (!Save.data.hero) Save.data.hero = 'jack';
   if (!Array.isArray(Save.data.away)) Save.data.away = []; // toys on an adventure (v1.0, js/adventure.js)
-  ['diff', 'caps', 'boosts', 'seen', 'stats', 'ach', 'costumes'].forEach((k, i) => { if (Save.data[k] == null) Save.data[k] = ['normal', 0, {}, {}, {}, {}, {}][i]; });
   if (!Save.data.costume) Save.data.costume = 'none';
   // v0.8 save migration (runs on every load, also after a cloud save is pulled in; never takes anything away)
-  (d => {
+  Save.migrate = d => {
+    ['diff', 'caps', 'boosts', 'seen', 'stats', 'ach', 'costumes'].forEach((k, i) => { if (d[k] == null) d[k] = ['normal', 0, {}, {}, {}, {}, {}][i]; }); // also for a cloud save (applyCloud)
     if (d.ach && d.ach.allstars) d.costumes.crown = true; // the crown is the Superstar sticker's reward
     // once, for saves from before v0.8 (fresh saves get the flag on their first load):
     if (!d.mig08) {
@@ -129,7 +129,13 @@
       if (d.lastWorld === 3) d.lastWorld = 5;
       d.mig10 = 1;
     }
-  })(Save.data);
+    // once, for saves from before v1.1 (Countryballs is world 5, Spooky moves from 5 to 6)
+    if (!d.mig11) {
+      if (d.lastWorld === 5) d.lastWorld = 6;
+      d.mig11 = 1;
+    }
+  };
+  Save.migrate(Save.data);
   // Halloween event: October + first week of November (or ?halloween to test)
   const NOW = new Date();
   const EVENT_ON = /[?&]halloween/.test(location.search) || NOW.getMonth() === 9 || (NOW.getMonth() === 10 && NOW.getDate() <= 7);
@@ -262,7 +268,8 @@
     if (!key) return 1;
     if (key.startsWith('i:') || key.startsWith('j:')) return size / 144;
     const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, crab: 242, blowfish: 242, jellyfish: 240, compass: 242, ship: 242, bubbles: 242, thully: 380, fogcap: 250, nightcap: 230, hand: 242,
-      onion: 223, peapod: 243, garlic: 218, mushroom: 211, broccoli: 240, worm: 241, cheese: 238, bread: 242, sunflower: 242, brocklee: 380, mound: 200, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
+      onion: 223, peapod: 243, garlic: 218, mushroom: 211, broccoli: 240, worm: 241, cheese: 238, bread: 242, sunflower: 242, brocklee: 380, mound: 200,
+      england: 300, spain: 300, japan: 300, usa: 300, poland: 400, teacup: 242, bull: 242, paella: 242, sushi: 242, burger: 242, globe: 242, balloon: 240, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
     return size / base;
   }
 
@@ -270,16 +277,17 @@
   const SPACE = 1;
   const CANADA = 2; // v0.8
   const OCEAN = 3, VEGGIE = 4; // v1.0 (docs/gdd/1.0-ocean.md, 1.0-veggie.md)
-  const SPOOKY = 5; // the October event (was 3 before v1.0, see mig10)
-  const GROUND = { [SPACE]: 'ground2', [CANADA]: 'ground4', [OCEAN]: 'ground5', [VEGGIE]: 'ground6', [SPOOKY]: 'ground3' };
-  const SKY = { [SPACE]: 'sky2', [CANADA]: 'sky4', [OCEAN]: 'sky5', [VEGGIE]: 'sky6', [SPOOKY]: 'sky3' };
+  const BALLS = 5; // v1.1 Countryballs (docs/gdd/1.1-countryballs.md)
+  const SPOOKY = 6; // the October event (3 before v1.0, 5 in v1.0; see mig10, mig11)
+  const GROUND = { [SPACE]: 'ground2', [CANADA]: 'ground4', [OCEAN]: 'ground5', [VEGGIE]: 'ground6', [BALLS]: 'ground7', [SPOOKY]: 'ground3' };
+  const SKY = { [SPACE]: 'sky2', [CANADA]: 'sky4', [OCEAN]: 'sky5', [VEGGIE]: 'sky6', [BALLS]: 'sky7', [SPOOKY]: 'sky3' };
   const groundKey = w => GROUND[w] || 'ground';
   function sky(scene, world = 0) {
     const sp = world === SPACE, spook = world === SPOOKY, can = world === CANADA;
     scene.add.image(BLEED.cx, BLEED.cy, SKY[world] || 'sky').setDisplaySize(GW, GH);
     const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(0.55);
     scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    const few = world === OCEAN || world === VEGGIE ? 0.6 : 1; // foggy sea, moonlit garden: fewer stars
+    const few = world === OCEAN || world === VEGGIE ? 0.6 : world === BALLS ? 0.35 : 1; // foggy sea, moonlit garden, dusk picnic: fewer stars
     for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : few); i++) {
       const s = scene.add.image(Math.random() * W, Math.random() * H * (sp ? 0.75 : 0.62), 'dot')
         .setScale(0.12 + Math.random() * 0.22).setTint(Math.random() < 0.3 ? C.star : 0xffffff).setAlpha(0.3 + Math.random() * 0.6);
@@ -290,6 +298,7 @@
     else if (can) canadaDecor(scene);
     else if (world === OCEAN) oceanDecor(scene);
     else if (world === VEGGIE) veggieDecor(scene);
+    else if (world === BALLS) ballsDecor(scene);
     else for (let i = 0; i < 5; i++) {
       const cl = scene.add.image(Math.random() * W, H * (0.08 + Math.random() * 0.42), 'cloud')
         .setAlpha(0.13 + Math.random() * 0.12).setScale(0.8 + Math.random() * 1.3);
@@ -370,6 +379,31 @@
       scene.tweens.add({ targets: sf, angle: { from: -4, to: 4 }, duration: 2600 + k * 300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     });
     for (let i = 0; i < 14; i++) img(scene, W * (0.04 + i * 0.07), gy + 30 + (i % 2) * 24, 'i:leaf').setScale(0.18).setTint(0x8fe36a).setAlpha(0.7);
+  }
+  // Countryballs (v1.1): a hot-air balloon drifting by now and then (off in calm mode); on the map also rainbow bunting (no real flags)
+  function ballsDecor(scene) {
+    for (let i = 0; i < 4; i++) {
+      const cl = scene.add.image(Math.random() * W, H * (0.08 + Math.random() * 0.3), 'cloud').setAlpha(0.18).setTint(0xffd9c0).setScale(0.8 + Math.random());
+      scene.tweens.add({ targets: cl, x: cl.x + W * 0.3, duration: 24000 + Math.random() * 12000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+    // one balloon at a time, below the pep bars and the map tabs
+    let bal = null;
+    scene.time.addEvent({ delay: 12000, loop: true, callback: () => {
+      if (calm() || (bal && bal.active) || Math.random() < 0.3) return;
+      const dir = Math.random() < 0.5 ? 1 : -1, y = H * (PORTRAIT ? 0.24 : 0.3) + Math.random() * H * 0.08;
+      const b = bal = scene.add.image(dir > 0 ? -120 : W + 120, y, 'balloon').setScale(0.3 + Math.random() * 0.1).setAlpha(0.8);
+      scene.tweens.add({ targets: b, y: y - 30, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      scene.tweens.add({ targets: b, x: dir > 0 ? W + 120 : -120, duration: 26000, onComplete: () => b.destroy() });
+    } });
+    const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null;
+    if (!gy) return;
+    const cols = [0xff6b5b, 0xff8a3d, 0xffd23f, 0x7fe39a, 0x5fc8ff, 0x9a7bff, 0xff9ed8], g = scene.add.graphics().setAlpha(0.8);
+    [[0, 0.5], [0.5, 1]].forEach(([a, b], k) => {
+      const x0 = W * a, x1 = W * b, y0 = gy - 150 + k * 20, sag = 50, n = 7;
+      const yAt = t => y0 + Math.sin(Math.PI * t) * sag;
+      g.lineStyle(4, 0xfff3d2, 0.8); g.beginPath(); for (let i = 0; i <= 16; i++) { const t = i / 16; i ? g.lineTo(x0 + (x1 - x0) * t, yAt(t)) : g.moveTo(x0, yAt(0)); } g.strokePath();
+      for (let i = 0; i < n; i++) { const t = (i + 0.5) / n, x = x0 + (x1 - x0) * t, y = yAt(t); g.fillStyle(cols[(i + k * 3) % cols.length]); g.fillTriangle(x - 24, y, x + 24, y, x, y + 46); }
+    });
   }
   // Space world: a far planet, a drifting UFO and a rocket that zooms by now and then
   function spaceDecor(scene, rocketEvery = 7000) {
@@ -456,7 +490,9 @@
         'moose', 'beaver', 'bear', 'sasquatch', 'mapleleaf', 'pine', 'pancakes', 'hockey', 'glove',
         // v1.0 Ocean and Veggie Patch (Fluent Emoji 3D, MIT; thully and brocklee by Kondrat)
         'crab', 'blowfish', 'jellyfish', 'compass', 'ship', 'bubbles', 'thully', 'hand',
-        'onion', 'peapod', 'garlic', 'mushroom', 'broccoli', 'worm', 'cheese', 'bread', 'sunflower', 'brocklee']
+        'onion', 'peapod', 'garlic', 'mushroom', 'broccoli', 'worm', 'cheese', 'bread', 'sunflower', 'brocklee',
+        // v1.1 Countryballs (the five balls from Kondrat's pictures; Fluent Emoji 3D props, MIT)
+        'england', 'spain', 'japan', 'usa', 'poland', 'teacup', 'bull', 'paella', 'sushi', 'burger', 'globe']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
       this.load.atlas('icons2', 'assets/icons2.webp', 'assets/icons2.json');
@@ -630,6 +666,26 @@
         for (let i = 1; i < 7; i++) { q.beginPath(); q.ellipse(GW / 2, RY + i * GH * 0.1, GW / 2 - i * 18, RY, 0, Math.PI, 0); q.stroke(); }
         for (let i = 0; i < 70; i++) { q.fillStyle = Math.random() < 0.5 ? 'rgba(127,214,90,0.8)' : 'rgba(170,230,120,0.7)'; q.beginPath(); q.ellipse(Math.random() * GW, RY * 0.6 + Math.random() * GH, 7, 4, -0.5, 0, Math.PI * 2); q.fill(); }
       });
+      // v1.1 Countryballs: a warm dusk (peach to blue) and a giant picnic blanket in mint and cream checks (Jack's colours, not a flag)
+      const s7 = grad('sky7', [[0, '#27306e'], [0.45, '#5a5a9a'], [0.8, '#c98a8a'], [1, '#f2b58a']]);
+      const sg7 = s7.x.createRadialGradient(W * 0.5, H * 0.85, 0, W * 0.5, H * 0.85, W * 0.7); sg7.addColorStop(0, 'rgba(255,214,150,0.3)'); sg7.addColorStop(1, 'rgba(0,0,0,0)');
+      s7.x.fillStyle = sg7; s7.x.fillRect(0, 0, W, H); s7.t.refresh();
+      dome('ground7', [[0, '#bfeee0'], [1, '#6cc4b0']], q => {
+        // checks in perspective: cream bands both ways over the mint
+        q.fillStyle = 'rgba(255,243,210,0.5)';
+        for (let i = 0; i < 10; i += 2) q.fillRect(0, RY * 0.3 + Math.pow(i / 10, 1.4) * GH, GW, 14 + i * 9);
+        for (let i = -14; i <= 14; i += 2) { q.beginPath(); q.moveTo(GW / 2 + i * GW * 0.03, 0); q.lineTo(GW / 2 + (i + 1) * GW * 0.03, 0); q.lineTo(GW / 2 + (i + 1) * GW * 0.1, GH); q.lineTo(GW / 2 + i * GW * 0.1, GH); q.closePath(); q.fill(); }
+        q.strokeStyle = 'rgba(29,33,99,0.12)'; q.lineWidth = 3; q.setLineDash([12, 10]);
+        for (let i = -14; i <= 14; i++) { q.beginPath(); q.moveTo(GW / 2 + i * GW * 0.03, 0); q.lineTo(GW / 2 + i * GW * 0.1, GH); q.stroke(); }
+        q.setLineDash([]);
+      });
+      // a striped hot-air balloon (the Countryballs sky extra)
+      const bl = this.textures.createCanvas('balloon', 200, 240), bx = bl.getContext();
+      bx.save(); bx.beginPath(); bx.ellipse(100, 92, 86, 90, 0, 0, Math.PI * 2); bx.clip();
+      ['#ff6b5b', '#ffd23f', '#7fd6c2', '#fff3d2', '#ff9ed8', '#5fc8ff'].forEach((c, i) => { bx.fillStyle = c; bx.fillRect(14 + i * 29, 0, 29, 190); });
+      bx.restore(); bx.strokeStyle = 'rgba(29,33,99,0.6)'; bx.lineWidth = 4; bx.beginPath(); bx.ellipse(100, 92, 86, 90, 0, 0, Math.PI * 2); bx.stroke();
+      bx.beginPath(); bx.moveTo(56, 168); bx.lineTo(82, 206); bx.moveTo(144, 168); bx.lineTo(118, 206); bx.stroke();
+      bx.fillStyle = '#b98a5a'; bx.fillRect(78, 204, 44, 32); bx.strokeRect(78, 204, 44, 32); bl.refresh();
       // load saved toy pictures, then go
       Promise.all(Save.data.toys.map(t => IDB.get(t.id).then(url => url && addTexture(this, 'toy_' + t.id, url)).catch(() => {})))
         .then(() => this.go(), () => this.go());
@@ -661,6 +717,7 @@
     { name: 'CANADA', tab: 'CANADA', icon: 'mapleleaf' },
     { name: 'OCEAN', tab: 'OCEAN', icon: 'compass' },
     { name: 'VEGGIE PATCH', tab: 'VEGGIES', icon: 'broccoli' },
+    { name: 'COUNTRYBALLS', tab: 'FLAGS', icon: 'globe' }, // v1.1 (tab label: owner's decision, 17 Oct 2026)
   ].concat(EVENT_ON ? [{ name: 'SPOOKY', tab: 'SPOOKY', icon: 'pumpkin', event: true }] : []);
   const RIVALS = [
     { id: 'timmy', name: 'Timmy the Tiger', nick: 'Timmy', short: 'TIMMY', tex: 'tiger', scale: 2.0, color: C.orange, hp: 100, xp: 40,
@@ -819,6 +876,44 @@
         { type: 'spray', tex: 'dot', tint: [0xffffff, 0xeef4ff], word: 'STEAMED!', sound: 'steam', dmg: [14, 21], w: 20, log: '{a} puffs warm steam at {d}. Like a sauna!' },
         { type: 'roar', word: 'GREEN POWER!', color: 0x5fbf4a, sound: 'roar', dmg: [14, 21], w: 20, log: '{a} shouts GREEN POWER so loud the leaves rustle!' },
         { type: 'heal', tex: 'cheese', amt: 25, uses: 1, w: 10, log: '{a} dips himself in cheese sauce. Delicious!' }] },
+    // ---- World 6: COUNTRYBALLS (v1.1, docs/gdd/1.1-countryballs.md). +10 pep per slot over Veggie Patch, scaling from level 13.
+    // COPYCAT! ('copy'): a paint splat, then the ball copies the player's next move with the same numbers (nap and dance flop).
+    // Poland's PUSH! ('launch' charge): help him into space (orbit turn, a Space Pierogi) or he falls on the hero. The id 'polandball' is The Blips.
+    { id: 'england', world: BALLS, name: 'England', nick: 'England', short: 'ENGLAND', tex: 'england', color: 0xff6b6b, hp: 175, xp: 190,
+      intro: 'England tips his top hat: "Jolly good! Tea first, then a pillow fight?"', laugh: 'England giggled so hard his monocle popped out. "Jolly good game, old chap!"',
+      moves: [{ type: 'throw', tex: 'teacup', sound: 'kettle', dmg: [13, 20], w: 30, log: '{a} tosses a cup of (cold!) tea at {d}. SPLOSH!' },
+        { type: 'rush', word: 'BROLLY!', dmg: [13, 21], w: 25, log: '{a} pops open his umbrella and bops {d}!' },
+        { type: 'shield', w: 20, log: '{a} stays very, very calm. Next hit only does half!' },
+        { type: 'heal', tex: 'teacup', amt: 22, uses: 1, w: 10, log: '{a} stops for tea time. Pinky up!' },
+        { type: 'copy', mini: true, word: 'COPYCAT!', sound: 'paint', dmg: [8, 12], uses: 1, w: 25, log: '{a} paints himself green like {d}... JACKBALL!' }] },
+    { id: 'spain', world: BALLS, name: 'Spain', nick: 'Spain', short: 'SPAIN', tex: 'spain', color: 0xffc93d, hp: 185, xp: 200,
+      intro: 'Spain swishes his red cape: "¡Hola, Jack! Toro wants to play too!"', laugh: 'Spain laughed and danced away with Toro. "¡OLÉ! What a game!"',
+      moves: [{ type: 'throw', tex: 'bull', word: 'OLÉ!', sound: 'moo', dmg: [15, 23], w: 30, log: 'Toro the plush bull bounces in and boops {d}! OLÉ!' },
+        { type: 'multi', hits: 3, dmg: [5, 8], sound: 'castanet', w: 25, log: 'FLAMENCO! {a} spins: clack, clack, CLACK!' },
+        { type: 'shield', w: 20, log: '{a} swishes his cape. OLÉ! Next hit only does half!' },
+        { type: 'heal', tex: 'paella', amt: 22, uses: 1, w: 10, log: '{a} shares a big pan of paella. ¡Delicioso!' },
+        { type: 'copy', word: 'COPYCAT!', sound: 'paint', dmg: [8, 12], uses: 1, w: 20, log: '{a} paints himself green... JACKBALL!' }] },
+    { id: 'japan', world: BALLS, name: 'Japan', nick: 'Japan', short: 'JAPAN', tex: 'japan', color: 0xff8a8a, hp: 195, xp: 210,
+      intro: 'Japan bows: "Konnichiwa, Jack! Sushi is ready. Pillows are ready!"', laugh: 'Japan giggled and folded a paper crane for Jack. "Arigato! Great game!"',
+      moves: [{ type: 'volley', tex: 'sushi', word: 'SUSHI TOSS!', sound: 'whoosh', dmg: [15, 22], w: 30, log: '{a} tosses a whole plate of sushi rolls at {d}!' },
+        { type: 'rush', word: 'ZOOOM!', sound: 'train', dmg: [15, 22], w: 25, log: '{a} zooms in like a bullet train. Right on time!' },
+        { type: 'dizzy', tex: 'i:bird', tint: 0xfff3f0, color: 0xffffff, word: 'FLUTTER!', uses: 1, w: 15, log: '{a} folds a paper crane. {d} watches it... dizzy!' },
+        { type: 'shield', w: 15, log: '{a} bows very politely. Next hit only does half!' },
+        { type: 'copy', word: 'COPYCAT!', sound: 'paint', dmg: [9, 13], uses: 1, w: 25, log: '{a} paints himself green... JACKBALL!' }] },
+    { id: 'usa', world: BALLS, name: 'USA', nick: 'USA', short: 'USA', tex: 'usa', color: 0x5b7bd6, hp: 205, xp: 220, big: 1.05,
+      intro: 'USA slides down his sunglasses: "Howdy! A pillow fight? Too easy, dude!"', laugh: 'USA laughed so hard his sunglasses fell off. "Okay... NOT too easy!"',
+      moves: [{ type: 'throw', tex: 'burger', sound: 'whoosh', dmg: [16, 23], w: 30, log: '{a} throws a double cheeseburger at {d}. Extra pickles!' },
+        { type: 'roar', word: 'HOWDY!', color: 0x5b7bd6, sound: 'honk', dmg: [15, 23], w: 20, log: '{a} yells HOWDY so loud that {d} falls over!' },
+        { type: 'shield', w: 20, log: '{a} puts on his shades. Too cool! Next hit only does half!' },
+        { type: 'copy', word: 'COPYCAT!', sound: 'paint', dmg: [10, 14], uses: 2, usesHard: 3, w: 25, log: '{a} paints himself green... JACKBALL! Too easy!' },
+        { type: 'heal', tex: 'milk', amt: 22, uses: 1, w: 10, log: '{a} slurps a giant milkshake. Brain freeze!' }] },
+    { id: 'poland', world: BALLS, name: 'Poland', nick: 'Poland', short: 'POLAND', tex: 'poland', big: 1.15, color: 0xff4d6d, hp: 250, xp: 260, boss: true, reward: 'pierogi',
+      intro: 'Poland rolls up in a cardboard rocket: "Cześć, Jack! Today I go to SPACE! But first... pillows!"', laugh: 'Poland giggled so hard he rolled all the way to the Moon. "See? I CAN into space!"',
+      moves: [{ type: 'launch', charge: true, word: '3... 2... 1...', sound: 'countdown', dmg: [24, 30], uses: 2, usesEasy: 1, usesHard: 3, w: 30, log: '{a} straps on a cardboard rocket: "3... 2... 1..."' },
+        { type: 'volley', tex: 'dumpling', word: 'PIEROGI!', sound: 'whoosh', dmg: [15, 22], w: 25, log: '{a} throws a plate of pierogi at {d}!' },
+        { type: 'hop', word: 'BOING!', sound: 'bounce', dmg: [14, 21], w: 20, log: '{a} bounces like the roundest ball in the world!' },
+        { type: 'copy', word: 'COPYCAT!', sound: 'paint', dmg: [8, 12], uses: 1, usesHard: 2, w: 20, log: '{a} paints himself green... JACKBALL!' },
+        { type: 'heal', tex: 'dumpling', amt: 25, uses: 1, w: 10, log: '{a} eats one pierogi. Just one. Okay, five.' }] },
   ].concat(EVENT_ON ? [
     // ---- Halloween event world: SPOOKY (open from the start while the event runs)
     { id: 'pumpkin', world: SPOOKY, event: true, name: 'Pumpkin Pete', nick: 'Pete', short: 'PUMPKIN PETE', tex: 'pumpkin', color: C.orange, hp: 110, xp: 50, reward: 'pumpkin',
@@ -860,6 +955,7 @@
     { id: 'crown', name: 'Royal Crown', tex: 'crown', w: 0.45 },
     { id: 'nightcap', name: 'Nightcap', tex: 'nightcap', w: 0.5 }, // v1.0: beat Sleepy Thully
     { id: 'brochair', name: 'Broccoli Hair', tex: 'broccoli', w: 0.55 }, // v1.0: beat Brock Lee
+    { id: 'pierogi', name: 'Pierogi Hat', tex: 'dumpling', w: 0.42 }, // v1.1: beat Poland
   ];
   // a costume image (with its tint) for the title, the duel and the Me screen
   const hatImage = (scene, x, y, c) => { const h = scene.add.image(x, y, c.tex); if (c.tint) h.setTint(c.tint); return h; };
@@ -870,7 +966,7 @@
       { type: 'spray', tex: 'dot', tint: [0x3b2a6e, 0x6a4fb0], word: 'INK!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} squirts pillow ink at {d}!' },
       { type: 'tickle', dmg: [8, 26], w: 25 },
       { type: 'roar', word: 'BLUB BLUB!', color: 0xff9ed8, sound: 'boo', dmg: [13, 21], w: 20, log: '{a} bubbles a giant BLUB!' }] };
-  const SCALE_FROM = { [SPACE]: 4, [CANADA]: 6, [OCEAN]: 9, [VEGGIE]: 11 };
+  const SCALE_FROM = { [SPACE]: 4, [CANADA]: 6, [OCEAN]: 9, [VEGGIE]: 11, [BALLS]: 13 };
   const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, beam: 30, slapshot: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
   const isUnlocked = i => i === 0 || (RIVALS[i].event && !RIVALS[i - 1].event) || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
   const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
@@ -1079,7 +1175,8 @@
       // the others show just their icon
       // v1.0, 5-6 worlds: the other tabs are icon-only at 110 px, the open tab takes the rest and shows its short name;
       // landscape with 6 tabs: all icon-only, the world's name moves into the level line (docs/gdd/1.0-ocean.md section 2)
-      const many = n >= 5, gap = many ? 20 : 30, ICON = 110;
+      // v1.1, 6-7 worlds: 7 icon tabs are 890 px wide, more than a 4:3 iPad in landscape has: they shrink a little there (never under 90 px, B26)
+      const many = n >= 5, gap = many ? 20 : 30, ICON = many ? Math.max(90, Math.min(110, (room - (n - 1) * gap) / n)) : 110;
       const openW = many ? Math.min(400, room - (n - 1) * (ICON + gap)) : 0, allIcons = many && (!PORTRAIT && n >= 6 || openW < 260);
       const wide = !many && tw0 - 140 < 230, tws = WORLDS.map((w, i) => many ? (i === this.world && !allIcons ? openW : ICON)
         : !wide ? tw0 : i === this.world ? Math.min(400, (room - 30 * (n - 1)) * 2 / (n + 1)) : Math.min(200, (room - 30 * (n - 1)) / (n + 1)));
@@ -1768,6 +1865,7 @@
     create() {
       this._leaving = false; this.hero = null; this.rival = null; this.over = false; this.busy = false; this.shown = null; this.celebrating = false;
       this.spin = null; this.spinNext = null; this.hidden = null; this.sleepParts = null; this.meterBox = null; this.fogBand = null; this.mounds = null; // v1.0 Compass Spin, PEEKABOO! (the scene object is reused)
+      this.copy = null; this.copyRec = null; this.copyChip = null; this.copyHand = null; this.rocketImg = null; this.pushEv = null; // v1.1 COPYCAT!, PUSH!
       // a friend's toy picture may be missing (e.g. after rotating the screen): load it first
       const ft = this.data0.ftoy;
       if (ft && !this.textures.exists('ftoy_' + ft.id)) {
@@ -1880,6 +1978,7 @@
       if (this.world === SPOOKY) moon.setTint(0xffa64d).setScale(moon.scale * 1.3);
       if (this.world === CANADA) moon.setTint(0xd8ecff);
       if (this.world === OCEAN) moon.setTint(0xdff7f0);
+      if (this.world === BALLS) moon.setTint(0xfff1c9);
       this.tweens.add({ targets: moon, angle: -6, y: moon.y + 12, duration: 2800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       const bg = this.add.image(W / 2, groundY - (PORTRAIT ? 230 : 300 * zoom), groundKey(this.world)).setOrigin(0.5, 0).setScale(1, PORTRAIT ? 1.6 : 0.9);
       if (bg.y + bg.displayHeight < H + SB + 4) bg.setScale(1, (H + SB + 4 - bg.y) / bg.height); // reach the bottom edge
@@ -1948,6 +2047,9 @@
       this.umbBtn = toolBtn('UMBRELLA!', 0x6c7bff, 'umbrella', () => this.playerBlock('umb'));
       // v1.0 Big Yawn / Captain's Nap: ring the ALARM! (costs the turn, like BLOCK IT!); a hand points at it on EASY and the first time
       this.alarmBtn = toolBtn('ALARM!', 0xffb347, 'j:alarm', () => this.playerAlarm());
+      // v1.1 Poland's countdown: PUSH! helps him into space (costs the turn); HARD counts 3, 2, 1, GO! on the button
+      this.pushBtn = toolBtn('PUSH!', C.orange, 'rocket', () => this.playerPush());
+      this.pushBtn.on('pointerdown', () => { this.pushDownGo = this.pushGo(); }); // HARD: the press counts, not the lift (button() fires on pointerup)
       this.alarmHand = img(this, W / 2, bby - 150, 'hand').setScale(iconScale('hand', 110)).setDepth(36).setVisible(false);
       this.tweens.add({ targets: this.alarmHand, y: bby - 120, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       // SLAPSHOT wind-up: a reminder by the hero instead of a button
@@ -1977,11 +2079,12 @@
       }
       // coming back after the screen was rotated: restore the duel exactly
       if (res) {
-        const put = (f, o) => { ['hp', 'max', 'used', 'dizzy', 'shield', 'spare', 'bonus', 'firstBonus', 'lastType', 'afterCharge', 'beamed', 'asleep', 'meter'].forEach(k => { if (o[k] !== undefined) f[k] = o[k]; }); f.bar.setMax(f.max); f.bar.set(f.hp, this); };
+        const put = (f, o) => { ['hp', 'max', 'used', 'dizzy', 'shield', 'spare', 'bonus', 'firstBonus', 'lastType', 'afterCharge', 'beamed', 'asleep', 'meter', 'orbit'].forEach(k => { if (o[k] !== undefined) f[k] = o[k]; }); f.bar.setMax(f.max); f.bar.set(f.hp, this); };
         put(P, res.h); put(T, res.r);
         if (res.spin) { this.spin = res.spin; this.applySpin(false); } // the same drifted cards and LUCKY card, no slide (docs/gdd/1.0-ocean.md section 4)
         if (res.hidden && this.showHidden) { this.hidden = res.hidden; this.showHidden(true); }
         if (res.charging >= 0 && this.rmoves[res.charging]) { T.charging = this.rmoves[res.charging]; this.chargeFx(T); }
+        if (res.copy && this.rmoves[res.copy.k]) { this.copy = { k: res.copy.k, mini: !!res.copy.mini }; this.copyFx(true); } // COPYCAT! armed: the tint, the chip and the card strips come back
         if (res.log) this.logT.setText(res.log);
         // the duel was already over: show the result panel again in the new layout (QA B31)
         if (res.result) {
@@ -2004,15 +2107,16 @@
       this.setCards(true);
     }
     snapshot() {
-      const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType, afterCharge: !!f.afterCharge, beamed: (f.beamed || []).slice(), asleep: !!f.asleep, meter: f.meter || 0 });
+      const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType, afterCharge: !!f.afterCharge, beamed: (f.beamed || []).slice(), asleep: !!f.asleep, meter: f.meter || 0, orbit: !!f.orbit });
       return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '', acted: !!this.acted,
-        spin: this.spin ? Object.assign({}, this.spin, { order: this.spin.order.slice() }) : null, hidden: this.hidden ? Object.assign({}, this.hidden) : null };
+        spin: this.spin ? Object.assign({}, this.spin, { order: this.spin.order.slice() }) : null, hidden: this.hidden ? Object.assign({}, this.hidden) : null,
+        copy: this.copy ? { k: this.copy.k, mini: !!this.copy.mini } : null };
     }
-    // the duel's music: Thully asleep = lullaby; bosses = boss; Canada = north; Ocean = sea; Veggie Patch = garden
+    // the duel's music: Thully asleep = lullaby; bosses = boss; Canada = north; Ocean = sea; Veggie Patch = garden; Countryballs = parade
     track() {
       const R = this.R, T = this.rival;
       if (R.sleepy && (!T || T.asleep)) return 'lullaby';
-      return R.boss ? 'boss' : R.world === CANADA ? 'north' : R.world === OCEAN ? 'sea' : R.world === VEGGIE ? 'garden' : 'battle';
+      return R.boss ? 'boss' : R.world === CANADA ? 'north' : R.world === OCEAN ? 'sea' : R.world === VEGGIE ? 'garden' : R.world === BALLS ? 'parade' : 'battle';
     }
 
     fighter(x, y, key, scale, dir, maxHp, flip) {
@@ -2119,8 +2223,19 @@
       glow.lineStyle(4, 0xffffff, 0.8); glow.strokeRoundedRect(-w / 2 - 14, -h / 2 - 14, w + 28, h + 28, R + 12);
       const badge = this.add.image(-w / 2 + 26, -h / 2 + 24, 'compass').setScale(iconScale('compass', 40)).setVisible(false);
       const plus = chip(this, w / 2 - 40, -h / 2 + 8, '+5', 0x5ff0e6, 24).setVisible(false);
-      c.add([g, ic, t1, t2, used, ufo, glow, badge, plus]); // (the new parts go last: tests and other code read list[1] = icon, list[2] = title)
-      this.tweens.add({ targets: glow, alpha: { from: 1, to: 0.35 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      // v1.1 COPYCAT!: a 34 px strip at the bottom of the card says what the copy will do (not on HARD); on EASY the best card glows mint
+      const cs = this.add.graphics().setVisible(false), ct = txt(this, 0, h / 2 - 21, '', 22, C.ink, { st: 0, shadow: false }).setVisible(false);
+      const cglow = this.add.graphics().setVisible(false); cglow.lineStyle(10, C.mint); cglow.strokeRoundedRect(-w / 2 - 6, -h / 2 - 6, w + 12, h + 12, R + 6);
+      c.add([g, ic, t1, t2, used, ufo, glow, badge, plus, cs, ct, cglow]); // (the new parts go last: tests and other code read list[1] = icon, list[2] = title)
+      this.tweens.add({ targets: [glow, cglow], alpha: { from: 1, to: 0.35 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      c.copyLabel = null;
+      c.setCopy = (label, best) => {
+        c.copyLabel = label || null; cs.setVisible(!!label); ct.setVisible(!!label); cglow.setVisible(!!label && !!best);
+        if (!label) { t2.setVisible(true); return; }
+        cs.clear(); cs.fillStyle(/flops/.test(label) ? 0x9ff0b4 : /at you/.test(label) ? 0xffc2c2 : 0xd8ecff); cs.fillRoundedRect(-w / 2 + 8, h / 2 - 38, w - 16, 34, 12);
+        fit(ct.setText(label).setScale(1), w - 30);
+        t2.setVisible(L.t2y + L.f2 / 2 <= h / 2 - 38); // the strip takes the sub line's place on small cards
+      };
       c.setSpin = (moved, lucky, shine) => { badge.setVisible(!!moved || (!!lucky && !shine && !this.easy)); glow.setVisible(!!lucky && !!shine); plus.setVisible(!!lucky && !!shine); };
       c.setSize(w, h).setInteractive({ useHandCursor: true });
       this.tweens.add({ targets: ic, angle: { from: -6, to: 6 }, duration: 900 + Math.random() * 300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -2146,11 +2261,16 @@
     }
     setCards(on) {
       this.moves.forEach(m => m.card.refresh(on && !this.over, !!this.hidden && !!m.dmg));
+      // COPYCAT! armed: each card says what the copy will do (EASY / NORMAL; HARD no strips)
+      const cpOn = on && !this.over && !!this.copy && !this.hard, best = cpOn && this.easy ? this.bestCopyCard() : null;
+      this.moves.forEach(m => m.card.setCopy && m.card.setCopy(cpOn && m.card.enabled ? this.copyLabel(m) : null, m === best));
       if (this.blockBtn) {
-        const cur = on && !this.over ? this.rival.charging : null, slap = !!(cur && cur.type === 'slapshot'), yawn = !!(cur && cur.type === 'yawn');
-        const ch = slap || yawn ? null : cur, beam = !!(ch && ch.type === 'beam');
+        const cur = on && !this.over ? this.rival.charging : null, slap = !!(cur && cur.type === 'slapshot'), yawn = !!(cur && cur.type === 'yawn'), launch = !!(cur && cur.type === 'launch');
+        const ch = slap || yawn || launch ? null : cur, beam = !!(ch && ch.type === 'beam');
         this.alarmBtn.setVisible(yawn);
-        this.alarmHand.setVisible(yawn && (this.easy || !(Save.data.stats || {}).alarmSeen));
+        this.pushBtn.setVisible(launch);
+        if (launch && this.hard) { if (!this.pushEv) this.pushCount(true); } else if (this.pushEv) this.pushCount(false);
+        this.alarmHand.setVisible((yawn && (this.easy || !(Save.data.stats || {}).alarmSeen)) || (launch && (this.easy || !(Save.data.stats || {}).pushSeen)));
         // SLAPSHOT has no block button: the save is a timed tap when the shot comes
         if (this.saveChip) this.saveChip.setVisible(slap);
         const one = !!(ch && this.easy && !ch.mini), two = !!(ch && !this.easy && !ch.mini);
@@ -2158,7 +2278,7 @@
         this.extBtn.setVisible(two);
         this.umbBtn.setVisible(two || !!(ch && ch.mini));
         // the buttons sit where the HARD / booster chips are on iPad and phone landscape: hide the chips meanwhile (QA B48)
-        const btns = one || two || !!(ch && ch.mini) || yawn;
+        const btns = one || two || !!(ch && ch.mini) || yawn || launch;
         [this.diffChip, this.boostChip].forEach(o => o && o.setVisible(!btns));
         if (this.boostChip && slap) this.boostChip.setVisible(false);
         // HARD: the two buttons swap sides at random each charge (this.toolSwap is set in startCharge)
@@ -2215,7 +2335,7 @@
       const crit = dmg >= 20;
       A.thump(crit ? 1.3 : (quiet ? 0.6 : 0.9)); buzz(crit ? 60 : 30);
       target.spr.setTintFill(0xffffff);
-      this.time.delayedCall(90, () => { target.spr.clearTint(); if (target.asleep) target.spr.setTint(0xc4ccff); });
+      this.time.delayedCall(90, () => { target.spr.clearTint(); if (target.asleep) target.spr.setTint(0xc4ccff); else if (target === this.rival) this.rivalTint(); });
       this.sparks.explode(crit ? 26 : (quiet ? 8 : 14), p.x, p.y);
       if (kind !== 'roar' && kind !== 'fire') this.feathers.explode(quiet ? 5 : 8 + Math.round(dmg / 2), p.x, p.y - 20);
       const ring = this.add.image(p.x, p.y, 'ring').setDepth(22).setScale(0.3).setAlpha(0.9);
@@ -2224,6 +2344,7 @@
       if (crit) { A.crit(); this.cameras.main.zoomTo(1.05, 90); this.time.delayedCall(260, () => this.cameras.main.zoomTo(1, 260)); }
       await this.hitStop(crit ? 130 : 60);
       target.hp = Math.max(0, target.hp - dmg); target.bar.set(target.hp, this);
+      if (this.copyRec && target === this.rival) this.copyRec.hits.push(dmg); // COPYCAT!: the number the player saw
       this.number(p.x + (quiet ? rnd(-60, 60) : 0), p.y - 120, '-' + dmg, target === this.rival ? '#ffd23f' : '#ff6b5b', quiet ? 90 : 120);
       if (crit) this.popWord(p.x + (target.dir > 0 ? -150 : 150), p.y - 260, 'CRIT!', '#ff6b5b', 76, -10);
       const kb = -target.dir * (crit ? 90 : 50);
@@ -2392,7 +2513,11 @@
       L(m.log || DEF_LOG[m.type] || ('{a}: ' + (m.title || 'Here I come') + '!'));
       const d = m.dmg ? rnd(m.dmg[0], m.dmg[1]) : 0;
       switch (m.type) {
-        case 'throw': await this.lunge(att, 60); await this.throwThing(att, def, m.tex || 'pillow', 420, m.tint); await this.impact(def, d); await this.back(att); break;
+        case 'throw':
+          await this.lunge(att, 60); if (m.sound && m.sound !== 'whoosh') this.sfx(m.sound); // throwThing whooshes already
+          await this.throwThing(att, def, m.tex || 'pillow', 420, m.tint);
+          if (m.word) this.popWord(def.center().x, def.center().y - 220, m.word, '#ffd23f', 84, rnd(-10, 10));
+          await this.impact(def, d); await this.back(att); break;
         case 'tickle': await this.tickleRun(att, def, d); break;
         case 'roar': await this.rings(att, def, m.color || 0xffb36b, m.word || 'RAWR!', m.sound); await this.impact(def, d, 'roar'); break;
         case 'spray': {
@@ -2462,20 +2587,20 @@
         }
         case 'dizzy': {
           if (m.sound) this.sfx(m.sound);
-          if (m.tex) { await this.throwThing(att, def, m.tex, 380); }
+          if (m.tex) { await this.throwThing(att, def, m.tex, 380, m.tint); }
           else this.tweens.add({ targets: att.root, angle: { from: -8, to: 8 }, duration: 260, yoyo: true, repeat: 2, onComplete: () => att.root.setAngle(0) });
           await this.makeDizzy(att, def, m.color || 0xb38cff, m.word);
           break;
         }
         case 'multi': {
-          A.spin();
+          if (m.sound) this.sfx(m.sound); else A.spin();
           const tx = def.root.x - att.dir * (PORTRAIT ? 300 : 360);
           await Promise.all([tw(this, { targets: att.root, x: tx, duration: 380, ease: 'Quad.in' }), tw(this, { targets: att.squash, angle: 720 * att.dir, duration: 380 })]);
           att.squash.setAngle(0);
-          for (let i = 0; i < (m.hits || 3); i++) {
+          for (let i = 0; i < (m.seq ? m.seq.length : m.hits || 3); i++) { // seq: a COPYCAT! copy repeats the player's numbers
             if (def.hp <= 0) break;
             this.tweens.add({ targets: att.squash, angle: 360 * att.dir, duration: 220, onComplete: () => att.squash.setAngle(0) });
-            await this.impact(def, rnd(m.dmg[0], m.dmg[1]), 'pillow', true);
+            await this.impact(def, m.seq ? m.seq[i] : rnd(m.dmg[0], m.dmg[1]), 'pillow', true);
           }
           await this.back(att); break;
         }
@@ -2508,7 +2633,7 @@
           await this.impact(def, d, 'roar'); break;
         }
         case 'rush': {
-          A.whoosh();
+          if (m.sound) this.sfx(m.sound); else A.whoosh();
           await tw(this, { targets: att.squash, scaleX: 0.9, scaleY: 1.08, duration: 140 });
           await tw(this, { targets: att.root, x: def.root.x - att.dir * (PORTRAIT ? 330 : 400), duration: 260, ease: 'Quad.in' });
           this.tweens.add({ targets: att.squash, scaleX: 1.15, scaleY: 0.9, angle: 12 * att.dir, duration: 120, yoyo: true });
@@ -2522,6 +2647,8 @@
         case 'whirl': await this.whirl(m, att, def, d); break;
         case 'yawn': await this.fallAsleep(m, att); break;
         case 'hide': await this.hide(m, att); break;
+        case 'copy': await this.copyArm(m, att, def, d); break;
+        case 'launch': await this.launchFall(m, att, def, d); break;
         case 'hop': {
           const sx = att.root.x, tx = def.root.x - att.dir * (PORTRAIT ? 330 : 400);
           for (let i = 1; i <= 3; i++) {
@@ -2531,6 +2658,7 @@
             this.tweens.add({ targets: att.squash, scaleX: 1.15, scaleY: 0.85, duration: 80, yoyo: true });
           }
           this.popWord(def.center().x, def.center().y - 220, m.word || 'BOING!', '#7fd6c2', 84, -8);
+          if (m.sound) this.sfx(m.sound);
           await this.impact(def, d); await this.back(att); break;
         }
         case 'volley': {
@@ -2558,12 +2686,19 @@
       // Compass Spin: the LUCKY CURRENT card adds +5 to its first hit
       if (this.spin && this.moves.indexOf(m) === this.spin.lucky && m.dmg) { P.lucky5 = 5; emit('lucky', {}, this); }
       if (T.asleep && m.type === 'rain') { T.meter = this.wakeNeed(); this.wakeUp('INFERNO RAIN wakes anyone up!'); await wait(this, 900); }
+      // COPYCAT! armed: remember this move and every number it shows on the rival; the copy comes on his next turn
+      if (this.copy && !this.copy.rec) {
+        this.copy.rec = { k, hits: [], amt: m.amt || 0 }; this.copyRec = this.copy.rec;
+        const st = Save.data.stats || (Save.data.stats = {}); st.copySeen = 1;
+        if (this.copyHand) { this.copyHand.destroy(); this.copyHand = null; }
+      }
       if (this.hidden && m.type === 'dance') {
         // Six-Seven during a PEEKABOO!: the hidden rival can't stop giggling and pops out (found: dizzy, no bonk)
         this.stopTells(); emit('found', { dance: true }, this); this.seekSeen();
         this.log(T.name + (this.R.plural ? ' giggle' : ' giggles') + ' and ' + (this.R.plural ? 'pop' : 'pops') + ' out!'); await this.unhide(true);
       }
       await this.doMove(m, P, T);
+      this.copyRec = null;
       if (this.hidden && !this.over) { await this.sneak(); if (this.checkEnd()) return; } // a heal or nap during a hide: then the sneak tickle
       P.lucky5 = 0;
       this.unspin(true);
@@ -2589,7 +2724,7 @@
       this.banner('YOUR TURN', C.star);
       if (this.spinNext) { const sp = this.spinNext; this.spinNext = null; this.startSpin(sp); }
       this.busy = false; this.setCards(true);
-      this.autoSeek();
+      this.autoSeek(); this.autoPush();
       // a rotation that happened during the turn is applied now (QA B02)
       if (window.__psRotatePending) this.time.delayedCall(60, () => window.__psTryRebuild && window.__psTryRebuild());
     }
@@ -2603,6 +2738,7 @@
       this.banner(T.name.toUpperCase() + (/s$/i.test(T.name) ? '\' TURN' : '\'S TURN'), this.R.color === 0xf2f2f7 ? C.cream : this.R.color);
       await wait(this, 1100);
       if (this.hidden) await this.unhide(false); // (never expected: a seek turn always follows a hide)
+      if (T.orbit) { await this.orbitTurn(T); return; } // pushed into space last turn: he waves from orbit and floats down
       if (T.asleep) {
         // Sleepy Thully only snores: EASY nothing, NORMAL +8, HARD +10 (not scaled)
         T.dizzy = false; this.setStatus(T);
@@ -2617,6 +2753,14 @@
       if (T.dizzy) {
         T.dizzy = false; this.setStatus(T);
         const is = this.R.plural ? ' are' : ' is'; // the Blips are three (QA B46)
+        if (this.copy) {
+          // COPYCAT! after a Six-Seven (or any dizzy move): too dizzy to copy, the turn is lost
+          this.copy = null; this.copyFx(false); T.afterCharge = true; T.lastType = 'copy';
+          emit('copyflop', { how: 'dizzy' }, this);
+          this.log(T.name + is + ' too dizzy to copy! The paint drips off.');
+          A.dizzy(); await tw(this, { targets: T.root, angle: { from: -12, to: 12 }, duration: 180, yoyo: true, repeat: 2, onComplete: () => T.root.setAngle(0) });
+          await wait(this, 500); return;
+        }
         if (T.charging && T.charging.type === 'yawn') {
           // Six-Seven during a yawn: he dances along and forgets to sleep (EASY / NORMAL); HARD: he still falls asleep
           if (this.hard) { this.log(T.name + is + ' dizzy... and still sleepy!'); await this.fallAsleep(T.charging, T); T.afterCharge = true; return; }
@@ -2632,15 +2776,16 @@
           this.endCharge(T); T.afterCharge = true;
           this.log(T.name + is + ' too dizzy... ' + (this.R.plural ? 'they drop' : 'and drops') + ' the puck!');
         } else if (T.charging) {
-          const beam = T.charging.type === 'beam';
-          this.endCharge(T); T.afterCharge = true; A.steam();
-          this.log(T.name + is + (beam ? ' too dizzy... the beam goes disco and fizzles!' : ' too dizzy... the fire fizzles out!'));
+          const beam = T.charging.type === 'beam', launch = T.charging.type === 'launch';
+          this.endCharge(T); T.afterCharge = true; launch ? A.fizzle && A.fizzle() : A.steam();
+          this.log(T.name + is + (beam ? ' too dizzy... the beam goes disco and fizzles!' : launch ? ' too dizzy... the rocket sputters out!' : ' too dizzy... the fire fizzles out!'));
         }
         else this.log(T.name + is + ' too dizzy to move!');
         A.dizzy();
         await tw(this, { targets: T.root, angle: { from: -12, to: 12 }, duration: 180, yoyo: true, repeat: 2, onComplete: () => T.root.setAngle(0) });
         await wait(this, 500); return;
       }
+      if (this.copy) { await this.copyMove(T); return; }
       if (T.charging) { T.afterCharge = true; await this.doMove(T.charging, T, this.hero); return; }
       const m = this.pickMove();
       T.used[m.k] = (T.used[m.k] || 0) + 1; T.lastType = m.type; T.afterCharge = false;
@@ -2649,6 +2794,8 @@
     }
     pickMove() {
       const T = this.rival, P = this.hero;
+      // ?debug: __psCopy = true makes the next rival turn a COPYCAT! (tests)
+      if (DEBUG && window.__psCopy) { const cm = this.rmoves.find(x => x.type === 'copy'); if (cm) { window.__psCopy = false; return cm; } }
       const ok = this.rmoves.filter(m => {
         if (m.uses && (T.used[m.k] || 0) >= m.uses) return false;
         if (m.type === 'heal' || m.type === 'nap') return T.hp < T.max * 0.65;
@@ -2657,14 +2804,15 @@
         if (m.charge) return T.lastType !== m.type && !T.afterCharge; // never two charged moves in a row
         if (m.type === 'whirl') return T.lastType !== 'whirl' && !T.afterCharge; // Compass Spin: never twice in a row, never right after a charge
         if (m.type === 'hide') return T.lastType !== 'hide' && !T.afterCharge && !P.dizzy; // PEEKABOO!: a seek turn always follows
+        if (m.type === 'copy') return T.lastType !== 'copy' && !T.afterCharge && !P.dizzy && !this.copy; // COPYCAT!: never twice in a row, never after a charge
         return true;
       });
-      const pool = ok.length ? ok : this.rmoves.filter(m => m.dmg && !m.charge && m.type !== 'hide');
+      const pool = ok.length ? ok : this.rmoves.filter(m => m.dmg && !m.charge && m.type !== 'hide' && m.type !== 'copy');
       // a little smarter: go for the finish, avoid hitting a shield, heal when really low
       const wOf = m => {
         let w = m.w;
         if (!this.smart) return w;
-        if (m.dmg && !m.charge && m.type !== 'hide' && P.hp <= m.dmg[0] && !P.shield) w *= 4; // a hide's damage only comes on a miss
+        if (m.dmg && !m.charge && m.type !== 'hide' && m.type !== 'copy' && P.hp <= m.dmg[0] && !P.shield) w *= 4; // a hide's damage only comes on a miss
         if (m.dmg && P.shield) w *= 0.5;
         if ((m.type === 'heal' || m.type === 'nap') && T.hp < T.max * 0.35) w *= 2.5;
         return w;
@@ -2678,6 +2826,18 @@
     // Block it with the fire extinguisher (or, for rivals, with milk!)
     chargeFx(T) {
       const beam = T.charging && T.charging.type === 'beam';
+      if (T.charging && T.charging.type === 'launch') {
+        // Poland's countdown: an orange glow, a cardboard rocket strapped on behind him, sparks from its bottom
+        this.fireFx.fillColor = 0xff8a3d;
+        this.tweens.add({ targets: this.fireFx, fillAlpha: 0.12, duration: 600 });
+        this.chargeTw = this.tweens.add(keep({ targets: this.fireFx, fillAlpha: 0.05, duration: 800, yoyo: true, repeat: -1, delay: 600 }));
+        T.spr.setTint(0xffd2b0);
+        const h = T.height(), rk = this.rocketImg = this.add.image(-T.dir * T.spr.displayWidth * 0.18, -h * 0.5, 'rocket').setAngle(-45);
+        rk.setScale(iconScale('rocket', h * 0.95)); T.root.addAt(rk, 1);
+        this.tweens.add({ targets: rk, x: rk.x + 6, duration: 90, yoyo: true, repeat: -1 });
+        this.embers = this.add.particles(0, 0, 'dot', { x: { min: T.root.x - 60, max: T.root.x + 60 }, y: T.root.y - 10, speedY: { min: 10, max: 60 }, speedX: { min: -120, max: 120 }, lifespan: 450, scale: { start: 0.35, end: 0 }, tint: [0xffd23f, 0xff8a3d, 0xffffff], blendMode: 'ADD', frequency: 70 }).setDepth(12);
+        return;
+      }
       if (T.charging && T.charging.type === 'yawn') {
         // Big Yawn: a sleepy lilac sky, zzz rising around the rival
         this.fireFx.fillColor = 0xb89cff;
@@ -2717,6 +2877,15 @@
     }
     async startCharge(m, T) {
       T.charging = m;
+      if (m.type === 'launch') {
+        const first = !(Save.data.stats || {}).pushSeen;
+        this.log('"3... 2... 1..." ' + (first || this.easy ? 'Tap PUSH! to help ' + T.name + ' fly!' : 'Help ' + T.name + ' fly?'));
+        this.sfx(m.sound || 'countdown');
+        this.chargeFx(T);
+        for (const w of ['3...', '2...', '1...']) { this.popWord(T.center().x, T.center().y - 260, w, '#ffb36b', 90, 6); this.tweens.add({ targets: T.squash, scaleY: 1.08, duration: 150, yoyo: true }); await wait(this, 420); }
+        await wait(this, 300);
+        return;
+      }
       if (m.type === 'slapshot') {
         this.log(T.name + ' winds up a ' + (m.mini ? 'mini ' : '') + 'SLAPSHOT! Get ready to SAVE IT!');
         A.slide();
@@ -2756,6 +2925,7 @@
     }
     endCharge(T) {
       T.charging = null; T.spr.clearTint();
+      if (this.rocketImg) { const r = this.rocketImg; this.rocketImg = null; this.tweens.killTweensOf(r); this.tweens.add({ targets: r, scale: 0, alpha: 0, duration: 300, onComplete: () => r.destroy() }); }
       if (this.chargeTw) { this.chargeTw.stop(); this.chargeTw = null; }
       if (this.embers) { const e = this.embers; e.stop(); this.time.delayedCall(1200, () => e.destroy()); this.embers = null; }
       if (this.beamSweep) { this.beamSweep.stop(); this.beamSweep = null; }
@@ -3252,6 +3422,208 @@
       if (!Hd || !how) return;
       this.time.delayedCall(300, () => { if (this.hidden === Hd) this.seek(how === 'found' ? Hd.right : (Hd.right + 1) % Hd.n); });
     }
+    // ---- v1.1 COPYCAT! (docs/gdd/1.1-countryballs.md section 4): a paint splat, the ball turns mint ("JACKBALL!") and copies
+    // the player's next move on his next turn with the same numbers. Nap and dance flop; EASY: every hit or heal copy flops
+    rivalTint() { const T = this.rival; if (!T) return; if (this.copy) T.spr.setTint(C.mint); else if (T.charging && T.charging.type === 'launch') T.spr.setTint(0xffd2b0); }
+    async copyArm(m, T, P, d) {
+      this.sfx(m.sound || 'paint'); buzz(40);
+      const c = T.center();
+      this.popWord(c.x, c.y - 280, m.word || 'COPYCAT!', '#7fd6c2', 84, -6);
+      this.tweens.add({ targets: T.squash, scaleX: 1.12, scaleY: 0.9, duration: 140, yoyo: true, repeat: 1 });
+      T.spr.setTint(C.mint);
+      await wait(this, 450);
+      await this.throwThing(T, P, 'dot', 360, C.mint);
+      const pc = P.center(), sp = this.add.particles(pc.x, pc.y, 'dot', { emitting: false, speed: { min: 200, max: 600 }, lifespan: 600, scale: { start: 0.5, end: 0 }, tint: [C.mint, 0xbff5e8, 0xffffff] }).setDepth(26);
+      sp.explode(24); this.time.delayedCall(900, () => sp.destroy());
+      await this.impact(P, d, 'spray');
+      this.popWord(c.x, c.y - 300, 'JACKBALL!', '#7fd6c2', 76, 6);
+      this.copy = { k: this.rmoves.indexOf(m), mini: !!m.mini };
+      this.copyFx(true);
+      this.log('JACKBALL! ' + T.name + ' paints himself like Jack and copies your next move!' + (!(Save.data.stats || {}).copySeen && this.copyHand ? ' Try the nap!' : ''));
+      await wait(this, 700);
+    }
+    // armed: the mint tint, the COPYCAT chip under his pep bar and (the very first time) a hand on the nap card; off: all gone
+    copyFx(on) {
+      const T = this.rival; if (!T) return;
+      if (this.copyChip) { this.copyChip.destroy(); this.copyChip = null; }
+      if (this.copyHand) { this.copyHand.destroy(); this.copyHand = null; }
+      if (!on) { if (!T.charging && !T.asleep) T.spr.clearTint(); return; }
+      T.spr.setTint(C.mint);
+      const hy = PORTRAIT ? 200 : 150, cc = this.copyChip = chip(this, W * 0.73, hy + (PORTRAIT ? 70 : 76), '      COPYCAT', C.mint, 28).setDepth(30);
+      cc.add(img(this, -cc.w / 2 + 40, 0, 'j:cool').setScale(iconScale('j:cool', 46)));
+      this.tweens.add({ targets: cc, scale: 1.06, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      if (!(Save.data.stats || {}).copySeen) {
+        const P = this.hero, ok = m => !(m.uses && (P.used[m.k] || 0) >= m.uses) && !(P.beamed || []).includes(m.k);
+        const t = this.moves.find(m => m.type === 'nap' && ok(m)) || this.moves.find(m => m.type === 'dance' && ok(m));
+        if (t && t.card) {
+          // inside the nap card, over its icon (above the card it would cover the strip of the card above)
+          const cd = t.card, hd = this.copyHand = img(this, cd.x + Math.min(90, cd.width * 0.3), cd.y - cd.height * 0.2, 'hand').setScale(iconScale('hand', 80)).setDepth(36);
+          this.tweens.add({ targets: hd, y: hd.y + 26, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        }
+      }
+    }
+    // what the copy of a card will do (the strip on the card)
+    copyLabel(m) {
+      if (m.type === 'nap' || m.type === 'dance' || m.type === 'dizzy') return 'COPY: flops!';
+      if (m.type === 'shield') return 'COPY: shield';
+      if (m.type === 'heal') return this.easy ? 'COPY: flops!' : 'COPY: heals him';
+      if (!m.dmg || this.easy) return 'COPY: flops!';
+      // the numbers impact() will record for the hero's next move: booster per hit, the one-time bonuses and his shield on the first hit, the dream bubble
+      const n = m.type === 'multi' ? m.hits || 3 : 1, R = this.rival, H = this.hero, mini = this.copy && this.copy.mini;
+      const sum = d => { let t = 0; for (let i = 0; i < n; i++) {
+        let v = d + (H.bonus || 0) + (i ? 0 : (H.firstBonus || 0) + (H.lucky5 || 0));
+        if (R.asleep) v = Math.ceil(v / 2); if (R.shield && !i) v = Math.ceil(v / 2);
+        t += mini ? Math.max(1, Math.round(v / 2)) : v; } return t; };
+      const lo = sum(m.dmg[0]), hi = sum(m.dmg[1]);
+      return 'COPY: ' + (lo === hi ? lo : lo + '-' + hi) + ' at you';
+    }
+    // EASY: every copy flops, so the strongest card is the best one
+    bestCopyCard() {
+      const val = m => m.dmg ? m.dmg[1] * (m.type === 'multi' ? m.hits || 3 : 1) : 0;
+      const ok = this.moves.filter(m => m.card && m.card.enabled);
+      return ok.filter(m => m.dmg).sort((a, b) => val(b) - val(a))[0] || ok.find(m => m.type === 'nap' || m.type === 'dance') || null;
+    }
+    // the rival's copy turn
+    async copyMove(T) {
+      const cp = this.copy, r = cp.rec, P = this.hero, c = T.center();
+      this.copy = null; this.copyFx(false); T.afterCharge = true; T.lastType = 'copy'; // a copy counts as a charge: no charge or copy right after
+      const pm = r && this.moves.find(x => x.k === r.k);
+      const flop = async (word, line) => {
+        this.popWord(c.x, c.y - 260, word, '#9ff0b4', 80, 6); this.log(line);
+        await tw(this, { targets: T.squash, angle: { from: -14, to: 14 }, duration: 160, yoyo: true, repeat: 2, onComplete: () => T.squash.setAngle(0) });
+        await wait(this, 500);
+      };
+      if (!pm) { await flop('HUH?', T.name + ' has nothing to copy. The paint dries.'); return; }
+      if (pm.type === 'nap') {
+        // Upside-Down Nap: balls can't nap upside down! He rolls over and wobbles, the turn is gone
+        emit('copyflop', { how: 'nap' }, this); A.bounce();
+        this.log('Balls can\'t nap upside down! ' + T.name + ' rolls over and wobbles.');
+        await tw(this, { targets: T.squash, angle: 180, y: -T.height(), duration: 380, ease: 'Back.out' });
+        this.popWord(c.x, c.y - 280, 'WOBBLE!', '#9ff0b4', 80, 6);
+        await tw(this, { targets: T.squash, angle: 196, duration: 120, yoyo: true, repeat: 2 });
+        await tw(this, { targets: T.squash, angle: 360, y: 0, duration: 380, ease: 'Back.out' }); T.squash.setAngle(0);
+        await wait(this, 500); return;
+      }
+      if (pm.type === 'shield') { await this.doMove({ type: 'shield', log: '{a} copies the shield! Next hit only does half!' }, T, P); return; }
+      if (pm.type !== 'heal' && !pm.dmg) { await flop('FLOP!', T.name + ' can\'t copy that one. The copy flops!'); return; }
+      if (this.easy) {
+        // EASY: the paint is still wet, he slips (0 damage)
+        await this.lunge(T, 80); this.sfx('paint');
+        await tw(this, { targets: T.squash, angle: -70 * T.dir, duration: 220, ease: 'Quad.in' });
+        this.popWord(c.x - 100, c.y - 200, 'SPLAT!', '#9ff0b4', 84, -6);
+        this.log('The paint is still wet! ' + T.name + ' slips!');
+        await wait(this, 600);
+        await tw(this, { targets: T.squash, angle: 0, duration: 260, ease: 'Back.out' }); await this.back(T);
+        return;
+      }
+      this.popWord(c.x, c.y - 280, 'COPYCAT!', '#7fd6c2', 84, -6);
+      if (pm.type === 'heal') { await this.doMove(Object.assign({}, pm, { amt: r.amt || pm.amt || 20, log: '{a} copies ' + pm.title + '! Yum!' }), T, P); return; }
+      // a hit: the same move back with the numbers the player saw (Mini Copycat: half); a copied Inferno Rain is a plain volley
+      const hits = r.hits.map(v => cp.mini ? Math.max(1, Math.round(v / 2)) : v), tot = hits.reduce((a, b) => a + b, 0);
+      if (!tot) { await flop('FLOP!', 'Nothing got through, so there is nothing to copy!'); return; }
+      const m2 = Object.assign({}, pm, { dmg: [tot, tot], seq: pm.type === 'multi' ? hits : null, log: '{a} copies ' + pm.title + '!' + (cp.mini ? ' A mini copy: half as strong.' : '') });
+      if (pm.type === 'rain') Object.assign(m2, { type: 'volley', tex: 'comet', word: 'COPY RAIN!', sound: 'fire' });
+      await this.doMove(m2, T, P);
+    }
+    // ---- v1.1 PUSH! (section 4b): not pushed, the rocket sputters and Poland falls on the hero
+    async launchFall(m, att, def, d) {
+      const c = att.center();
+      this.sfx('fizzle'); this.popWord(c.x, c.y - 260, 'FIZZLE...', '#ffb36b', 80, -6);
+      this.log(att.name + '\'s rocket sputters...');
+      if (this.rocketImg) this.tweens.add({ targets: this.rocketImg, angle: { from: -60, to: -30 }, duration: 90, yoyo: true, repeat: 4 });
+      await tw(this, { targets: att.root, y: this.groundY - 240, duration: 450, ease: 'Quad.out' });
+      this.endCharge(att);
+      await tw(this, { targets: att.root, x: def.root.x, y: def.root.y - def.height() * 0.6, duration: 420, ease: 'Quad.in' });
+      this.tweens.add({ targets: def.squash, scaleX: 1.3, scaleY: 0.65, duration: 120, yoyo: true });
+      await this.impact(def, d, 'roar');
+      A.bounce(); this.popWord(def.center().x, def.center().y - 260, 'PLOP!', '#fff3d2', 90, 8);
+      this.log('Fizzle... PLOP! "Cannot into space... YET!"');
+      await tw(this, { targets: att.root, x: att.home, y: this.groundY - 200, duration: 320, ease: 'Quad.out' });
+      await tw(this, { targets: att.root, y: this.groundY, duration: 240, ease: 'Bounce.out' });
+    }
+    // PUSH! costs the turn. Full push: he zooms into space (orbit turn next). HARD off the GO!: a little push, he floats down
+    async playerPush() {
+      const T = this.rival, m = T.charging;
+      if (this.busy || this.over || !m || m.type !== 'launch') return;
+      const auto = DEBUG && window.__psPush, full = auto === 'soft' ? false : auto === 'go' ? true : !this.hard || (this.pushDownGo != null ? this.pushDownGo : this.pushGo());
+      this.busy = true; this.acted = true; this.setCards(false); this.unspin(true);
+      this.pushDownGo = null;
+      const st = Save.data.stats || (Save.data.stats = {}); st.pushSeen = 1;
+      emit('push', { full }, this);
+      const P = this.hero, c = T.center(); buzz(40); A.whoosh();
+      await tw(this, { targets: P.root, x: T.root.x - (PORTRAIT ? 250 : 300), duration: 280, ease: 'Quad.in' });
+      this.tweens.add({ targets: P.squash, scaleX: 1.15, scaleY: 0.9, duration: 120, yoyo: true });
+      this.popWord(c.x - 80, c.y - 220, 'PUSH!', '#ff8a3d', 96, -8);
+      this.back(P);
+      if (full) {
+        A.levelUp();
+        const trail = this.add.particles(0, 0, 'dot', { follow: T.root, frequency: 25, lifespan: 600, scale: { start: 0.5, end: 0 }, tint: [0xffd23f, 0xff8a3d, 0xffffff], blendMode: 'ADD', speed: 60 }).setDepth(9);
+        await tw(this, { targets: T.root, y: -T.height() - 300, duration: 900, ease: 'Quad.in' });
+        trail.stop(); this.time.delayedCall(700, () => trail.destroy());
+        this.endCharge(T); T.afterCharge = true; T.orbit = true;
+        this.popWord(W / 2, PORTRAIT ? H * 0.3 : H * 0.3, T.name.toUpperCase() + ' CAN INTO SPACE!', '#ffd23f', 96, -4);
+        this.confetti.explode(70, W / 2, H * 0.5);
+        this.log(P.name + ' gives the rocket a big PUSH! ' + T.name + ' can into space!');
+        await wait(this, 1300);
+      } else {
+        A.bounce();
+        await tw(this, { targets: T.root, y: this.groundY - 180, duration: 380, ease: 'Quad.out' });
+        this.endCharge(T); T.afterCharge = true;
+        await tw(this, { targets: T.root, y: this.groundY, duration: 900, ease: 'Sine.inOut' });
+        this.log('A little push! ' + T.name + ' hops up and floats back down. Push on GO! to send him to space!');
+        await wait(this, 500);
+      }
+      await this.afterPlayer();
+    }
+    // the turn after a full push: he waves from orbit, drops a Space Pierogi (+10 pep, EASY +15), floats down on a pierogi parachute
+    async orbitTurn(T) {
+      T.orbit = false;
+      const P = this.hero, n = this.easy ? 15 : 10, px = W * 0.72, py = PORTRAIT ? 540 : 470; // a small planet up top, under the pep bars and the COPYCAT chip row
+      const pl = this.add.image(px, py, 'planet').setScale(0).setDepth(8).setTint(0xc9b6ff);
+      await tw(this, { targets: pl, scale: iconScale('planet', 170), duration: 400, ease: 'Back.out' });
+      T.shadow.setVisible(false); T.root.setPosition(px + 110, py - 30).setScale(0.4);
+      await tw(this, { targets: T.root, y: py - 70, duration: 300, ease: 'Back.out' });
+      this.tweens.add({ targets: T.root, angle: { from: -12, to: 12 }, duration: 220, yoyo: true, repeat: 3, onComplete: () => T.root.setAngle(0) });
+      this.popWord(px - 60, py + 150, 'HELLO FROM SPACE!', '#ffd23f', 64, -6); A.blip();
+      await wait(this, 700);
+      const pg = img(this, T.root.x, T.root.y, 'dumpling').setDepth(27).setScale(iconScale('dumpling', 70)), pc = P.center();
+      await tw(this, { targets: pg, x: pc.x, y: pc.y, angle: 540, scale: iconScale('dumpling', 110), duration: 700, ease: 'Quad.in' });
+      pg.destroy(); A.gulp(); this.heal(P, n);
+      this.log(T.name + ' waves from orbit and drops a Space Pierogi! +' + n + ' pep for ' + P.name + '!');
+      await wait(this, 800);
+      const hgt = T.height(), wid = T.spr.displayWidth, cg = this.add.graphics();
+      cg.lineStyle(4, 0xfff3d2, 0.9); cg.lineBetween(-70, -hgt - 40, -wid * 0.3, -hgt * 0.75); cg.lineBetween(70, -hgt - 40, wid * 0.3, -hgt * 0.75);
+      const chute = img(this, 0, -hgt - 70, 'dumpling').setScale(iconScale('dumpling', 220));
+      T.shadow.setVisible(true); T.root.add([cg, chute]); T.root.setScale(1).setAngle(0).setPosition(T.home, -120);
+      this.tweens.add({ targets: pl, scale: 0, alpha: 0, duration: 400, onComplete: () => pl.destroy() });
+      this.log(T.name + ' floats down on a pierogi parachute. Best day ever!');
+      await tw(this, { targets: T.root, y: this.groundY, duration: 1500, ease: 'Sine.out' });
+      this.tweens.add({ targets: [cg, chute], alpha: 0, duration: 300, onComplete: () => { cg.destroy(); chute.destroy(); } });
+      await wait(this, 400);
+    }
+    // HARD: the PUSH! button counts 3, 2, 1, GO! in a 1.8 s loop; only a push on GO! (600 ms) sends him to space
+    pushCount(on) {
+      if (this.pushEv) { this.events.off('update', this.pushEv); this.pushEv = null; }
+      const t = this.pushBtn && this.pushBtn.list[1]; if (!t || !t.active) return;
+      if (!on) { t.setText('PUSH!'); return; }
+      this.pushT0 = performance.now();
+      const ev = this.pushEv = () => {
+        if (!t.active) { this.events.off('update', ev); return; } // the scene was left (the scene object is reused)
+        const lab = ['3', '2', '1', 'GO!'][Math.min(3, Math.floor(((performance.now() - this.pushT0) % 1800) / 400))];
+        if (t.text !== lab) t.setText(lab);
+      };
+      this.events.on('update', ev);
+    }
+    pushGo() { return (performance.now() - (this.pushT0 || 0)) % 1800 >= 1200; }
+    // ?debug: __psPush = 'go' | 'soft' (pushes 300 ms into the turn) | 'skip' (plays the first card instead)
+    autoPush() {
+      const T = this.rival, how = DEBUG && window.__psPush, ch = T.charging;
+      if (!how || !ch || ch.type !== 'launch') return;
+      this.time.delayedCall(300, () => {
+        if (this.rival.charging !== ch || this.busy || this.over) return;
+        if (how === 'skip') { const m = this.moves.find(x => x.card.enabled); if (m) this.playerMove(m.k); } else this.playerPush();
+      });
+    }
     checkEnd() {
       if (this.rival.hp <= 0) { this.finish(true); return true; }
       if (this.hero.hp <= 0 && this.hero.spare) {
@@ -3270,6 +3642,8 @@
       this.over = true; this.busy = true; this.setCards(false); this.unspin(false); this.spinNext = null;
       const P = this.hero, T = this.rival;
       if (T.charging) this.endCharge(T);
+      if (this.copy) { this.copy = null; this.copyFx(false); }
+      if (this.pushEv) this.pushCount(false);
       if (T.asleep) { T.asleep = false; this.sleepFx(T); }
       if (this.hidden) { this.stopTells(); this.hidden = null; this.clearMounds(); }
       this.dropExtinguisher();
@@ -3596,7 +3970,7 @@
   // ---------- Comics: a short animated comic page the first time the player arrives in a world (#31, #62; docs/gdd/0.9-world-comics.md)
   // One script per comic: 3 panels (functions (scene, panel, instant) drawn with the scene helpers) + the title page.
   // Each panel function must also work with instant = true (fast taps, coming back after a rotation).
-  const COMIC_OF_WORLD = ['hills', 'space', 'canada', 'ocean', 'veggie', 'spooky'];
+  const COMIC_OF_WORLD = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'spooky'];
   const COMIC_SCRIPTS = {
     canada: {
       world: CANADA, title: 'CANADA!', len: [2700, 2500, 3500],
@@ -3947,6 +4321,66 @@
     },
     sting: s => s.time.delayedCall(1300, () => A.peekaboo && A.peekaboo()),
   };
+  // v1.1 Countryballs "The Great Round Picnic" (docs/gdd/1.1-countryballs.md section 6): Jack flies in, England brings tea, the others roll in;
+  // on the title page a white-red ball in a cardboard rocket rises behind the hill and plops back down
+  COMIC_SCRIPTS.countryballs = {
+    world: BALLS, title: 'COUNTRYBALLS!', len: [2700, 2600, 3500],
+    confetti: { key: 'conf', tint: [0xff6b5b, 0xffd23f, 0x7fd6c2, 0x5fc8ff, 0xff9ed8], speedY: { min: 250, max: 450 }, scale: { min: 0.6, max: 1 }, lifespan: 5000 },
+    panels: [
+      (s, c, instant) => {
+        s.bg(c, 'sky7');
+        const g = s.add.graphics(), w = c.r.w, h = c.r.h, cols = [0xff6b5b, 0xffd23f, 0x7fe39a, 0x5fc8ff, 0xff9ed8];
+        g.lineStyle(4, 0xfff3d2); g.lineBetween(-w / 2 + 5, -h * 0.12, w / 2 - 5, -h * 0.12);
+        for (let i = 0; i < 9; i++) { const x = -w / 2 + w * (i + 0.5) / 9; g.fillStyle(cols[i % cols.length]); g.fillTriangle(x - 18, -h * 0.12, x + 18, -h * 0.12, x, -h * 0.12 + 36); }
+        c.add(g);
+        // Poland and his rocket wait behind the hill (they peek on the title page)
+        const hx = (0.82 - 0.5) * w, pk = s.add.container(hx, h / 2 - 6).setVisible(false);
+        const rk = s.add.image(-w * 0.04, -h * 0.12, 'rocket').setAngle(-45); rk.setScale(Math.min(0.3 * h / rk.height, 0.16 * w / rk.width));
+        const pb = s.add.image(0, 0, 'poland').setOrigin(0.5, 1); pb.setScale(Math.min(0.2 * h / pb.height, 0.13 * w / pb.width));
+        pk.add([rk, pb]); c.add(pk); s.peekBall = pk; s.peekY = pk.y; s.peekH = h;
+        // the hill: the top half of an ellipse, so nothing reaches past the panel border
+        const hill = s.add.graphics(), pts = []; for (let k = 0; k <= 24; k++) { const a = Math.PI + Math.PI * k / 24; pts.push(new Phaser.Geom.Point(hx + Math.cos(a) * w * 0.18, h / 2 - 5 + Math.sin(a) * h * 0.25)); }
+        hill.fillStyle(0x7fd6c2); hill.fillPoints(pts, true); hill.lineStyle(5, 0x1d2163); hill.strokePoints(pts, false); c.add(hill);
+        const jack = s.actor(c, 'jack_side', instant ? 0.36 : -0.3, 0.88, 0.5, 0.36);
+        s.anim({ targets: jack, angle: { from: -3, to: 3 }, duration: 90, yoyo: true, repeat: -1 });
+        if (!instant) { s.anim({ targets: jack, x: (0.36 - 0.5) * w, duration: 800, ease: 'Quad.out' }); A.whoosh(); }
+        s.caption(c, 'MEANWHILE, AT THE GREAT ROUND PICNIC...', instant);
+        const say = inst => s.bubble(c, PORTRAIT ? 0.62 : 0.5, PORTRAIT ? 0.42 : 0.46, 'Why is everyone so... ROUND?', -1, inst);
+        instant ? say(true) : s.at(1000, say);
+      },
+      (s, c, instant) => {
+        s.bg(c, 'sky7');
+        s.strip(c, 0x9fe3d0, 0.8, 1);
+        const en = s.actor(c, 'england', instant ? 0.66 : 1.3, 0.98, 0.62, 0.36);
+        if (!instant) s.anim({ targets: en, x: (0.66 - 0.5) * c.r.w, duration: 700, ease: 'Back.out' });
+        s.anim({ targets: en, angle: { from: -3, to: 3 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        const cup = s.actor(c, 'teacup', 0.34, 0.94, 0.2, 0.16);
+        s.anim({ targets: cup, y: cup.y - c.r.h * 0.03, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        const say = inst => { s.bubble(c, PORTRAIT ? 0.36 : 0.42, PORTRAIT ? 0.3 : 0.24, 'Tea, old chap? Then pillows!', 0.6, inst); if (!inst) A.kettle && A.kettle(); };
+        instant ? say(true) : s.at(800, say);
+      },
+      (s, c, instant) => {
+        s.bg(c, 'sky7');
+        s.strip(c, 0x9fe3d0, 0.8, 1);
+        [['spain', 0.52], ['japan', 0.7], ['usa', 0.88]].forEach(([k, x], i) => {
+          const b = s.actor(c, k, instant ? x : x + 0.8, 0.98, 0.36, 0.2);
+          if (!instant) s.anim({ targets: b, x: (x - 0.5) * c.r.w, duration: 700 + i * 150, ease: 'Back.out' });
+        });
+        s.actor(c, 'jack_front', 0.2, 0.98, 0.5, 0.26);
+        const s1 = inst => s.bubble(c, 0.7, PORTRAIT ? 0.16 : 0.2, 'Too easy, dude!', 0.6, inst);
+        const s2 = inst => s.bubble(c, 0.32, PORTRAIT ? 0.4 : 0.44, 'Let\'s PLAY!', -1, inst);
+        if (instant) { s1(true); s2(true); } else { s.at(300, s1); s.at(1400, s2); }
+      },
+    ],
+    // the white-red ball in his cardboard rocket rises behind the hill... and plops back down
+    peek: s => {
+      const o = s.peekBall; if (!o) return;
+      o.setVisible(true);
+      const up = () => s.tweens.add({ targets: o, y: s.peekY - s.peekH * 0.26, duration: 600, ease: 'Quad.out', onComplete: () => s.tweens.add({ targets: o, y: s.peekY, duration: 500, ease: 'Bounce.out', delay: 300 }) });
+      up(); s.time.addEvent({ delay: 2200, loop: true, callback: up });
+    },
+    sting: s => s.time.delayedCall(1300, () => A.fizzle && A.fizzle()),
+  };
   const comicSeen = id => !!(Save.data.comics && Save.data.comics[id]);
   const COMIC_DUE = {
     hills: () => !Object.keys(Save.data.stars).some(k => Save.data.stars[k] > 0), // new players only: saves that played before v0.9 are marked seen by mig09; XP from a toy duel or a quest does not count (QA B65)
@@ -3954,6 +4388,7 @@
     canada: () => worldOpen(CANADA),
     ocean: () => worldOpen(OCEAN),
     veggie: () => worldOpen(VEGGIE),
+    countryballs: () => worldOpen(BALLS),
     spooky: () => EVENT_ON && worldOpen(SPOOKY), // during the event only
   };
   // a comic plays once, the first time its world opens (docs/gdd/0.9-world-comics.md section 4)
@@ -3977,7 +4412,7 @@
         if (PORTRAIT) { const ph = (H - top - bot - gut * 2) / 3; rects.push({ x: W / 2, y: top + ph / 2 + i * (ph + gut), w: W - 80, h: ph }); }
         else { const pw = (W - 80 - gut * 2) / 3, ph = H - top - bot; rects.push({ x: 40 + pw / 2 + i * (pw + gut), y: top + ph / 2, w: pw, h: ph }); }
       }
-      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = []; this.titled = false; this.nextEv = null; this.peekObj = null; // the scene object is reused (replay)
+      this.rects = rects; this.panels = []; this.cur = -1; this.steps = []; this.live = []; this.titled = false; this.nextEv = null; this.peekObj = null; this.peekBall = null; this.peekY = this.peekH = 0; // the scene object is reused (replay)
       // SKIP (top right, inside the play area): straight to the title page, which counts as seen
       const skip = button(this, W - 150, PORTRAIT ? 80 : 70, 220, 90, 'SKIP', C.cream, () => this.toTitle(), { size: 40 }).setDepth(90);
       this.skipBtn = skip;
@@ -4502,7 +4937,7 @@
 
   // ---------- start
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
-  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA, OCEAN, VEGGIE,
+  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA, OCEAN, VEGGIE, BALLS,
     txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, press, backButton, muteButton, capsuleButton, drawCapsule,
     addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyStreak, worldOpen, bottomGround };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
@@ -4541,6 +4976,7 @@
     const bt = () => game.scene.getScene('battle');
     window.__psSpin = now => { const b = bt(); if (!b || !b.hero) return; if (now && !b.busy) { b.startSpin({}); b.setCards(true); } else b.spinNext = {}; };
     window.__psWake = () => { const b = bt(); if (b && b.rival && b.rival.asleep) { b.rival.meter = b.wakeNeed(); b.wakeUp(); } };
+    // v1.1: window.__psPush = 'go' | 'soft' | 'skip' resolves the PUSH! turn, window.__psCopy = true forces a COPYCAT! next rival turn
   }
   window.__psPortrait = PORTRAIT; window.__psAspect = ASPECT; window.__psInsets = INS;
   window.__psSnapshot = () => snapshot(game);

@@ -139,7 +139,8 @@
   const BADGES = { timmy: ['tiger'], moo: ['cow'], sly: ['snake'], hoot: ['owl', 1], robot: ['robot'], polandball: ['aliens'], ghost: ['ghost'], dragonboss: ['mothership', 1],
     moose: ['moose'], beaver: ['beaver'], mountie: ['bear'], sasquatch: ['sasquatch', 1], pumpkin: ['pumpkin'], batty: ['bat'], webster: ['spider'], fang: ['vampire', 1], kraken: ['kraken', 1],
     hermy: ['crab'], puff: ['blowfish'], jelly: ['jellyfish'], fog: ['fogcap'], thully: ['thully', 1], // v1.0 Ocean
-    onion: ['onion'], peas: ['peapod'], garlic: ['garlic'], fungi: ['mushroom'], brocklee: ['brocklee', 1] }; // v1.0 Veggie Patch
+    onion: ['onion'], peas: ['peapod'], garlic: ['garlic'], fungi: ['mushroom'], brocklee: ['brocklee', 1], // v1.0 Veggie Patch
+    england: ['england'], spain: ['spain'], japan: ['japan'], usa: ['usa'], poland: ['poland', 1] }; // v1.1 Countryballs
   function pickQuirk(arch, r) {
     const sigType = (ARCH_BY_ID[arch] || ARCH_BY_ID.mystery).sig.type;
     for (let i = 0; i < 20; i++) {

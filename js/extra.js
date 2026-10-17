@@ -119,6 +119,10 @@
     { id: 'brocklee', name: 'Tree Hugger', desc: 'Beat Brock Lee', icon: 'brocklee', title: 'Tree Hugger', ok: d => (d.stars.brocklee || 0) > 0 },
     { id: 'seek10', name: 'Super Seeker', desc: 'Find 10 hidden veggies', icon: 'mound', title: 'Super Seeker', ok: d => (d.stats.found || 0) >= 10 },
     { id: 'dancefind', name: 'Dance Detective', desc: 'Find a hidden veggie with the Six-Seven Dance', icon: 'dance', title: 'Dance Detective', ok: d => (d.stats.danceFind || 0) >= 1 },
+    // v1.1 Countryballs (docs/gdd/1.1-countryballs.md section 6)
+    { id: 'poland', name: 'Liftoff!', desc: 'Beat Poland', icon: 'poland', title: 'Rocket Pal', ok: d => (d.stars.poland || 0) > 0 },
+    { id: 'push5', name: 'Mission Control', desc: 'Help Poland into space 5 times', icon: 'rocket', title: 'Mission Control', ok: d => (d.stats.pushes || 0) >= 5 },
+    { id: 'copycat5', name: 'Mirror Master', desc: 'Make 5 copies flop (nap, dance)', icon: 'j:cool', title: 'Mirror Master', ok: d => (d.stats.copyFlops || 0) >= 5 },
   ];
   const ACH_BY_ID = {}; ACH.forEach(a => ACH_BY_ID[a.id] = a);
   const titles = () => ['Plush Friend'].concat(ACH.filter(a => a.title && S().ach && S().ach[a.id]).map(a => a.title));
@@ -153,6 +157,10 @@
     { id: 'tryveg', text: 'Try one bite of a veggie you don\'t love yet (one bite is enough!)', icon: 'i:carrot' }, { id: 'seed', text: 'Plant a bean or a seed in a cup', icon: 'i:acorn' },
     { id: 'washveg', text: 'Help wash the veggies for dinner', icon: 'j:water' }, { id: 'vegface', text: 'Make a funny face with the food on your plate', icon: 'j:plate' },
     { id: 'rainbow', text: 'Eat something red, something orange and something green', icon: 'i:apple' }, { id: 'hideseek', text: 'Play hide and seek with someone', icon: 'j:friends' },
+    // v1.1 (Countryballs)
+    { id: 'hello3', text: 'Learn to say "hello" in 3 languages', icon: 'j:friends' }, { id: 'globe', text: 'Find 3 countries on a map with a grown-up', icon: 'j:pencil' },
+    { id: 'teaparty', text: 'Have a tea party with your toys (milk or juice is fine!)', icon: 'milk' }, { id: 'cookworld', text: 'Help cook dumplings, pasta or rice with a grown-up', icon: 'dumpling' },
+    { id: 'catch', text: 'Play catch with a ball outside', icon: 'i:ball' }, { id: 'myflag', text: 'Draw a flag for your toy squad', icon: 'j:pencil' },
   ];
   const QBY = {}; QUESTS.forEach(q => QBY[q.id] = q);
   function todaysQuests() {
@@ -284,6 +292,11 @@
 
   // ---------- "What's new" popup: shows once per version (CLOSE = see it again next time, DON'T SHOW AGAIN = hide until the next update)
   const WHATS_NEW = {
+    '1.1': [
+      { icon: 'globe', title: 'COUNTRYBALLS', text: 'Round plush countries roll in. Careful, they COPY your moves!' },
+      { icon: 'poland', title: 'Poland', text: 'Poland dreams of space. Tap PUSH! to help him fly!' },
+      { icon: 'dumpling', title: 'Pierogi Hat', text: 'Beat Poland for the yummiest hat ever!' },
+    ],
     '1.0': [
       { icon: 'compass', title: 'OCEAN', text: 'A foggy new sea! Find the LUCKY card when the cards drift.' },
       { icon: 'thully', title: 'Sleepy Thully', text: 'Wake up the sleepiest boss ever. Ring the ALARM!' },
@@ -501,6 +514,7 @@
       { id: 'canada', title: 'Welcome to Canada!', icon: 'mapleleaf', bg: 'sky4', aurora: true, jack: 'jack_side', hint: 'Reach Canada to unlock' },
       { id: 'ocean', title: 'Foggy Business', icon: 'nightcap', bg: 'sky5', jack: 'jack_side', hint: 'Reach the Ocean to unlock' },
       { id: 'veggie', title: 'Who Planted Jack?', icon: 'broccoli', bg: 'sky6', jack: 'jack_side', hint: 'Reach the Veggie Patch to unlock' },
+      { id: 'countryballs', title: 'The Great Round Picnic', icon: 'globe', bg: 'sky7', jack: 'jack_side', hint: 'Reach COUNTRYBALLS to unlock' },
       { id: 'spooky', title: 'Hats for Everyone', icon: 'pumpkin', bg: 'sky3', jack: 'jack_upside', hint: 'Visit Spooky to unlock' },
     ];
     class AlbumScene extends Phaser.Scene {
@@ -551,6 +565,7 @@
       const d = Save.data, seen = d.comics || {};
       txt(this, W / 2, PORTRAIT ? 270 : 150, 'Tap a comic to watch it again', 32, '#ffd23f', { st: 6 });
       // v1.0: 5-6 covers. Portrait 2 columns x 3 rows, landscape 3 x 2; the shelf shrinks to stay clear of the STICKERS / COMICS switch.
+      // (v1.1: 6-7 covers, portrait 2 x 4, landscape 3 x 3)
       // Spooky out of season only if it was seen (like the fang sticker)
       const list = COMICS.filter(cm => cm.id !== 'spooky' || PS.EVENT_ON || seen.spooky);
       const cols = PORTRAIT ? 2 : 3, rows = Math.ceil(list.length / cols), top = PORTRAIT ? 330 : 200, gap = PORTRAIT ? 26 : 24;
@@ -724,12 +739,15 @@
     if (name === 'lucky') bump('lucky');
     if (name === 'gull') bump('gulls');
     if (name === 'found') { bump('found'); if (d.dance) bump('danceFind'); }
+    // v1.1 Countryballs: full PUSH!es (Poland into space), copies that flop on a nap or a dance
+    if (name === 'push' && d.full) bump('pushes');
+    if (name === 'copyflop' && (d.how === 'nap' || d.how === 'dizzy')) bump('copyFlops');
     if (name === 'save' && d.result === 'perfect') bump('perfectSaves');
     if (name === 'hockey') { const st = S().stats; st.hockeyStreak = Math.max(st.hockeyStreak || 0, d.streak || 0); }
     if (name === 'capsule') { bump('capsOpened'); if (d.boost && d.boost.r === 3) bump('superRares'); }
     if (name === 'friendAdded') bump('friends');
     if (name === 'giftSent') bump('gifts');
-    if (['duel', 'block', 'save', 'hockey', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene', 'alarm', 'lucky', 'gull', 'found'].includes(name)) checkAch();
+    if (['duel', 'block', 'save', 'hockey', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene', 'alarm', 'lucky', 'gull', 'found', 'push', 'copyflop'].includes(name)) checkAch();
     if (name === 'scene') {
       // bedtime / daily limit: checked whenever a menu screen opens (never in the middle of a duel)
       // a new duel counts too (REMATCH / NEXT RIVAL), a duel restored after rotating does not (QA B03)
