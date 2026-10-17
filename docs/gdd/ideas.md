@@ -4,6 +4,8 @@ Newest on top. ✅ = shipped (with version). Source: Kondrat, the chief tester, 
 
 | Date | Idea | Source | Status |
 |---|---|---|---|
+| 17 Oct 2026 | Countryballs world (v1.1.0): England, Spain, Japan, USA (mini-boss), boss Poland; COPYCAT! (a ball paints itself like Jack and copies your next move); PUSH! (help Poland into space); Pierogi Hat; `parade` track. See `1.1-countryballs.md`. | Kondrat / `game-designer` | design doc, waits for Kondrat |
+| 17 Oct 2026 | Chubby Chin, a plump chinchilla who loves ramen (moves: Noodle Slurp heal, Spicy Sneeze), future food world boss or rare rival. | Kondrat | idea |
 | 10 Oct 2026 | Ocean full design doc: Hermy, Puff, Jelly, Captain Fog (mini-boss), Sleepy Thully; Compass Spin + LUCKY CURRENT; WAKE UP! / ALARM!; Gull Swoop; Nightcap; `sea` + `lullaby`. See `1.0-ocean.md`. | `game-designer` | design doc, waits for Kondrat |
 | 10 Oct 2026 | Veggie Patch full design doc (#63): Olly the Onion, The Peas, Garlic Gus, Fun-Guy (mini-boss), boss Brock Lee the Broccoli; PEEKABOO! hide and seek; Broccoli Hair; `garden` track. See `1.0-veggie.md`. | `game-designer` | design doc, waits for Kondrat |
 | 10 Oct 2026 | "Sprout Pull": rivals plant sprouts that grow over 3 turns; pull one per turn for free before it pops. Backup mechanic for Veggie Patch. | `game-designer` | idea |
