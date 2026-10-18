@@ -11,9 +11,9 @@ Branch `claude/v1.1.1-hotfix`, head be047bb, diff vs origin/main. Scope: only th
 | S1 | 0 | 0 |
 | S2 | 0 | 0 |
 | S3 | 0 | not re-checked |
-| S4 | 1 (B78) | not re-checked |
+| S4 | 1 (B78) | fixed |
 
-Fix next: nothing required. B78 is optional.
+B78 fixed in v1.1.1 (commit e5ebb93): BACK is ignored while a capsule opens.
 
 ## 1. Fix verification
 
@@ -42,7 +42,7 @@ Fix next: nothing required. B78 is optional.
 
 ## 3. Bug status
 
-No fixed, reopened or old bugs re-checked. Highest ID in the v1.1.0 report was B72, so new IDs start at B78.
+No fixed, reopened or old bugs re-checked. Highest ID in the v1.1.0 report was B77, so new IDs start at B78.
 
 ### B78 (S4, new): leaving the capsule machine during OPEN 10 shows no summary
 
