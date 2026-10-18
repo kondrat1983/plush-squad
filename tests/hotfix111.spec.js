@@ -312,3 +312,20 @@ for (const [w, h] of [PHONE, PAD]) {
     noErrors(page);
   });
 }
+
+// QA B78: BACK does nothing while a capsule opens (the capsules are already spent, the summary must show)
+test('capsule machine: BACK is ignored during OPEN 10, the summary still shows', async ({ page }) => {
+  test.setTimeout(300000);
+  await page.setViewportSize({ width: PHONE[0], height: PHONE[1] });
+  await boot(page, save({ caps: 10 }));
+  await page.evaluate(() => PSPrefs.set('skipCaps', false));
+  await go(page, 'gacha');
+  expect(await tapLabel(page, 'gacha', 'OPEN 10')).toBe(true);
+  const r = await page.evaluate(() => { const s = __game.scene.getScene('gacha');
+    const back = s.children.list.filter(o => o.input && o.input.enabled && o.x - s.cameras.main.scrollX < 220 && o.y - s.cameras.main.scrollY < 220)[0];
+    if (!back) return 'no back'; back.emit('pointerdown'); back.emit('pointerup'); return s.busy; });
+  expect(r).toBe(true);
+  await expect.poll(async () => { await fast(page); return texts(page, 'gacha'); }, { timeout: 40000 }).toContain('10 CAPSULES!');
+  expect(await page.evaluate(() => __game.scene.isActive('gacha'))).toBe(true);
+  noErrors(page);
+});

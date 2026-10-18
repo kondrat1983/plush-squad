@@ -4783,7 +4783,7 @@
       this.gridTop = side ? this.my + 330 * this.ms + 50 : PORTRAIT ? Math.max(by + 188, Math.min(by + 210, H - 556)) : 250; // portrait: both booster rows stay on screen at any height
       this.grid = this.add.container(0, 0);
       this.refresh();
-      backButton(this, () => fade(this, 'map', { world: this.world }));
+      backButton(this, () => { if (!this.busy) fade(this, 'map', { world: this.world }); }); // not while a capsule opens: the caps are already spent (QA B78)
       muteButton(this);
     }
     machine() {
