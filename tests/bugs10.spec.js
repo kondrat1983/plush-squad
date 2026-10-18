@@ -44,7 +44,7 @@ for (const [w, h] of [[390, 844], [1180, 820]]) {
     await page.setViewportSize({ width: w, height: h });
     await boot(page);
     // a short last page: one message more than fits on the first page
-    const per = await page.evaluate(() => { const H = __game.config.height, top = (H > __game.config.width ? 290 : 175) + 80 + 40; return Math.max(1, Math.floor((H - top - 150) / 164)); });
+    const per = await page.evaluate(() => { const H = __game.config.height, top = (H > __game.config.width ? 290 : 175) + 80 + 40 + 110; return Math.max(1, Math.floor((H - top - 150) / 164)); }); // + MARK ALL READ row (v1.1.1)
     await fakeNet(page, `{ rpc: async () => ({ data: [] }), from: () => { const q = { select: () => q, eq: () => q, order: () => q,
       limit: () => Promise.resolve({ data: Array.from({ length: ${per + 1} }, (_, i) => ({ id: i + 1, kind: 'friend', from_name: 'p' + (i + 1) })) }) }; return q; } }`);
     const pager = async () => {
