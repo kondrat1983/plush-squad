@@ -371,7 +371,8 @@
       scene.tweens.add({ targets: f, alpha: 0.95, duration: 700 + Math.random() * 900, yoyo: true, repeat: -1, delay: Math.random() * 2000, ease: 'Sine.inOut' });
       scene.tweens.add({ targets: f, x: f.x + rnd(-120, 120), y: f.y + rnd(-80, 80), duration: 5000 + Math.random() * 4000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
-    if (scene.scene.key !== 'map') return; // the bunting hangs along the top edge, behind the tabs: nothing else on the map has room for it (QA B77)
+    const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null;
+    if (!gy) return;
     const fence = scene.add.graphics(); fence.fillStyle(0xb98a5a, 0.7);
     fence.fillRect(0, gy - 70, W, 12); fence.fillRect(0, gy - 36, W, 12);
     for (let x = 20; x < W; x += 90) { fence.fillRect(x, gy - 96, 22, 96); fence.fillTriangle(x, gy - 96, x + 22, gy - 96, x + 11, gy - 112); }

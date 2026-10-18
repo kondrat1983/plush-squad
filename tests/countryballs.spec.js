@@ -403,3 +403,11 @@ test('Save.migrate survives partial saves (B76)', async ({ page }) => {
   });
   expect(r).toEqual([[0, true, undefined], [0, true, undefined], [0, true, 6]]);
 });
+
+// regression (v1.1 B77 fix): the map of every world opens without a page error (a decor change once broke the Veggie Patch fence)
+test('map opens for every world', async ({ page }) => {
+  test.setTimeout(300000);
+  await boot(page, save({ stars: BALLS_OPEN }));
+  for (const w of [0, 1, 2, 3, 4, 5]) { await go(page, 'map', { world: w }); expect(await page.evaluate(() => __game.scene.getScene('map').world), 'world ' + w).toBe(w); }
+  noErrors(page);
+});
