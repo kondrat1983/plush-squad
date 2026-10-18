@@ -222,17 +222,19 @@
         c.add(X().card(this, PS, 0, 0, w, h));
         const t = e.toy, wd = W_OF(e.trip.world), key = 'toy_' + t.id;
         // v1.1.1 (B71): in landscape the rows are narrow, so the picture, postcards and buttons are a little smaller and nothing overlaps
-        const L = !PORTRAIT, pcs = L ? 96 : 132, bw = L ? 200 : 300;
+        const L = !PORTRAIT, bw = L ? 200 : 300;
         if (this.textures.exists(key)) c.add(PS.fitImage(this, -w / 2 + (L ? 88 : 120), 0, key, L ? 140 : 190, h - 50));
         else c.add(img(this, -w / 2 + (L ? 88 : 120), 0, 'j:ticket').setScale(iconScale('j:ticket', 120)));
         const tx = -w / 2 + (L ? 175 : 240), bx = w / 2 - (L ? 115 : 170), textW = bx - bw / 2 - 10 - tx;
+        // landscape: the three postcards are sized from the room between the text edge and the buttons, so they never touch (4:3 iPads have narrower rows)
+        const f = L ? Math.min(1, (bx - bw / 2 - 20 - tx) / 279) : 1, pcs = L ? 96 * f : 132, psc = L ? 0.75 * f : 1;
         c.add(fit(txt(this, tx, -h / 2 + 52, t.name, 44, '#fff3d2', { st: 7, ox: 0 }), textW));
         const wi = img(this, tx + 26, -h / 2 + 118, wd.icon); wi.setScale(iconScale(wd.icon, 48)); c.add(wi);
         c.add(fit(txt(this, tx + 62, L ? -h / 2 + 128 : -h / 2 + 118, L ? 'Day ' + (daysAway(e.trip) + 1) + ' in\n' + wd.name : 'Day ' + (daysAway(e.trip) + 1) + ' in ' + wd.name, L ? 28 : 30, '#bcc0ee', { st: 5, ox: 0, weight: '500' }), textW - 62));
         // postcards: delivered ones can be read again; NEW dot until read
         for (let n = 1; n <= CARDS; n++) {
-          const has = n <= (e.trip.cards || 0), px = tx + (L ? 45 : 58) + (n - 1) * pcs, py = h / 2 - 70;
-          const pc = this.add.container(px, py); if (L) pc.setScale(0.75);
+          const has = n <= (e.trip.cards || 0), px = tx + (L ? 58 * psc : 58) + (n - 1) * pcs, py = h / 2 - 70;
+          const pc = this.add.container(px, py); if (L) pc.setScale(psc);
           const g = this.add.graphics();
           if (has) { g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-58, -36, 116, 80, 14); g.fillStyle(C.cream); g.fillRoundedRect(-58, -42, 116, 80, 14); }
           else { g.lineStyle(4, C.seam, 0.8); g.strokeRoundedRect(-58, -42, 116, 80, 14); }

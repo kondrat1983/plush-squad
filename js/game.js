@@ -1865,7 +1865,7 @@
     }
     create() {
       this._leaving = false; this.hero = null; this.rival = null; this.over = false; this.busy = false; this.shown = null; this.celebrating = false;
-      this.spin = null; this.spinNext = null; this.hidden = null; this.sleepParts = null; this.meterBox = null; this.fogBand = null; this.mounds = null; // v1.0 Compass Spin, PEEKABOO! (the scene object is reused)
+      this.spin = null; this.spinNext = null; this.hidden = null; this.logBg = null; this.sleepParts = null; this.meterBox = null; this.fogBand = null; this.mounds = null; // v1.0 Compass Spin, PEEKABOO! (the scene object is reused)
       this.copy = null; this.copyRec = null; this.copyChip = null; this.copyHand = null; this.rocketImg = null; this.pushEv = null; // v1.1 COPYCAT!, PUSH!
       // a friend's toy picture may be missing (e.g. after rotating the screen): load it first
       const ft = this.data0.ftoy;
@@ -2088,7 +2088,7 @@
         if (res.hidden && this.showHidden) { this.hidden = res.hidden; this.showHidden(true); }
         if (res.charging >= 0 && this.rmoves[res.charging]) { T.charging = this.rmoves[res.charging]; this.chargeFx(T); }
         if (res.copy && this.rmoves[res.copy.k]) { this.copy = { k: res.copy.k, mini: !!res.copy.mini }; this.copyFx(true); } // COPYCAT! armed: the tint, the chip and the card strips come back
-        if (res.log) this.logT.setText(res.log);
+        if (res.log) { this.logT.setText(res.log); this.logBack(); }
         // the duel was already over: show the result panel again in the new layout (QA B31)
         if (res.result) {
           this.setStatus(P); this.setStatus(T);
@@ -2299,7 +2299,7 @@
     logBack(on) {
       if (on === false) { if (this.logBg) { this.logBg.destroy(); this.logBg = null; } return; }
       if (on && !this.logBg) this.logBg = this.add.rectangle(0, 0, 10, 10, 0x0f1240, 0.62).setDepth(19);
-      if (this.logBg) { this.logT.setDepth(20); this.logBg.setPosition(W / 2, this.logT.y).setSize(Math.min(W - 20, this.logT.width + 50), this.logT.height + 16).setDisplaySize(Math.min(W - 20, this.logT.width + 50), this.logT.height + 16); }
+      if (this.logBg) { this.logT.setDepth(20); this.logBg.setPosition(W / 2, this.logT.y).setDisplaySize(Math.min(W - 20, this.logT.width + 50), this.logT.height + 16); }
     }
     banner(s, color) {
       const y = PORTRAIT ? H * 0.35 : H * 0.42;
@@ -4780,7 +4780,7 @@
       this.tenBtn = button(this, bx, by, this.tw * 0.8, 120, 'OPEN 10', C.coral, () => this.turn10(), { size: 48 });
       this.skipBox();
       this.noneT = txt(this, bx, by, 'Win duels to get capsules.\nOne more is free every day!', 32, '#bcc0ee', { st: 5, weight: '500' });
-      this.gridTop = side ? this.my + 330 * this.ms + 50 : PORTRAIT ? by + 210 : 250;
+      this.gridTop = side ? this.my + 330 * this.ms + 50 : PORTRAIT ? Math.max(by + 188, Math.min(by + 210, H - 556)) : 250; // portrait: both booster rows stay on screen at any height
       this.grid = this.add.container(0, 0);
       this.refresh();
       backButton(this, () => fade(this, 'map', { world: this.world }));
@@ -4832,9 +4832,12 @@
       const g = Save.data.goldCaps || 0, n = Save.data.caps + g;
       this.countT.setText(n ? 'You have ' + n + ' capsule' + (n > 1 ? 's' : '') + (g ? ' (' + g + ' golden!)' : '') + '!' : 'No capsules right now');
       this.turnBtn.setVisible(n > 0); this.noneT.setVisible(n <= 0);
-      const ten = Save.data.caps >= 10, d = this.tw * 0.55 + 10; // TURN! and OPEN 10 side by side
-      this.tenBtn.setVisible(ten); this.turnBtn.x = this.bx - (ten ? d : 0); this.tenBtn.x = this.bx + d;
-      this.skipUI.setVisible(n > 0).setPosition(PORTRAIT ? this.bx : W * 0.72, PORTRAIT ? this.by + 120 : H - 90);
+      // TURN! and OPEN 10 side by side; iPad portrait (side): a column right of the machine, the checkbox on top
+      const ten = Save.data.caps >= 10, d = this.tw * 0.55 + 10, side = this.side;
+      this.tenBtn.setVisible(ten);
+      if (side) { this.turnBtn.setPosition(this.bx, this.by - 30); this.tenBtn.setPosition(this.bx, this.by + 100); }
+      else { this.turnBtn.x = this.bx - (ten ? d : 0); this.tenBtn.x = this.bx + d; }
+      this.skipUI.setVisible(n > 0).setPosition(side ? this.bx : PORTRAIT ? this.bx : W * 0.72, side ? this.by - 170 : PORTRAIT ? this.by + 113 : H - 170);
       // collection: all 10 boosters, unknown ones as "?"
       this.grid.removeAll(true);
       const cols = 5, cw = PORTRAIT ? 190 : Math.min(200, (W * 0.55 - 120) / 5), ch = PORTRAIT ? 220 : Math.round(cw * 1.3);
@@ -4865,18 +4868,18 @@
     hint2(s) {
       if (this._h) this._h.destroy();
       // iPad portrait: the booster rows reach the bottom, so the hint goes under TURN! (QA B07)
-      const t = this._h = this.side ? txt(this, W * 0.72, this.my + 170, s, 32, '#ffd23f', { st: 6, wrap: 540 }).setDepth(70) : fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
+      const t = this._h = this.side ? txt(this, W * 0.72, this.by + 205, s, 32, '#ffd23f', { st: 6, wrap: 540 }).setDepth(70) : fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
       this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
     }
     // "Skip animation" checkbox: a big tap target (box + label), the choice is a device preference (PSPrefs.skipCaps)
     skipBox() {
       const P = window.PSPrefs, on = () => !!(P && P.data && P.data.skipCaps);
-      const c = this.skipUI = this.add.container(this.bx, this.by + 120).setDepth(6);
+      const c = this.skipUI = this.add.container(this.bx, this.by + 113).setDepth(6);
       const g = this.add.graphics(), lab = txt(this, 30, 0, 'Skip animation', 36, '#fff3d2', { st: 6 });
       const draw = () => { g.clear(); g.fillStyle(C.cream); g.fillRoundedRect(-186, -22, 44, 44, 10); g.lineStyle(5, 0x0f1240, 0.6); g.strokeRoundedRect(-186, -22, 44, 44, 10);
         if (on()) { g.lineStyle(9, C.coral); g.beginPath(); g.moveTo(-177, 0); g.lineTo(-167, 11); g.lineTo(-150, -12); g.strokePath(); } };
       draw(); c.add([g, lab]);
-      c.setSize(440, 100).setInteractive(); press(this, c);
+      c.setSize(440, 90).setInteractive(); press(this, c);
       c.on('pointerup', () => { if (!P) return; A.click(); P.set('skipCaps', !on()); draw(); });
       c.setVisible(false);
     }
@@ -4925,7 +4928,7 @@
       });
       const ok = button(this, cx, Math.min(top + 60 + (ch + 14) * 2 + 80, H - 90), 380, 120, 'NICE!', C.star, () => {
         ok.disableInteractive();
-        this.tweens.add({ targets: layer, alpha: 0, duration: 250, onComplete: () => { layer.destroy(true); this.busy = false; this.refresh(); } });
+        this.tweens.add({ targets: layer, alpha: 0, duration: 250, onComplete: () => { layer.destroy(true); this.busy = false; this.refresh(); if (window.__psRotatePending && window.__psTryRebuild) window.__psTryRebuild(); } });
       }, { size: 50 }); layer.add(ok);
       this.summ = layer;
     }
@@ -5012,6 +5015,7 @@
           layer.destroy(true); ok.destroy(); dim.destroy(); this.time.delayedCall(2600, () => conf.destroy());
           this.busy = false; this.refresh();
           if (Save.data.caps + (Save.data.goldCaps || 0) > 0) this.turn();
+          else if (window.__psRotatePending && window.__psTryRebuild) window.__psTryRebuild();
         } });
       }, { size: 50 }).setDepth(26);
     }
@@ -5065,7 +5069,7 @@
   // don't rebuild in the middle of taking a toy photo (the phone keyboard also changes the window size there)
   // ...and not while a duel turn is playing out: the snapshot would restore it as YOUR TURN (QA B02)
   window.__psBlockRotate = () => game.scene.isActive('studio') || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) ||
-    (game.scene.isActive('battle') && (b => !!(b.hero && ((b.busy && !b.shown) || b.celebrating)))(game.scene.getScene('battle'))) || window.__psToasts > 0; // ...and not before the rewards are given (QA B31)
+    (game.scene.isActive('battle') && (b => !!(b.hero && ((b.busy && !b.shown) || b.celebrating)))(game.scene.getScene('battle'))) || (game.scene.isActive('gacha') && game.scene.getScene('gacha').busy) || window.__psToasts > 0; // ...a capsule opening (the capsule is already taken) and not before the rewards are given (QA B31)
   } // end main
 
   let rotT = 0, built = false;

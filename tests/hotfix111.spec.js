@@ -175,7 +175,7 @@ for (const [w, h] of [PAD, PHONE, [820, 1180]]) {
   });
 }
 
-for (const [w, h] of [PAD, PHONE]) {
+for (const [w, h] of [PAD, PHONE, [1024, 768]]) {
   test(`B71: Adventures list: postcards not covered by the buttons, day line readable (${w}x${h})`, async ({ page }) => {
     await page.setViewportSize({ width: w, height: h });
     await boot(page, save());
@@ -204,6 +204,50 @@ for (const [w, h] of [PAD, PHONE]) {
     noErrors(page);
   });
 }
+
+// review fixes: every capsule-machine size keeps TURN!, OPEN 10 and the checkbox on screen, apart, and the grid on screen
+for (const [w, h] of [PHONE, PAD, [820, 1180], [375, 667], [1024, 768]]) {
+  test(`capsule machine: TURN!, OPEN 10, checkbox, hint and grid fit and do not overlap; no rotation while opening (${w}x${h})`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await boot(page, save({ caps: 12 }));
+    await go(page, 'gacha');
+    const r = await page.evaluate(() => {
+      const s = __game.scene.getScene('gacha'), W = __game.config.width, H = __game.config.height;
+      s.hint2('Pillow Fort: a long hint text for a booster to see where it lands');
+      const bb = o => { const b = o.getBounds(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom }; };
+      const hint = s._h, o = { turn: bb(s.turnBtn), ten: bb(s.tenBtn), skip: bb(s.skipUI), machine: bb(s.m), hint: bb(hint), W, H };
+      const cards = s.grid.list.filter(c => c.type === 'Container').map(bb); o.gridBottom = Math.max(...cards.map(c => c.bottom)); o.gridRight = Math.max(...cards.map(c => c.right));
+      return o;
+    });
+    for (const k of ['turn', 'ten', 'skip']) { expect(r[k].left, k).toBeGreaterThanOrEqual(0); expect(r[k].right, k).toBeLessThanOrEqual(r.W); expect(r[k].bottom, k).toBeLessThanOrEqual(r.H); }
+    for (const [a, b] of [['turn', 'ten'], ['turn', 'skip'], ['ten', 'skip'], ['turn', 'machine'], ['ten', 'machine'], ['skip', 'machine'], ['skip', 'hint'], ['ten', 'hint']]) expect(hit(r[a], r[b]), a + ' vs ' + b).toBe(false);
+    expect(r.gridBottom).toBeLessThanOrEqual(r.H); expect(r.gridRight).toBeLessThanOrEqual(r.W);
+    // while a capsule is being opened a rotation waits (the capsules are already taken)
+    await page.evaluate(() => { __game.scene.getScene('gacha').busy = true; });
+    expect(await page.evaluate(() => __psBlockRotate())).toBe(true);
+    await page.evaluate(() => { __game.scene.getScene('gacha').busy = false; });
+    expect(await page.evaluate(() => !!__psBlockRotate())).toBe(false);
+    noErrors(page);
+  });
+}
+
+test('B72: Brock Lee hides, back to the map, a new Brock Lee duel: the log strip works again (no page error); rotation restore sizes it', async ({ page }) => {
+  await boot(page, save({ xp: 6750 }));
+  const duel = async () => {
+    await go(page, 'battle', { rival: await page.evaluate(() => __RIVALS.findIndex(r => r.id === 'brocklee')) });
+    await page.evaluate(() => { const b = __game.scene.getScene('battle'); if (b._pick && !b.hero) b._pick(null); });
+    await expect.poll(async () => { await fast(page); return page.evaluate(() => { const b = __game.scene.getScene('battle'); return !!(b && b.hero && !b.busy && !b.over); }); }, { timeout: 60000 }).toBe(true);
+  };
+  await duel();
+  await page.evaluate(async () => { const b = __game.scene.getScene('battle'), m = b.rmoves.find(x => x.type === 'hide'); b.busy = true; await b.doMove(m, b.rival, b.hero); b.busy = false; b.setCards(true); });
+  expect(await page.evaluate(() => !!__game.scene.getScene('battle').logBg)).toBe(true);
+  await go(page, 'map');
+  await duel();
+  expect(await page.evaluate(() => __game.scene.getScene('battle').logBg)).toBeFalsy();
+  await page.evaluate(async () => { const b = __game.scene.getScene('battle'); b.log('A short line'); const m = b.rmoves.find(x => x.type === 'hide'); b.busy = true; await b.doMove(m, b.rival, b.hero); b.busy = false; b.log('Another line for the strip'); });
+  expect(await page.evaluate(() => { const b = __game.scene.getScene('battle'); return Math.abs(b.logBg.displayWidth - Math.min(__game.config.width - 20, b.logT.width + 50)) < 2; })).toBe(true);
+  noErrors(page);
+});
 
 // ---------- B72
 for (const [w, h] of [PAD, PHONE]) {
