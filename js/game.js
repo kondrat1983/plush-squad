@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '1.1.0';
+  const VERSION = '1.1.1';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -345,7 +345,7 @@
     const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null; // the horizon things only on the map (like Canada's pines)
     if (!gy) return;
     // the lighthouse: a striped tower, a yellow lamp and a beam that sweeps every 6 s
-    const lx = W * 0.07, g = scene.add.graphics();
+    const lx = scene.lhX = W * (PORTRAIT ? 0.07 : 0.4), g = scene.add.graphics(); // landscape: between the nodes, Hermy's node sits at the left edge (B72)
     for (let k = 0; k < 5; k++) { g.fillStyle(k % 2 ? 0xffffff : 0xe2524a, 0.85); g.fillRect(lx - 26 + k * 1.5, gy - 40 - k * 34, 52 - k * 3, 34); }
     g.fillStyle(0x2a3060); g.fillRect(lx - 24, gy - 226, 48, 18); g.fillStyle(0xffe08a); g.fillCircle(lx, gy - 192, 16);
     const beam = scene.add.graphics().setPosition(lx, gy - 192); beam.fillStyle(0xfff3b0, 0.18); beam.fillTriangle(0, 0, 420, -70, 420, 70);
@@ -355,7 +355,7 @@
       const sh = scene.add.image(W * x, gy + 10, 'ship').setOrigin(0.5, 1).setScale(sc).setAlpha(0.55).setTint(0xc8d8f0);
       scene.tweens.add({ targets: sh, y: sh.y - 8, angle: 3, duration: 2200 + k * 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     });
-    [[0.32, 0], [0.4, 0], [0.36, -26]].forEach(([x, dy], k) => {
+    [[0.32, 0], [0.4, 0], [0.36, -26]].forEach(([x, dy], k) => { if (!PORTRAIT) x -= 0.07;
       const b = scene.add.graphics().setPosition(W * x, gy + 4 + dy); b.fillStyle(0xe2524a); b.fillCircle(0, 0, 10); b.fillStyle(0xffffff); b.fillRect(-10, -3, 20, 6);
       scene.tweens.add({ targets: b, y: b.y - 5, duration: 1500 + k * 300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     });
@@ -1454,7 +1454,7 @@
       // toy growth (v1.0): toy level with its bar, then the badges (beaten rivals, bosses ringed)
       let gy = ty + 150;
       if (!it.jack) {
-        const t = it.toy, xp = Math.max(0, t.xp || 0), lv = tl, lo = [0, 0, 50, 150, 300][lv], hi = [0, 50, 150, 300, 300][lv], bwid = 260;
+        const t = it.toy, xp = Math.max(0, t.xp || 0), lv = tl, lo = [0, 0, 50, 150, 300][lv], hi = [0, 50, 150, 300, 300][lv], bwid = 200; // the XP text stays inside the panel (B70)
         const lt = txt(this, tx - 40, gy, 'LEVEL ' + lv, 34, '#ffd23f', { st: 5, ox: 1 });
         p.add([lt, this.add.rectangle(tx, gy, bwid, 22, C.night3).setOrigin(0, 0.5).setStrokeStyle(3, C.seam),
           this.add.rectangle(tx + 3, gy, Math.max(4, (bwid - 6) * (lv >= 4 ? 1 : (xp - lo) / (hi - lo))), 16, C.star).setOrigin(0, 0.5),
@@ -1486,7 +1486,7 @@
         p.add([ic, txt(this, tx - 205, my - 2, m.title, ts, '#fff3d2', { ox: 0, st: 5 }), txt(this, tx + 300, my, m.sub || '', ss, '#bcc0ee', { ox: 1, st: 0, weight: '500' })]);
       });
       if (more) p.add(txt(this, tx, my0 + ml.length * step, it.jack ? 'More moves unlock as you level up!' : 'Play as ' + d.name + ': a new move at toy LEVEL ' + (tl + 1) + '!', ss, '#ffd23f', { st: 4, weight: '500' }));
-      const bxs = PORTRAIT ? [0, 0] : [tx - 170, tx + 170];
+      const bxs = PORTRAIT ? [0, 0] : [tx - 100, tx + 250]; // landscape: ADVENTURE, PLAY AS and DUEL! side by side in one row (B70)
       const b1 = button(this, bxs[0], by, 320, 110, isHero ? 'PLAYING ✓' : 'PLAY AS', isHero ? 0x9fe3c0 : C.star, () => {
         if (isHero) return; Save.data.hero = it.jack ? 'jack' : it.toy.id; Save.store(); A.levelUp(); close(); this.scene.restart({ page: this.page });
       }, { size: 42 });
@@ -1499,7 +1499,7 @@
         p.add(b2);
         // v1.0: REMOVE became ADVENTURE (#47); a real delete is in the Adventures list, behind the parent gate.
         // A real button, big enough for small fingers (QA B50 / #48). Portrait: top right; landscape: under the picture
-        const adv = button(this, PORTRAIT ? pw / 2 - 175 : ix, PORTRAIT ? -ph / 2 + 75 : ph / 2 - 80, 280, 90, 'ADVENTURE', C.cream, () => window.PSAdventure && window.PSAdventure.ask(this, it.toy, close), { size: 30 });
+        const adv = button(this, PORTRAIT ? pw / 2 - 175 : ix, PORTRAIT ? -ph / 2 + 75 : by, 280, 90, 'ADVENTURE', C.cream, () => window.PSAdventure && window.PSAdventure.ask(this, it.toy, close), { size: 30 });
         adv.add(img(this, -100, 0, 'j:ticket').setScale(iconScale('j:ticket', 54))); adv.list[1].x = 26; fit(adv.list[1], 180);
         p.add(adv);
       }
@@ -2253,13 +2253,14 @@
         const isUsed = left <= 0 || beamed;
         if (hiding && !isUsed && on) { // PEEKABOO!: the rival is hiding, attack cards wait
           c.enabled = false; look = 'off'; draw(false); [ic, t1, t2].forEach(o => o.setAlpha(0.7));
-          used.setText('HIDING!').setScale(1).setVisible(true); fit(used, w - 70); ufo.setVisible(false); return;
+          // a small stamp in the top corner: the card names stay readable (B72)
+          used.setText('HIDING!').setFontSize(compact ? 20 : 26).setStroke('#fff3d2', 5).setScale(1).setVisible(true); used.setPosition(w / 2 - used.width / 2 - 14, -h / 2 + (compact ? 16 : 22)); ufo.setVisible(false); return;
         }
         t2.setText(a.uses ? (a.sub || '') + ' · ' + (beamed ? 'beamed up' : isUsed ? 'used' : (a.uses === 1 ? 'once' : left + ' left')) : (a.sub || ''));
         fit(t2.setScale(1), L.tw);
         c.enabled = on && !isUsed; look = c.enabled ? 'on' : isUsed ? 'used' : 'off'; draw(false);
         [ic, t1, t2].forEach(o => o.setAlpha(look === 'on' ? 1 : look === 'off' ? 0.7 : 0.45));
-        used.setText(beamed ? 'BEAMED UP' : 'USED').setScale(1).setVisible(isUsed); fit(used, w - 70); ufo.setVisible(beamed);
+        used.setText(beamed ? 'BEAMED UP' : 'USED').setFontSize(compact ? 46 : 60).setStroke('#fff3d2', 8).setPosition(0, 0).setScale(1).setVisible(isUsed); fit(used, w - 70); ufo.setVisible(beamed);
       };
       return c;
     }
@@ -2291,8 +2292,14 @@
       }
     }
     log(s) {
-      this.logT.setText(s);
+      this.logT.setText(s); this.logBack();
       this.tweens.add({ targets: this.logT, scale: { from: 1.12, to: 1 }, alpha: { from: 0.4, to: 1 }, duration: 260, ease: 'Back.out' });
+    }
+    // PEEKABOO! in the forest: the log line gets a dark strip so the tree trunks do not run through the letters (B72)
+    logBack(on) {
+      if (on === false) { if (this.logBg) { this.logBg.destroy(); this.logBg = null; } return; }
+      if (on && !this.logBg) this.logBg = this.add.rectangle(0, 0, 10, 10, 0x0f1240, 0.62).setDepth(19);
+      if (this.logBg) { this.logT.setDepth(20); this.logBg.setPosition(W / 2, this.logT.y).setSize(Math.min(W - 20, this.logT.width + 50), this.logT.height + 16).setDisplaySize(Math.min(W - 20, this.logT.width + 50), this.logT.height + 16); }
     }
     banner(s, color) {
       const y = PORTRAIT ? H * 0.35 : H * 0.42;
@@ -3314,6 +3321,7 @@
       this.clearMounds();
       T.squash.setAlpha(0); T.squash.y = 120;
       if (T.bar && T.bar.c) T.bar.c.setAlpha(0.55);
+      if (m.forest) this.logBack(true);
       this.hideChip = chip(this, W * 0.73, (PORTRAIT ? 200 : 150) + (PORTRAIT ? 70 : 76), '?', 0xd8b07a, 34).setDepth(30);
       const xs = { 2: [0.55, 0.82], 3: [0.5, 0.68, 0.86], 4: [0.46, 0.6, 0.74, 0.88] }[Hd.n], gy = this.groundY;
       const tree = !!m.forest, zw = Math.max(150, W * 0.13), cardsTop = Math.min(...this.rects.map(r => r.y - r.h / 2));
@@ -3341,6 +3349,7 @@
     clearMounds() {
       (this.mounds || []).forEach(c => { this.tweens.killTweensOf(c); c.destroy(); }); this.mounds = null;
       if (this.hideChip) { this.hideChip.destroy(); this.hideChip = null; }
+      this.logBack(false);
     }
     // the tell: the pillow corner peeks out of the right mound (EASY: all the time, with a sparkle). HARD: once, a worm pops out of a wrong one
     startTells(instant) {
@@ -4764,10 +4773,14 @@
       this.mx = PORTRAIT && !side ? W / 2 : W * 0.3; this.my = side ? 640 : PORTRAIT ? (short ? 620 : 760) : 560; this.ms = side ? 0.75 : short ? 0.8 : 1;
       this.machine();
       const bx = side ? W * 0.75 : this.mx, by = side ? this.my + 40 : this.my + (PORTRAIT ? 330 * this.ms + 90 : 390);
-      this.turnBtn = button(this, bx, by, side ? 340 : 380, 120, 'TURN!', C.star, () => this.turn(), { size: 56 });
+      this.bx = bx; this.by = by; this.tw = side ? 340 : 380;
+      this.turnBtn = button(this, bx, by, this.tw, 120, 'TURN!', C.star, () => this.turn(), { size: 56 });
       this.tweens.add({ targets: this.turnBtn, scale: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      // v1.1.1: OPEN 10 (only with 10 or more capsules) and the "skip animation" checkbox (a device preference)
+      this.tenBtn = button(this, bx, by, this.tw * 0.8, 120, 'OPEN 10', C.coral, () => this.turn10(), { size: 48 });
+      this.skipBox();
       this.noneT = txt(this, bx, by, 'Win duels to get capsules.\nOne more is free every day!', 32, '#bcc0ee', { st: 5, weight: '500' });
-      this.gridTop = side ? this.my + 330 * this.ms + 50 : PORTRAIT ? by + 140 : 250;
+      this.gridTop = side ? this.my + 330 * this.ms + 50 : PORTRAIT ? by + 210 : 250;
       this.grid = this.add.container(0, 0);
       this.refresh();
       backButton(this, () => fade(this, 'map', { world: this.world }));
@@ -4819,6 +4832,9 @@
       const g = Save.data.goldCaps || 0, n = Save.data.caps + g;
       this.countT.setText(n ? 'You have ' + n + ' capsule' + (n > 1 ? 's' : '') + (g ? ' (' + g + ' golden!)' : '') + '!' : 'No capsules right now');
       this.turnBtn.setVisible(n > 0); this.noneT.setVisible(n <= 0);
+      const ten = Save.data.caps >= 10, d = this.tw * 0.55 + 10; // TURN! and OPEN 10 side by side
+      this.tenBtn.setVisible(ten); this.turnBtn.x = this.bx - (ten ? d : 0); this.tenBtn.x = this.bx + d;
+      this.skipUI.setVisible(n > 0).setPosition(PORTRAIT ? this.bx : W * 0.72, PORTRAIT ? this.by + 120 : H - 90);
       // collection: all 10 boosters, unknown ones as "?"
       this.grid.removeAll(true);
       const cols = 5, cw = PORTRAIT ? 190 : Math.min(200, (W * 0.55 - 120) / 5), ch = PORTRAIT ? 220 : Math.round(cw * 1.3);
@@ -4852,15 +4868,76 @@
       const t = this._h = this.side ? txt(this, W * 0.72, this.my + 170, s, 32, '#ffd23f', { st: 6, wrap: 540 }).setDepth(70) : fit(txt(this, W / 2, H - 50, s, 32, '#ffd23f', { st: 6 }), W - 80).setDepth(70);
       this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 400, onComplete: () => t.destroy() });
     }
-    async turn() {
-      const gold = (Save.data.goldCaps || 0) > 0;
-      if (this.busy || (Save.data.caps <= 0 && !gold)) return;
-      this.busy = true; this.turnBtn.setVisible(false);
-      // golden capsules (from the weekly boss) always hold a SUPER RARE booster
+    // "Skip animation" checkbox: a big tap target (box + label), the choice is a device preference (PSPrefs.skipCaps)
+    skipBox() {
+      const P = window.PSPrefs, on = () => !!(P && P.data && P.data.skipCaps);
+      const c = this.skipUI = this.add.container(this.bx, this.by + 120).setDepth(6);
+      const g = this.add.graphics(), lab = txt(this, 30, 0, 'Skip animation', 36, '#fff3d2', { st: 6 });
+      const draw = () => { g.clear(); g.fillStyle(C.cream); g.fillRoundedRect(-186, -22, 44, 44, 10); g.lineStyle(5, 0x0f1240, 0.6); g.strokeRoundedRect(-186, -22, 44, 44, 10);
+        if (on()) { g.lineStyle(9, C.coral); g.beginPath(); g.moveTo(-177, 0); g.lineTo(-167, 11); g.lineTo(-150, -12); g.strokePath(); } };
+      draw(); c.add([g, lab]);
+      c.setSize(440, 100).setInteractive(); press(this, c);
+      c.on('pointerup', () => { if (!P) return; A.click(); P.set('skipCaps', !on()); draw(); });
+      c.setVisible(false);
+    }
+    // takes one capsule: rolls the booster, stores it, tells the plugins (stickers, quests). Golden ones first (always SUPER RARE).
+    take(onlyPlain) {
+      const gold = !onlyPlain && (Save.data.goldCaps || 0) > 0;
+      if (!gold && Save.data.caps <= 0) return null;
       let b = rollBoost(); if (gold) { const sr = BOOSTS.filter(x => x.r === 3); b = sr[rnd(0, sr.length - 1)]; }
       const isNew = !Save.data.seen[b.id];
       if (gold) Save.data.goldCaps--; else Save.data.caps--; Save.data.boosts[b.id] = (Save.data.boosts[b.id] || 0) + 1; Save.data.seen[b.id] = true; Save.store();
       emit('capsule', { boost: b, isNew }, this);
+      return { b, isNew, gold };
+    }
+    skip() { const P = window.PSPrefs; return !!(P && P.data && P.data.skipCaps); }
+    // OPEN 10: ten plain capsules, one summary screen (with "skip" there is no animation at all, without it the machine shakes once)
+    async turn10() {
+      if (this.busy || Save.data.caps < 10) return;
+      this.busy = true; this.turnBtn.setVisible(false); this.tenBtn.setVisible(false); this.skipUI.setVisible(false);
+      const got = []; for (let i = 0; i < 10; i++) got.push(this.take(true));
+      if (!this.skip()) {
+        A.spin(); for (let i = 0; i < 6; i++) this.time.delayedCall(i * 140, () => A.tick());
+        this.tweens.add({ targets: this.crank, angle: 720, duration: 1200, ease: 'Sine.inOut', onComplete: () => this.crank.setAngle(0) });
+        this.tweens.add({ targets: this.m, x: this.mx + 10, duration: 60, yoyo: true, repeat: 11 });
+        await wait(this, 1300);
+      }
+      this.summary(got);
+    }
+    summary(got) {
+      const layer = this.add.container(0, 0).setDepth(25), cx = W / 2;
+      const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0.88).setInteractive(); layer.add(dim);
+      const cw = PORTRAIT ? Math.min(190, (W - 80) / 5 - 12) : 200, ch = Math.round(cw * 1.2), top = H * (PORTRAIT ? 0.26 : 0.2);
+      layer.add(txt(this, cx, top - 20, '10 CAPSULES!', PORTRAIT ? 72 : 64, '#fff3d2', { stroke: '#0f1240', st: 12 }));
+      const best = Math.max(...got.map(r => r.b.r)); best >= 2 ? A.win() : A.levelUp();
+      got.forEach((r, i) => {
+        const x = cx + ((i % 5) - 2) * (cw + 12), y = top + 60 + ch / 2 + Math.floor(i / 5) * (ch + 14), b = r.b;
+        const c = this.add.container(x, y), g = this.add.graphics();
+        g.fillStyle(C.cream); g.fillRoundedRect(-cw / 2, -ch / 2, cw, ch, 24);
+        g.lineStyle(6, Phaser.Display.Color.HexStringToColor(RARITY[b.r].color).color); g.strokeRoundedRect(-cw / 2, -ch / 2, cw, ch, 24);
+        c.add(g);
+        const ic = img(this, 0, -ch * 0.12, b.icon); ic.setScale(iconScale(b.icon, cw * 0.55)); c.add(ic);
+        c.add(fit(txt(this, 0, ch * 0.26, b.name, 22, C.ink, { st: 0, shadow: false }), cw - 14));
+        for (let k = 0; k < b.r; k++) c.add(this.add.image((k - (b.r - 1) / 2) * 24, ch / 2 - 20, 'star').setScale(0.09));
+        if (r.isNew) c.add(chip(this, cw / 2 - 30, -ch / 2 + 8, 'NEW!', C.coral, 22).setAngle(10));
+        c.setScale(0); this.tweens.add({ targets: c, scale: 1, duration: this.skip() ? 1 : 260, delay: this.skip() ? 0 : i * 110, ease: 'Back.out' });
+        layer.add(c);
+      });
+      const ok = button(this, cx, Math.min(top + 60 + (ch + 14) * 2 + 80, H - 90), 380, 120, 'NICE!', C.star, () => {
+        ok.disableInteractive();
+        this.tweens.add({ targets: layer, alpha: 0, duration: 250, onComplete: () => { layer.destroy(true); this.busy = false; this.refresh(); } });
+      }, { size: 50 }); layer.add(ok);
+      this.summ = layer;
+    }
+    async turn() {
+      const gold = (Save.data.goldCaps || 0) > 0;
+      if (this.busy || (Save.data.caps <= 0 && !gold)) return;
+      this.busy = true; this.turnBtn.setVisible(false); this.tenBtn.setVisible(false); this.skipUI.setVisible(false);
+      const { b, isNew } = this.take();
+      if (this.skip()) { // v1.1.1: no animation, the result right away
+        const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x0f1240, 0.75).setDepth(18).setInteractive();
+        return this.reveal(b, isNew, dim);
+      }
       // crank + shake + capsules tumbling
       A.spin();
       for (let i = 0; i < 6; i++) this.time.delayedCall(i * 140, () => A.tick());

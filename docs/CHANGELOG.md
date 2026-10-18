@@ -3,6 +3,13 @@
 What happened in Plush Squad, newest on top: game releases (what changed for the player), owner decisions, new or changed docs. Details: [decisions](gdd/decisions.md), [GitHub issues](https://github.com/kondrat1983/plush-squad/issues?q=is%3Aissue).
 
 
+## 18 Oct 2026
+**Game: v1.1.1 (hotfix)**
+- Capsule machine: a SKIP ANIMATION checkbox (remembered on the device) and an OPEN 10 button (with 10 or more capsules) that shows all 10 prizes on one screen.
+- Mail: MARK ALL READ. The new-mail badge and popup count only messages not marked yet; gifts stay in the list.
+- iPad landscape: My Squad toy page buttons and XP text fit the panel (B70); Adventures postcards are not covered by SAY GOODBYE and the day line is readable (B71).
+- Ocean map: the lighthouse no longer stands behind Hermy; Brock Lee: readable log line, small HIDING! stamp; Halloween title: the sticker toast no longer covers the logo (B72). Brock Lee picture: right side of the florets (B69).
+
 ## 17 Oct 2026
 **Game: v1.1.0**
 - New world COUNTRYBALLS (map tab FLAGS): England, Spain, Japan, USA and boss Poland at the Great Round Picnic. COPYCAT!: a ball paints itself like Jack and copies your next move (the nap and the dance make it flop). Poland's PUSH!: help him into space for a Space Pierogi, or he falls on you.
