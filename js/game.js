@@ -94,6 +94,8 @@
   if (!Save.data.costume) Save.data.costume = 'none';
   // v0.8 save migration (runs on every load, also after a cloud save is pulled in; never takes anything away)
   Save.migrate = d => {
+    if (!d.stars || typeof d.stars !== 'object') d.stars = {}; // a partial save (B76): missing fields are empty, never a throw
+    if (!Array.isArray(d.toys)) d.toys = [];
     ['diff', 'caps', 'boosts', 'seen', 'stats', 'ach', 'costumes'].forEach((k, i) => { if (d[k] == null) d[k] = ['normal', 0, {}, {}, {}, {}, {}][i]; }); // also for a cloud save (applyCloud)
     if (d.ach && d.ach.allstars) d.costumes.crown = true; // the crown is the Superstar sticker's reward
     // once, for saves from before v0.8 (fresh saves get the flag on their first load):
@@ -369,8 +371,7 @@
       scene.tweens.add({ targets: f, alpha: 0.95, duration: 700 + Math.random() * 900, yoyo: true, repeat: -1, delay: Math.random() * 2000, ease: 'Sine.inOut' });
       scene.tweens.add({ targets: f, x: f.x + rnd(-120, 120), y: f.y + rnd(-80, 80), duration: 5000 + Math.random() * 4000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
-    const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null;
-    if (!gy) return;
+    if (scene.scene.key !== 'map') return; // the bunting hangs along the top edge, behind the tabs: nothing else on the map has room for it (QA B77)
     const fence = scene.add.graphics(); fence.fillStyle(0xb98a5a, 0.7);
     fence.fillRect(0, gy - 70, W, 12); fence.fillRect(0, gy - 36, W, 12);
     for (let x = 20; x < W; x += 90) { fence.fillRect(x, gy - 96, 22, 96); fence.fillTriangle(x, gy - 96, x + 22, gy - 96, x + 11, gy - 112); }
@@ -395,14 +396,13 @@
       scene.tweens.add({ targets: b, y: y - 30, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       scene.tweens.add({ targets: b, x: dir > 0 ? W + 120 : -120, duration: 26000, onComplete: () => b.destroy() });
     } });
-    const gy = scene.scene.key === 'map' ? H * (PORTRAIT ? 0.62 : 0.58) : null;
-    if (!gy) return;
+    if (scene.scene.key !== 'map') return; // the bunting hangs along the top edge, behind the tabs: nothing else on the map has room for it (QA B77)
     const cols = [0xff6b5b, 0xff8a3d, 0xffd23f, 0x7fe39a, 0x5fc8ff, 0x9a7bff, 0xff9ed8], g = scene.add.graphics().setAlpha(0.8);
     [[0, 0.5], [0.5, 1]].forEach(([a, b], k) => {
-      const x0 = W * a, x1 = W * b, y0 = gy - 150 + k * 20, sag = 50, n = 7;
+      const x0 = W * a, x1 = W * b, y0 = -10, sag = 24, n = PORTRAIT ? 5 : 7;
       const yAt = t => y0 + Math.sin(Math.PI * t) * sag;
       g.lineStyle(4, 0xfff3d2, 0.8); g.beginPath(); for (let i = 0; i <= 16; i++) { const t = i / 16; i ? g.lineTo(x0 + (x1 - x0) * t, yAt(t)) : g.moveTo(x0, yAt(0)); } g.strokePath();
-      for (let i = 0; i < n; i++) { const t = (i + 0.5) / n, x = x0 + (x1 - x0) * t, y = yAt(t); g.fillStyle(cols[(i + k * 3) % cols.length]); g.fillTriangle(x - 24, y, x + 24, y, x, y + 46); }
+      for (let i = 0; i < n; i++) { const t = (i + 0.5) / n, x = x0 + (x1 - x0) * t, y = yAt(t); g.fillStyle(cols[(i + k * 3) % cols.length]); g.fillTriangle(x - 20, y, x + 20, y, x, y + 38); }
     });
   }
   // Space world: a far planet, a drifting UFO and a rocket that zooms by now and then
@@ -2050,8 +2050,10 @@
       // v1.1 Poland's countdown: PUSH! helps him into space (costs the turn); HARD counts 3, 2, 1, GO! on the button
       this.pushBtn = toolBtn('PUSH!', C.orange, 'rocket', () => this.playerPush());
       this.pushBtn.on('pointerdown', () => { this.pushDownGo = this.pushGo(); }); // HARD: the press counts, not the lift (button() fires on pointerup)
-      this.alarmHand = img(this, W / 2, bby - 150, 'hand').setScale(iconScale('hand', 110)).setDepth(36).setVisible(false);
-      this.tweens.add({ targets: this.alarmHand, y: bby - 120, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      // portrait: above the button; landscape: beside it, pointing left (above it the hand sat on the VS, QA B74)
+      this.alarmHand = img(this, PORTRAIT ? W / 2 : W / 2 + 275, PORTRAIT ? bby - 150 : bby, 'hand').setScale(iconScale('hand', 110)).setDepth(36).setVisible(false);
+      if (!PORTRAIT) this.alarmHand.setAngle(90);
+      this.tweens.add(PORTRAIT ? { targets: this.alarmHand, y: bby - 120, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.inOut' } : { targets: this.alarmHand, x: W / 2 + 250, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       // SLAPSHOT wind-up: a reminder by the hero instead of a button
       // under the hero's pep bar, where the booster chip is (hidden meanwhile): clear of a hat on the hero (QA B54)
       this.saveChip = chip(this, W * 0.27, hy + (PORTRAIT ? 70 : 76), '        NEXT: SAVE IT!', 0xd8ecff, 30).setDepth(35).setVisible(false);
@@ -2212,7 +2214,7 @@
       const ik = a.icon || 'pillow';
       const ic = img(this, L.ix, L.iy, ik); ic.setScale(iconScale(ik, L.isz));
       if (ic.displayHeight > L.isz) ic.setScale(ic.scaleX * L.isz / ic.displayHeight); // tall icons (Warm Milk) stay in their slot (QA B39)
-      const t1 = fit(txt(this, L.tx, L.t1y, a.title, L.f1, C.ink, { ox: L.ox, st: 0, shadow: false }), L.tw);
+      const t1b = L.t1y, t1 = fit(txt(this, L.tx, L.t1y, a.title, L.f1, C.ink, { ox: L.ox, st: 0, shadow: false }), L.tw);
       const t2 = txt(this, L.tx, L.t2y, a.sub || '', L.f2, '#4a4f8c', { ox: L.ox, st: 0, shadow: false, weight: '500' });
       const used = txt(this, 0, 0, 'USED', compact ? 46 : 60, '#ff6b5b', { stroke: '#fff3d2', st: 8 }).setAngle(-12).setVisible(false);
       // a card the Mothership's tractor beam took: small UFO + BEAMED UP stamp until the end of the duel
@@ -2223,18 +2225,19 @@
       glow.lineStyle(4, 0xffffff, 0.8); glow.strokeRoundedRect(-w / 2 - 14, -h / 2 - 14, w + 28, h + 28, R + 12);
       const badge = this.add.image(-w / 2 + 26, -h / 2 + 24, 'compass').setScale(iconScale('compass', 40)).setVisible(false);
       const plus = chip(this, w / 2 - 40, -h / 2 + 8, '+5', 0x5ff0e6, 24).setVisible(false);
-      // v1.1 COPYCAT!: a 34 px strip at the bottom of the card says what the copy will do (not on HARD); on EASY the best card glows mint
-      const cs = this.add.graphics().setVisible(false), ct = txt(this, 0, h / 2 - 21, '', 22, C.ink, { st: 0, shadow: false }).setVisible(false);
+      // v1.1 COPYCAT!: a 40 px strip (27 px text, QA B75) at the bottom of the card says what the copy will do (not on HARD); on EASY the best card glows mint
+      const cs = this.add.graphics().setVisible(false), ct = txt(this, 0, h / 2 - 24, '', 27, C.ink, { st: 0, shadow: false }).setVisible(false);
       const cglow = this.add.graphics().setVisible(false); cglow.lineStyle(10, C.mint); cglow.strokeRoundedRect(-w / 2 - 6, -h / 2 - 6, w + 12, h + 12, R + 6);
       c.add([g, ic, t1, t2, used, ufo, glow, badge, plus, cs, ct, cglow]); // (the new parts go last: tests and other code read list[1] = icon, list[2] = title)
       this.tweens.add({ targets: [glow, cglow], alpha: { from: 1, to: 0.35 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       c.copyLabel = null;
       c.setCopy = (label, best) => {
         c.copyLabel = label || null; cs.setVisible(!!label); ct.setVisible(!!label); cglow.setVisible(!!label && !!best);
+        if (V) t1.y = L.t1y = t1b - (label ? 8 : 0); // portrait grid: the title steps up so the taller strip clears it
         if (!label) { t2.setVisible(true); return; }
-        cs.clear(); cs.fillStyle(/flops/.test(label) ? 0x9ff0b4 : /at you/.test(label) ? 0xffc2c2 : 0xd8ecff); cs.fillRoundedRect(-w / 2 + 8, h / 2 - 38, w - 16, 34, 12);
+        cs.clear(); cs.fillStyle(/flops/.test(label) ? 0x9ff0b4 : /at you/.test(label) ? 0xffc2c2 : 0xd8ecff); cs.fillRoundedRect(-w / 2 + 8, h / 2 - 44, w - 16, 40, 12);
         fit(ct.setText(label).setScale(1), w - 30);
-        t2.setVisible(L.t2y + L.f2 / 2 <= h / 2 - 38); // the strip takes the sub line's place on small cards
+        t2.setVisible(L.t2y + L.f2 / 2 <= h / 2 - 44); // the strip takes the sub line's place on small cards
       };
       c.setSpin = (moved, lucky, shine) => { badge.setVisible(!!moved || (!!lucky && !shine && !this.easy)); glow.setVisible(!!lucky && !!shine); plus.setVisible(!!lucky && !!shine); };
       c.setSize(w, h).setInteractive({ useHandCursor: true });
@@ -3457,8 +3460,9 @@
         const t = this.moves.find(m => m.type === 'nap' && ok(m)) || this.moves.find(m => m.type === 'dance' && ok(m));
         if (t && t.card) {
           // inside the nap card, over its icon (above the card it would cover the strip of the card above)
-          const cd = t.card, hd = this.copyHand = img(this, cd.x + Math.min(90, cd.width * 0.3), cd.y - cd.height * 0.2, 'hand').setScale(iconScale('hand', 80)).setDepth(36);
-          this.tweens.add({ targets: hd, y: hd.y + 26, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+          // (small, beside the icon and above the strip: the title and the strip text stay readable, QA B74)
+          const cd = t.card, v = cd.width < 400 && cd.height >= 150, hd = this.copyHand = img(this, cd.x + (v ? 62 : -cd.width / 2 + 66), cd.y - cd.height * (v ? 0.34 : 0.24), 'hand').setScale(iconScale('hand', 64)).setDepth(36);
+          this.tweens.add({ targets: hd, y: hd.y + 16, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         }
       }
     }

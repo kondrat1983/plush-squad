@@ -392,3 +392,14 @@ test('PUSH! on HARD counts the press: down on GO!, lifted after the loop wrapped
   expect(await page.evaluate(() => !!__game.scene.getScene('battle').rival.orbit)).toBe(true);
   noErrors(page);
 });
+
+// B76: Save.migrate never throws on a partial save (a cloud row without stars / toys)
+test('Save.migrate survives partial saves (B76)', async ({ page }) => {
+  await boot(page, BASE_SAVE);
+  const r = await page.evaluate(() => {
+    const out = [];
+    for (const d of [{}, { xp: 5, wins: 1 }, { lastWorld: 5 }]) { try { __save.migrate(d); out.push([Object.keys(d.stars).length, Array.isArray(d.toys), d.lastWorld]); } catch (e) { out.push('throw ' + e.message); } }
+    return out;
+  });
+  expect(r).toEqual([[0, true, undefined], [0, true, undefined], [0, true, 6]]);
+});

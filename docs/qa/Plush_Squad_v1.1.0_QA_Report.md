@@ -55,6 +55,7 @@ Not part of this pass.
 - Related note [?]: England is a Union Jack with top hat. The design said "white ball, red cross". Kondrat may have meant this.
 
 ### B74 (S4) iPad landscape: tutorial hands cover text
+- **Status: Fixed in v1.1.0: nap hand is small and beside the icon, PUSH! hand beside the button on landscape (commit COMMIT).**
 - File: `js/game.js` `copyFx` (hand on the nap card) and `alarmHand` for PUSH!.
 - Steps: 1180x820, first COPYCAT ever: the hand sits on the "Upside-Down Nap" title and hides "own". First PUSH!: the hand sits on the "VS" in the pep bars.
 - Expected: hand points at the target without hiding text.
@@ -63,11 +64,13 @@ Not part of this pass.
 - Fix idea: put the nap hand on the icon side of the card (left); place the PUSH! hand below the button on landscape.
 
 ### B75 (S4) COPY strips are tiny on the phone
+- **Status: Fixed in v1.1.0: COPY strip text 27 px in a 40 px strip, portrait title steps up (commit COMMIT).**
 - File: `js/game.js` `actionCard` `setCopy` (22 px text).
 - 22 game px is about 8 CSS px on a 390-wide phone. It is the key hint of the new rule.
 - Fix idea: 26 to 28 px and a taller strip if the card has room.
 
 ### B76 (S4) `Save.migrate` throws if the save has no `stars`
+- **Status: Fixed in v1.1.0: `Save.migrate` defaults `stars` and `toys`; test added (commit COMMIT).**
 - File: `js/game.js` migrate (mig08 block), called from `js/net.js` `applyCloud`.
 - Steps: `__save.migrate({})` gives "Cannot read properties of undefined (reading 'dragonboss')".
 - Real cloud rows come from full saves, so I think this is rare [?]. If it happens, the pull is dropped silently by the `catch` in `_sync`.
@@ -75,6 +78,7 @@ Not part of this pass.
 - Fix idea: default `d.stars`, `d.toys` in `Save.migrate` before the blocks.
 
 ### B77 (S4) Map bunting runs over node labels
+- **Status: Fixed in v1.1.0: bunting hangs along the top edge, behind the tabs (commit COMMIT).**
 - File: `js/game.js` `ballsDecor`.
 - The pennants cross "???" labels and a star row (iPad: Spain label, USA stars; phone: Japan label).
 - Fix idea: lift the bunting above the top node row in landscape or draw it behind the labels.
