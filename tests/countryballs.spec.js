@@ -354,7 +354,7 @@ test('COPYCAT! strips match the copy: hero booster per hit, ROCKET START!, his s
   expect(lab.first).toEqual(['COPY: 21-29 at you', 'COPY: 34-46 at you']);
   expect(lab.shield).toBe('COPY: 11-15 at you');
   // what really comes back lies inside the strip
-  await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.hero.firstBonus = 0; b.rival.shield = false; });
+  await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.hero.firstBonus = 0; b.hero.bonus = 0; b.rival.shield = false; });
   await armNow(page);
   const strip = await page.evaluate(() => __game.scene.getScene('battle').moves.find(m => m.k === 'pillow').card.copyLabel);
   const [lo, hi] = strip.match(/(\d+)-(\d+)/).slice(1).map(Number);
