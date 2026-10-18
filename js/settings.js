@@ -1,5 +1,5 @@
 // Plush Squad: v1.0 Settings (docs/gdd/1.0-settings.md). Device-only preferences, never in the synced save:
-// localStorage['plushsquad_prefs'] = { music: 0-4, sfx: 0-4, calm, hand: 'right' | 'left', buzz }.
+// localStorage['plushsquad_prefs'] = { music: 0-4, sfx: 0-4, calm, hand: "right" | "left", buzz, skipCaps }.
 // Calm mode works through three small hooks on Phaser itself (camera shake, endless tweens, confetti),
 // so every screen follows it without changes scattered over game.js.
 (function () {
@@ -20,6 +20,7 @@
         calm: typeof r.calm === 'boolean' ? r.calm : osCalm(), // first run: follow the OS "reduce motion" setting
         hand: r.hand === 'left' ? 'left' : 'right',
         buzz: r.buzz !== false,
+        skipCaps: r.skipCaps === true, // v1.1.1: capsule machine without the opening animation
       };
       if (first) this.save();
       return this.data;

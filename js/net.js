@@ -269,10 +269,19 @@
       if (!this.user) return [];
       const { data } = await this.sb.from('inbox').select('*').eq('done', false).order('created_at', { ascending: false }).limit(30);
       this.inboxCache = (data || []).map(m => { m.from_name = m.from_name && okUser(m.from_name); if (m.payload && m.payload.toy) m.payload.toy = okName(m.payload.toy, 'toy'); return m; });
-      this.unread = this.inboxCache.length; this._lastInbox = Date.now();
+      this._lastInbox = Date.now(); this.recount();
       return this.inboxCache;
     },
-    async claim(id) { const { data } = await this.sb.rpc('claim_inbox', { p_id: id }); this.inboxCache = this.inboxCache.filter(m => m.id !== id); this.unread = this.inboxCache.length; return data; },
+    async claim(id) { const { data } = await this.sb.rpc('claim_inbox', { p_id: id }); this.inboxCache = this.inboxCache.filter(m => m.id !== id); this.recount(); return data; },
+    // v1.1.1: MARK ALL READ. Seen message ids are kept on this device (per user); the badge and the popup count only messages not seen yet.
+    // Nothing is deleted or claimed: the gifts stay in the list.
+    seenIds() { try { const a = JSON.parse(localStorage.getItem('plushsquad_mailseen_' + (this.user ? this.user.id : '')) || '[]'); return new Set(Array.isArray(a) ? a : []); } catch (e) { return new Set(); } },
+    recount() { const s = this.seenIds(); this.unread = this.inboxCache.filter(m => !s.has(m.id)).length; return this.unread; },
+    markAllRead() {
+      const s = this.seenIds(); this.inboxCache.forEach(m => s.add(m.id));
+      try { localStorage.setItem('plushsquad_mailseen_' + (this.user ? this.user.id : ''), JSON.stringify([...s].slice(-300))); } catch (e) {}
+      return this.recount();
+    },
     // ---- co-op boss, scores, museum
     async bossStatus() { const { data, error } = await this.sb.rpc('boss_status'); if (error || !data) throw error || new Error('no boss'); this.boss = data; return data; }, // (QA B23)
     async bossStart() { const { data } = await this.sb.rpc('boss_start'); return !!data; },
@@ -552,7 +561,8 @@
         const list = await Net.inbox(); this.clearLoading();
         if (!list.length) { txt(this, W / 2, H / 2, 'No new mail', 44, '#fff3d2', { st: 7 }); return; }
         // the 30 newest messages, a page at a time (QA B28 / #26)
-        const w = Math.min(W - 80, 1100), h = 150, top = this.top + 40;
+        const unseen = Net.recount(), w = Math.min(W - 80, 1100), h = 150, top = this.top + 40 + (unseen ? 110 : 0);
+        if (unseen) button(this, W / 2, this.top + 40 + 50, 520, 100, 'MARK ALL READ', C.cream, () => { Net.markAllRead(); this.scene.restart({ tab: 'mail', mailPage: this.mailPage }); }, { size: 38 });
         // the pager sits right below the last message of the page, arrows 160 x 100 (QA B62)
         const PH = 100, per = Math.max(1, Math.floor((H - top - PH - 50) / (h + 14))), pages = Math.ceil(list.length / per);
         this.mailPage = Math.max(0, Math.min(this.mailPage || 0, pages - 1));
@@ -687,8 +697,8 @@
     if (Date.now() - Net._lastInbox < 30000) return;
     try {
       const list = await Net.inbox();
-      if (list.length && scene.sys.isActive() && window.PSExtra) {
-        const c = window.PSExtra.toast(scene, PS, 'j:mail', 'You have ' + list.length + ' new message' + (list.length > 1 ? 's' : '') + '!', 'Tap here to open MAIL');
+      if (Net.unread && scene.sys.isActive() && window.PSExtra) { // only messages not marked as read (v1.1.1)
+        const c = window.PSExtra.toast(scene, PS, 'j:mail', 'You have ' + Net.unread + ' new message' + (Net.unread > 1 ? 's' : '') + '!', 'Tap here to open MAIL');
         c.setSize(820, 150).setInteractive({ useHandCursor: true }); PS.press(scene, c, 0.96);
         c.on('pointerup', () => PS.fade(scene, 'friends', { tab: 'mail' }));
       }

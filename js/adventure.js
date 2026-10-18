@@ -221,16 +221,20 @@
         const c = this.add.container(x, y).setDepth(5);
         c.add(X().card(this, PS, 0, 0, w, h));
         const t = e.toy, wd = W_OF(e.trip.world), key = 'toy_' + t.id;
-        if (this.textures.exists(key)) c.add(PS.fitImage(this, -w / 2 + 120, 0, key, 190, h - 50));
-        else c.add(img(this, -w / 2 + 120, 0, 'j:ticket').setScale(iconScale('j:ticket', 120)));
-        const tx = -w / 2 + 240, bx = w / 2 - 170, textW = bx - 160 - tx;
+        // v1.1.1 (B71): in landscape the rows are narrow, so the picture, postcards and buttons are a little smaller and nothing overlaps
+        const L = !PORTRAIT, bw = L ? 200 : 300;
+        if (this.textures.exists(key)) c.add(PS.fitImage(this, -w / 2 + (L ? 88 : 120), 0, key, L ? 140 : 190, h - 50));
+        else c.add(img(this, -w / 2 + (L ? 88 : 120), 0, 'j:ticket').setScale(iconScale('j:ticket', 120)));
+        const tx = -w / 2 + (L ? 175 : 240), bx = w / 2 - (L ? 115 : 170), textW = bx - bw / 2 - 10 - tx;
+        // landscape: the three postcards are sized from the room between the text edge and the buttons, so they never touch (4:3 iPads have narrower rows)
+        const f = L ? Math.min(1, (bx - bw / 2 - 20 - tx) / 279) : 1, pcs = L ? 96 * f : 132, psc = L ? 0.75 * f : 1;
         c.add(fit(txt(this, tx, -h / 2 + 52, t.name, 44, '#fff3d2', { st: 7, ox: 0 }), textW));
         const wi = img(this, tx + 26, -h / 2 + 118, wd.icon); wi.setScale(iconScale(wd.icon, 48)); c.add(wi);
-        c.add(fit(txt(this, tx + 62, -h / 2 + 118, 'Day ' + (daysAway(e.trip) + 1) + ' in ' + wd.name, 30, '#bcc0ee', { st: 5, ox: 0, weight: '500' }), textW - 62));
+        c.add(fit(txt(this, tx + 62, L ? -h / 2 + 128 : -h / 2 + 118, L ? 'Day ' + (daysAway(e.trip) + 1) + ' in\n' + wd.name : 'Day ' + (daysAway(e.trip) + 1) + ' in ' + wd.name, L ? 28 : 30, '#bcc0ee', { st: 5, ox: 0, weight: '500' }), textW - 62));
         // postcards: delivered ones can be read again; NEW dot until read
         for (let n = 1; n <= CARDS; n++) {
-          const has = n <= (e.trip.cards || 0), px = tx + 58 + (n - 1) * 132, py = h / 2 - 70;
-          const pc = this.add.container(px, py);
+          const has = n <= (e.trip.cards || 0), px = tx + (L ? 58 * psc : 58) + (n - 1) * pcs, py = h / 2 - 70;
+          const pc = this.add.container(px, py); if (L) pc.setScale(psc);
           const g = this.add.graphics();
           if (has) { g.fillStyle(0x000000, 0.3); g.fillRoundedRect(-58, -36, 116, 80, 14); g.fillStyle(C.cream); g.fillRoundedRect(-58, -42, 116, 80, 14); }
           else { g.lineStyle(4, C.seam, 0.8); g.strokeRoundedRect(-58, -42, 116, 80, 14); }
@@ -239,14 +243,14 @@
             pc.add(img(this, -22, -2, 'j:letter').setScale(iconScale('j:letter', 50)));
             pc.add(this.add.image(30, -18, 'star').setScale(0.12).setAngle(12));
             if (n > (e.trip.seen || 0)) pc.add(this.add.circle(50, -38, 13, C.coral).setStrokeStyle(3, 0x0f1240));
-            pc.setSize(116, 90).setInteractive({ useHandCursor: true }); press(this, pc, 0.9);
+            pc.setSize(116, L ? 130 : 90).setInteractive({ useHandCursor: true }); press(this, pc, 0.9);
             pc.on('pointerup', () => this.postcard(e, n, true));
           } else pc.add(txt(this, 0, -2, String(n), 30, '#6a72d6', { st: 0, shadow: false }));
           c.add(pc);
         }
-        const home = button(this, bx, -h / 2 + 85, 300, 104, 'CALL HOME', C.star, () => this.callHome(e), { size: 38 });
-        const bye = button(this, bx, h / 2 - 75, 300, 92, 'SAY GOODBYE', C.cream, () => this.goodbye(e), { size: 28 });
-        fit(home.list[1], 270); fit(bye.list[1], 270);
+        const home = button(this, bx, -h / 2 + 85, bw, 104, 'CALL HOME', C.star, () => this.callHome(e), { size: 38 });
+        const bye = button(this, bx, h / 2 - 75, bw, 92, 'SAY GOODBYE', C.cream, () => this.goodbye(e), { size: 28 });
+        fit(home.list[1], bw - 30); fit(bye.list[1], bw - 30);
         c.add([home, bye]);
         c.setScale(0); this.tweens.add({ targets: c, scale: 1, duration: 280, delay: i * 60, ease: 'Back.out' });
       }
