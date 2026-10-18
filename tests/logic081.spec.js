@@ -119,7 +119,7 @@ for (const [w, h] of [[390, 844], [1180, 820]]) {
     expect(second).not.toContain('p1 added you as a friend!');
     expect(await page.evaluate(() => __game.scene.getScene('friends').mailPage)).toBe(1);
     // a fresh visit to the mail tab starts on the first page again
-    await page.evaluate(() => __game.scene.getScene('friends').scene.restart({ tab: 'mail' }));
+    await page.evaluate(() => void __game.scene.getScene('friends').scene.restart({ tab: 'mail' }));
     await expect.poll(async () => { await fast(page); return texts(page, 'friends'); }, { timeout: 30000 }).toContain('1 / ' + pages);
     noErrors(page);
   });

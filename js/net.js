@@ -170,6 +170,7 @@
           if (data.gone.indexOf(data.hero) >= 0) data.hero = 'jack';
         }
       }
+      if (window.__save && window.__save.migrate) window.__save.migrate(data); // a cloud save from an older client (v1.0: lastWorld 5 -> 6)
       data.owner = this.user.id;
       try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
       setMem(data);

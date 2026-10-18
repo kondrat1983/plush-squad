@@ -3,6 +3,12 @@
 What happened in Plush Squad, newest on top: game releases (what changed for the player), owner decisions, new or changed docs. Details: [decisions](gdd/decisions.md), [GitHub issues](https://github.com/kondrat1983/plush-squad/issues?q=is%3Aissue).
 
 
+## 17 Oct 2026
+**Game: v1.1.0**
+- New world COUNTRYBALLS (map tab FLAGS): England, Spain, Japan, USA and boss Poland at the Great Round Picnic. COPYCAT!: a ball paints itself like Jack and copies your next move (the nap and the dance make it flop). Poland's PUSH!: help him into space for a Space Pierogi, or he falls on you.
+- Pierogi Hat for beating Poland, a parade march, comic "The Great Round Picnic", adventure postcards, 3 stickers, 6 quests, toy badges. Spooky is now world 6 (old saves are moved).
+- Ball pictures by Kondrat.
+
 ## 11 Oct 2026
 **Game: v1.0.0**
 - Two new worlds: OCEAN (Hermy, Puff, Jelly, Captain Fog, boss Sleepy Thully; Compass Spin, WAKE UP! / ALARM!) and VEGGIE PATCH (Olly, The Peas, Garlic Gus, Fun-Guy, boss Brock Lee; PEEKABOO!). Comics, hats (Nightcap, Broccoli Hair), music, stickers and quests for both. Boss art by Kondrat.

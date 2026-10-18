@@ -62,7 +62,7 @@ for (const [tag, [width, height]] of Object.entries(SIZES)) {
     await go(page, 'squad');
     const names = new Set();
     for (let pg = 0; pg < 5; pg++) {
-      if (pg) { await page.evaluate(pg => __game.scene.getScene('squad').scene.restart({ page: pg }), pg); await wait(page, 1500); }
+      if (pg) { await page.evaluate(pg => void __game.scene.getScene('squad').scene.restart({ page: pg }), pg); await wait(page, 1500); }
       const list = await clean(page, 'squad');
       list.filter(b => !b.text).forEach(b => names.add(b.label));
       if (!list.some(b => b.label === '▶')) break;
