@@ -13,7 +13,7 @@ Verdict: no S1, no S2. Merge is not blocked. One S3 (the Poland picture), four S
 | S3 | 1 (B73) | B71 seen again |
 | S4 | 4 (B74 to B77) | B69, B70, B72 not rechecked |
 
-Fix next: B73 (needs Kondrat's decision), then B74.
+B73: Kondrat keeps the picture as is (18 Oct 2026, won't fix). B74-B77 fixed.
 
 ## 1. Fix verification
 
@@ -46,6 +46,8 @@ Not part of this pass.
 ## 3. Bug status
 
 ### B73 (S3) Poland picture has the flag the wrong way round
+
+**Won't fix:** Kondrat keeps his picture (18 Oct 2026, `decisions.md`).
 - File: `assets/poland.png`.
 - Steps: open Poland (map, duel, comic, What's new icon).
 - Expected: white on top, red below (the design says "white over red").
