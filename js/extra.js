@@ -201,9 +201,10 @@
   // ---------- small UI helpers
   function toast(scene, PS, icon, title, sub) {
     if (!scene || !scene.sys || !scene.sys.isActive()) return null; // the kid already left this screen (QA B40)
-    const { W, PORTRAIT, txt, img, iconScale, A, C } = PS;
-    const y = PORTRAIT ? 260 : 170;
-    const c = scene.add.container(W / 2, -150).setDepth(95);
+    const { W, H, PORTRAIT, txt, img, iconScale, A, C } = PS;
+    // on the title screen the PLUSH SQUAD logo sits where toasts go: lower there (B72); in landscape it comes up from the bottom
+    const onTitle = scene.scene.key === 'title', y = onTitle ? (PORTRAIT ? H * 0.45 : H * 0.86) : PORTRAIT ? 260 : 170, low = onTitle && !PORTRAIT;
+    const c = scene.add.container(W / 2, low ? H + 150 : -150).setDepth(95);
     const g = scene.add.graphics(); const w = Math.min(W - 60, 820), h = 150;
     g.fillStyle(0x000000, 0.35); g.fillRoundedRect(-w / 2, -h / 2 + 10, w, h, 40);
     g.fillStyle(0xfff3d2); g.fillRoundedRect(-w / 2, -h / 2, w, h, 40);
@@ -212,7 +213,7 @@
     c.add([g, ic, PS.fit(txt(scene, -w / 2 + 160, -26, title, 40, C.ink, { st: 0, shadow: false, ox: 0 }), w - 190),
       PS.fit(txt(scene, -w / 2 + 160, 30, sub, 28, '#4a4f8c', { st: 0, shadow: false, ox: 0, weight: '500' }), w - 190)]);
     A.levelUp && A.levelUp();
-    scene.tweens.chain({ targets: c, tweens: [{ y, duration: 420, ease: 'Back.out' }, { y, duration: 2400 }, { y: -160, duration: 300, ease: 'Quad.in' }], onComplete: () => c.destroy() });
+    scene.tweens.chain({ targets: c, tweens: [{ y, duration: 420, ease: 'Back.out' }, { y, duration: 2400 }, { y: low ? H + 160 : -160, duration: 300, ease: 'Quad.in' }], onComplete: () => c.destroy() });
     // a rotation waits until the toast is gone, so the kid always sees it (game.js __psBlockRotate, QA B37)
     window.__psToasts = (window.__psToasts || 0) + 1;
     c.once('destroy', () => {
