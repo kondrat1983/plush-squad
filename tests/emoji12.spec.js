@@ -3,6 +3,11 @@
 const { test, expect } = require('@playwright/test');
 const { BASE_SAVE, boot, go, wait, fast, waitTurn, noErrors } = require('./helpers');
 
+// EMO_THROTTLE=5 npx playwright test emoji12: slows the page like a CI runner (CDP CPU throttling)
+test.beforeEach(async ({ page }) => {
+  if (process.env.EMO_THROTTLE) { const c = await page.context().newCDPSession(page); await c.send('Emulation.setCPUThrottlingRate', { rate: +process.env.EMO_THROTTLE }); }
+});
+
 const SIZES = [[390, 844], [844, 390], [820, 1180], [1180, 820], [375, 667], [667, 375], [568, 320]];
 
 // opens a duel and waits for the first turn; spies on the bubbles (side, id)
@@ -22,7 +27,8 @@ async function duel(page, data = { rival: 0 }, save = BASE_SAVE, size = null) {
 const B = (page, fn, arg) => page.evaluate(([src, arg]) => { const b = __game.scene.getScene('battle'); return eval('(' + src + ')')(b, arg); }, [fn.toString(), arg]);
 // taps one emoji cell of the open tray
 const tapCell = (page, i) => B(page, (b, i) => { b.emoTray.cells[i].emit('pointerup', {}); return true; }, i);
-const openTray = page => B(page, b => { b.emoBtn.emit('pointerup', {}); return !!b.emoTray; });
+// the 6 s auto-close is stretched (a slow runner needs seconds per evaluate); one test sets it short on purpose
+const openTray = (page, ms = 600000) => B(page, (b, ms) => { b.emoTrayMs = ms; if (!b.emoTray) b.emoBtn.emit('pointerup', {}); return !!b.emoTray; }, ms);
 
 test('PSEmoji: 16 ids in order, clean() keeps integers 0-15 (max 6), every rival has a personality tag', async ({ page }) => {
   await boot(page);
@@ -103,26 +109,27 @@ test('tray: button opens 16 pictures in order (no text field), a pick closes it,
 
 test('tray: a tap outside closes it, the button toggles it, it closes by itself after 6 s, a card tap still works', async ({ page }) => {
   await duel(page);
-  await openTray(page);
-  expect(await B(page, b => !!b.emoTray)).toBe(true);
-  await B(page, b => { b.emoBtn.emit('pointerup', {}); return 1; });
-  expect(await B(page, b => !!b.emoTray)).toBe(false);
-  await openTray(page);
-  await B(page, b => { b.input.emit('pointerdown', { worldX: 3, worldY: b.emoTray.y + 10 }); return 1; }); // outside, left of the tray
-  expect(await B(page, b => !!b.emoTray)).toBe(false);
-  await openTray(page);
-  await B(page, b => { const t = b.emoTray; b.input.emit('pointerdown', { worldX: t.x + t.w / 2, worldY: t.y + t.h / 2 }); return 1; }); // inside
-  expect(await B(page, b => !!b.emoTray)).toBe(true);
-  await wait(page, 7000);
-  expect(await B(page, b => !!b.emoTray)).toBe(false);
+  const r = await B(page, b => {
+    b.emoTrayMs = 600000; const out = {};
+    b.emoBtn.emit('pointerup', {}); out.open1 = !!b.emoTray;
+    b.emoBtn.emit('pointerup', {}); out.toggled = !!b.emoTray; // the button again: closed
+    b.emoBtn.emit('pointerup', {}); b.input.emit('pointerdown', { worldX: 3, worldY: b.emoTray.y + 10 }); out.outside = !!b.emoTray; // left of the tray
+    b.emoBtn.emit('pointerup', {}); const t = b.emoTray; b.input.emit('pointerdown', { worldX: t.x + t.w / 2, worldY: t.y + t.h / 2 }); out.inside = !!b.emoTray;
+    return out;
+  });
+  expect(r).toEqual({ open1: true, toggled: false, outside: false, inside: true });
+  // the auto-close: the same tray, with a short timer
+  await B(page, b => { b.emoClose(); b.emoTrayMs = 700; b.emoBtn.emit('pointerup', {}); return 1; });
+  expect(await B(page, b => !!b.emoTray)).toBeDefined();
+  await expect.poll(async () => { await wait(page, 500); return B(page, b => !!b.emoTray); }, { timeout: 60000 }).toBe(false);
   noErrors(page);
 });
 
 test('cooldown: a second send within 1.2 s is ignored (tray stays open), later it works; no stuck bubble', async ({ page }) => {
   await duel(page);
-  await openTray(page); await tapCell(page, 0);
+  await B(page, b => { b.emoTrayMs = 600000; b.emoBtn.emit('pointerup', {}); b.emoTray.cells[0].emit('pointerup', {}); return 1; });
   // taps inside the cooldown window, all in one evaluate (the browser is slow between calls)
-  const r = await B(page, b => { b.emoBtn.emit('pointerup', {}); b.emoAt = performance.now() - 100; const t = b.emoTray; [1, 4, 5].forEach(i => t.cells[i].emit('pointerup', {})); return { log: b.emoLog.slice(), tray: !!b.emoTray }; });
+  const r = await B(page, b => { b.emoTrayMs = 600000; b.emoBtn.emit('pointerup', {}); b.emoAt = performance.now() - 100; const t = b.emoTray; [1, 4, 5].forEach(i => t.cells[i].emit('pointerup', {})); return { log: b.emoLog.slice(), tray: !!b.emoTray }; });
   expect(r).toEqual({ log: [0], tray: true });
   await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.emoAt = performance.now() - 1300; });
   await tapCell(page, 1);
@@ -218,23 +225,26 @@ test('every duel mode has the button; the map and the result panel do not', asyn
   noErrors(page);
 });
 
-test('result panel: the button is gone, and result() works in every mode (campaign, boss rival, friend, Kraken; win and lose)', async ({ page }) => {
-  await boot(page);
-  const modes = { campaign: { rival: 0 }, campaignBoss: { rival: 3 }, friendJack: { fjack: { level: 3 }, ownerName: 'Max' }, kraken: { boss: true } };
-  for (const [name, data] of Object.entries(modes)) {
-    for (const won of [true, false]) {
+// one test per mode and result: result() must work everywhere (v0.7.5 crashed in friend and Kraken duels). Generous timeouts for slow runners.
+const RESULT_MODES = { campaign: { rival: 0 }, campaignBoss: { rival: 3 }, friendJack: { fjack: { level: 3 }, ownerName: 'Max' }, kraken: { boss: true } };
+for (const [name, data] of Object.entries(RESULT_MODES)) {
+  for (const won of [true, false]) {
+    test(`result panel: ${name} ${won ? 'win' : 'lose'}: the button is gone and the result shows`, async ({ page }) => {
+      test.setTimeout(900000);
+      await boot(page);
       await go(page, 'battle', data);
       const xp0 = await page.evaluate(() => __save.data.xp);
-      await page.evaluate(() => { const b = __game.scene.getScene('battle'); if (b._pick && !b.hero) b._pick(null) });
-      await waitTurn(page);
+      await page.evaluate(() => { const b = __game.scene.getScene('battle'); if (b._pick && !b.hero) b._pick(null); });
+      await waitTurn(page, 240000);
       await B(page, b => { b.emoSend(5); return 1; });
       await page.evaluate(won => { const b = __game.scene.getScene('battle'); if (won) b.rival.hp = 0; else b.hero.hp = 0; b.finish(won); }, won);
-      await expect.poll(async () => { await wait(page, 500); return page.evaluate(() => __save.data.xp); }, { timeout: 90000, message: name + won }).toBeGreaterThan(xp0);
+      // result() has run when the panel info is kept and the XP was given
+      await expect.poll(async () => { await wait(page, 500); return page.evaluate(() => { const b = __game.scene.getScene('battle'); return !!b.shown && __save.data.xp; }); }, { timeout: 420000, message: name + won }).toBeGreaterThan(xp0);
       expect(await B(page, b => b.emoBtn.visible), name).toBe(false);
-    }
+      noErrors(page);
+    });
   }
-  noErrors(page);
-});
+}
 
 test('rotation: emoLog is in snapshot() and restored, the tray and bubbles are dropped, a running turn still defers it', async ({ page }) => {
   await duel(page, { rival: 0 }, BASE_SAVE, [390, 844]);

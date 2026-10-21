@@ -2195,7 +2195,8 @@
       }
       this.emoTray = { c, x, y, w: d.w, h: d.h, cols: d.cols, cell: d.cell, cells };
       if (!PSPrefs.calm()) { c.setAlpha(0); this.tweens.add({ targets: c, alpha: 1, duration: 140 }); }
-      this.emoTimer = this.time.delayedCall(6000, () => { this.emoTimer = null; this.emoClose(); });
+      this.emoTimer = this.time.delayedCall(this.emoTrayMs || 6000, // tests stretch or shorten it (b.emoTrayMs)
+         () => { this.emoTimer = null; this.emoClose(); });
     }
     // a tap on one of the 16: Jack's bubble now, the rival answers about 0.9 s later. Returns false while cooling down.
     emoSend(id) {
