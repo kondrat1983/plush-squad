@@ -19,6 +19,7 @@
   const BAD = /(fuck|shit|bitch|dick|cunt|nigg|fag|porn|sex|kill|nazi|hitler|xyu|hui|pizd|blya|suka)/i;
   // names typed on other devices are shown here only through the kid-safe filter (QA B13 / #16)
   const T = () => window.PSToys || {};
+  const cleanEmo = a => (window.PSEmoji ? window.PSEmoji.clean(a) : []); // v1.2: only integers 0-15, at most 6
   const okName = (n, fb) => T().badName && T().badName(n) ? fb : n;
   const okUser = n => n != null && BAD.test(n) ? 'Player' : okName(n, 'Player'); // the sign-up rule, then the toy-name filter
   // toy growth (v1.0): friends' toy XP is clamped to 0..300 and only known badge ids are kept (meta is client-written)
@@ -268,7 +269,7 @@
     async inbox() {
       if (!this.user) return [];
       const { data } = await this.sb.from('inbox').select('*').eq('done', false).order('created_at', { ascending: false }).limit(30);
-      this.inboxCache = (data || []).map(m => { m.from_name = m.from_name && okUser(m.from_name); if (m.payload && m.payload.toy) m.payload.toy = okName(m.payload.toy, 'toy'); return m; });
+      this.inboxCache = (data || []).map(m => { m.from_name = m.from_name && okUser(m.from_name); if (m.payload && m.payload.toy) m.payload.toy = okName(m.payload.toy, 'toy'); if (m.kind === 'beat' && m.payload && typeof m.payload === 'object') m.payload.emo = cleanEmo(m.payload.emo); return m; });
       this._lastInbox = Date.now(); this.recount();
       return this.inboxCache;
     },
@@ -584,7 +585,9 @@
           else if (m.kind === 'beat') { icon = 'j:cry'; text = from + ' beat your ' + ((m.payload || {}).toy || 'toy') + '! Revenge?'; actLabel = 'REVENGE!';
             act = () => this.revenge(m); }
           const ic = img(this, W / 2 - w / 2 + 80, y, icon); ic.setScale(iconScale(icon, 100));
-          fit(txt(this, W / 2 - w / 2 + 150, y, text, 32, '#fff3d2', { st: 5, ox: 0 }), w - 470);
+          const emo = m.kind === 'beat' ? cleanEmo((m.payload || {}).emo) : [];
+          fit(txt(this, W / 2 - w / 2 + 150, emo.length ? y - 26 : y, text, 32, '#fff3d2', { st: 5, ox: 0 }), w - 470);
+          emo.forEach((e, k) => { const ei = img(this, W / 2 - w / 2 + 150 + 24 + k * 56, y + 34, window.PSEmoji.FRAME(e)); ei.setScale(iconScale('e:x', 48)); }); // v1.2: the emoji sent in the duel
           button(this, W / 2 + w / 2 - 140, y, 230, 90, actLabel, act ? C.star : C.cream, async () => {
             const r = await Net.claim(m.id); if (!r) return this.scene.restart({ tab: 'mail', mailPage: this.mailPage });
             A.win(); if (act) act();
@@ -710,8 +713,11 @@
     if (name === 'toyAdded') Net.uploadToy(d.toy, d.url);
     if (name === 'catch') Net.submitCatch(d.score);
     if (name === 'duel') {
-      if (d.mode === 'friend' && d.won && d.data && d.data.ownerId)
-        Net.send(d.data.ownerId, 'beat', { toy: d.data.ftoy ? d.data.ftoy.name : 'Jack', toyId: d.data.ftoy ? d.data.ftoy.id : 'jack' }).catch(() => {});
+      if (d.mode === 'friend' && d.won && d.data && d.data.ownerId) {
+        const emo = cleanEmo(d.emo), p = { toy: d.data.ftoy ? d.data.ftoy.name : 'Jack', toyId: d.data.ftoy ? d.data.ftoy.id : 'jack' };
+        if (emo.length) p.emo = emo; // v1.2: the emoji sent in the duel (ids 0-15, max 6); a duel without emoji sends the old payload
+        Net.send(d.data.ownerId, 'beat', p).catch(() => {});
+      }
       if (d.mode === 'boss') Net.bossHit(d.dmg).catch(() => {});
     }
     if (name === 'scene') {
