@@ -4,3 +4,4 @@ playwright-report/
 package-lock.json
 models/
 .DS_Store
+dist/
