@@ -585,7 +585,7 @@
           else if (m.kind === 'beat') { icon = 'j:cry'; text = from + ' beat your ' + ((m.payload || {}).toy || 'toy') + '! Revenge?'; actLabel = 'REVENGE!';
             act = () => this.revenge(m); }
           const ic = img(this, W / 2 - w / 2 + 80, y, icon); ic.setScale(iconScale(icon, 100));
-          const emo = m.kind === 'beat' ? cleanEmo((m.payload || {}).emo) : [];
+          const emo = (m.kind === 'beat' && m.payload && m.payload.emo) || []; // cleaned once, in Net.inbox()
           fit(txt(this, W / 2 - w / 2 + 150, emo.length ? y - 26 : y, text, 32, '#fff3d2', { st: 5, ox: 0 }), w - 470);
           emo.forEach((e, k) => { const ei = img(this, W / 2 - w / 2 + 150 + 24 + k * 56, y + 34, window.PSEmoji.FRAME(e)); ei.setScale(iconScale('e:x', 48)); }); // v1.2: the emoji sent in the duel
           button(this, W / 2 + w / 2 - 140, y, 230, 90, actLabel, act ? C.star : C.cream, async () => {

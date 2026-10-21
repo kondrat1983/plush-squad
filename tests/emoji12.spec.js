@@ -3,7 +3,7 @@
 const { test, expect } = require('@playwright/test');
 const { BASE_SAVE, boot, go, wait, fast, waitTurn, noErrors } = require('./helpers');
 
-const SIZES = [[390, 844], [844, 390], [820, 1180], [1180, 820], [375, 667]];
+const SIZES = [[390, 844], [844, 390], [820, 1180], [1180, 820], [375, 667], [667, 375], [568, 320]];
 
 // opens a duel and waits for the first turn; spies on the bubbles (side, id)
 async function duel(page, data = { rival: 0 }, save = BASE_SAVE, size = null) {
@@ -172,8 +172,10 @@ test('the rival reacts alone once: never in the first 2 s, a very big hit (cry) 
   expect(await B(page, b => b.emoSolo('hit'))).toBe(10);
   expect(await B(page, b => b.emoSolo('hit'))).toBe(false); // once
   await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.emoRivalAt = -1e9; });
+  expect(await B(page, b => b.emoSolo('win'))).toBe(false); // at most ONE solo reaction per duel
+  await B(page, b => { b.emoSoloDone = false; b.emoRivalAt = -1e9; return 1; });
   expect(await B(page, b => b.emoSolo('win'))).toBe(2);
-  await B(page, b => { PSPrefs.set('emoji', false); b.emoDone = {}; b.emoRivalAt = -1e9; return 1; });
+  await B(page, b => { PSPrefs.set('emoji', false); b.emoSoloDone = false; b.emoRivalAt = -1e9; return 1; });
   expect(await B(page, b => b.emoSolo('hit'))).toBe(false); // the toggle is off
   noErrors(page);
 });
@@ -367,5 +369,49 @@ test('calm mode: bubbles fade in without a pop, the rival still answers', async 
   expect(sc.alpha).toBeLessThan(1);
   await wait(page, 1500);
   expect((await B(page, b => b._seen.filter(s => s[0] === 'r').length))).toBe(1);
+  noErrors(page);
+});
+
+test('big-hit answer follows the whole last move: multi-hit counts, and it is reset by the next move', async ({ page }) => {
+  await duel(page);
+  const r = await B(page, b => {
+    const out = {}; b.heroMaxDmg = 20;
+    b.moveDmg = 0; b.inMove = true; b.moveDmg += 8; b.moveDmg += 8; b.inMove = false; b.lastBig = b.moveDmg >= 0.7 * b.heroMaxDmg; out.multi = b.lastBig; // 16 >= 14
+    out.beforeMove = b.lastBig;
+    return out;
+  });
+  expect(r).toEqual({ multi: true, beforeMove: true });
+  // a real small move resets it
+  await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.heroMaxDmg = 1000; b.playerMove(b.moves[0].k); });
+  await wait(page, 1500);
+  expect(await B(page, b => [b.lastBig, b.moveDmg > 0])).toEqual([false, true]);
+  noErrors(page);
+});
+
+test('cooldown dim: closing the tray keeps the button dimmed while cooling; thumbs down boings, crying wobbles', async ({ page }) => {
+  await duel(page);
+  const r = await B(page, b => {
+    const calls = []; ['emoBoing', 'emoSad', 'emoSend', 'emoReply'].forEach(n => { const o = PSAudio[n]; PSAudio[n] = () => calls.push(n); });
+    b.emoBtn.emit('pointerup', {}); b.emoSend(0); const dim = b.emoBtn.alpha; b.emoBtn.emit('pointerup', {}); b.emoClose(); const dim2 = b.emoBtn.alpha;
+    b.emoSound(15, false); b.emoSound(10, false); b.emoSound(6, false); b.emoSound(6, true); b.emoSound(15, true);
+    return { dim, dim2, calls };
+  });
+  expect(r.dim).toBeLessThan(1); expect(r.dim2).toBeLessThan(1);
+  expect(r.calls).toEqual(['emoSend', 'emoBoing', 'emoSad', 'emoSend', 'emoReply', 'emoBoing']);
+  await wait(page, 2500);
+  expect(await B(page, b => b.emoBtn.alpha)).toBe(1);
+  noErrors(page);
+});
+
+test('tray never covers a card: when the main band is too small it uses the arena or stays closed', async ({ page }) => {
+  await duel(page, { rival: 3 }, Object.assign({}, BASE_SAVE, { xp: 9000 }));
+  const r = await B(page, b => {
+    const real = b.moves.map(m => ({ y0: m.card.y - m.card.height / 2, y1: m.card.y + m.card.height / 2 }));
+    b.rects.forEach(x => { x.y -= 450; }); // pretend the cards start much higher: the main band shrinks
+    b.emoBtn.emit('pointerup', {});
+    const t = b.emoTray; if (!t) return { open: false };
+    return { open: true, hits: real.filter(c => t.y < c.y1 && t.y + t.h > c.y0).length, h: t.h, y: t.y, log: b.logT.y - b.logT.height / 2 };
+  });
+  if (r.open) expect(r.hits).toBe(0);
   noErrors(page);
 });

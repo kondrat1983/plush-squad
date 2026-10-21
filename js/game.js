@@ -2023,7 +2023,7 @@
         return o;
       });
 
-      const hy = PORTRAIT ? 200 : 150;
+      const hy = this.hy = PORTRAIT ? 200 : 150;
       this.hero.bar = this.hpBar(W * 0.27, hy, this.H.short, this.H.color, heroMax);
       this.rival.bar = this.hpBar(W * 0.73, hy, R.short, R.color, this.rHp);
       const vs = txt(this, W / 2, hy + 10, 'VS', PORTRAIT ? 56 : 72, '#ffd23f', { stroke: '#0f1240', st: 12 });
@@ -2125,7 +2125,7 @@
     emoInit(res) {
       const E = window.PSEmoji;
       this.emoLog = res && Array.isArray(res.emoLog) ? E.clean(res.emoLog) : [];
-      this.emoAt = -1e9; this.emoRivalAt = -1e9; this.emoT0 = performance.now(); this.emoHolds = 0; this.emoDone = {}; this.lastBig = false;
+      this.emoAt = -1e9; this.emoRivalAt = -1e9; this.emoT0 = performance.now(); this.emoHolds = 0; this.emoSoloDone = false; this.lastBig = false; this.moveDmg = 0; this.inMove = false;
       this.emoTray = null; this.emoBub = {}; this.emoTimer = null;
       const left = PREF().hand === 'left', R = 48;
       // clear of the back and mute buttons, the pep bars and names, the cards, the tool buttons and the log; the hand side follows the Cards setting.
@@ -2136,7 +2136,7 @@
       c.setSize(96, 96).setInteractive({ useHandCursor: true }); press(this, c, 0.9, 1);
       c.on('pointerup', () => { A.init(); A.click(); this.emoTray ? this.emoClose() : this.emoOpen(); });
       // a tap outside the tray closes it (the tap still reaches whatever was tapped, e.g. a card)
-      this.input.off('pointerdown', this._emoOut);
+      if (this._emoOut) this.input.off('pointerdown', this._emoOut);
       this._emoOut = p => {
         const t = this.emoTray; if (!t) return;
         const x = p.worldX, y = p.worldY, b = this.emoBtn;
@@ -2161,18 +2161,20 @@
       const t = this.emoTray; if (!t) return;
       this.emoTray = null; if (this.emoTimer) { this.emoTimer.remove(false); this.emoTimer = null; }
       t.c.destroy(true);
-      if (this.emoBtn) this.emoBtn.setAlpha(1);
+      if (this.emoBtn) this.emoBtn.setAlpha(this.emoCooling() ? 0.45 : 1);
     }
     // the tray: 4 x 4 when it fits between the tool buttons and the log, else 4 x 4 smaller or 8 x 2
     emoOpen() {
       if (!this.emoOn() || this.emoTray) return;
       const E = window.PSEmoji, gap = 8, pad = 14;
       const logTop = this.logT.y - this.logT.height / 2, cardsTop = Math.min(...this.rects.map(r => r.y - r.h / 2));
-      const top = this.bby + 78, bot = Math.min(logTop, cardsTop) - 12;
-      const opts = [[4, 96], [4, 84], [8, 96], [8, 84]];
+      // bands, best first: between the tool buttons and the log / cards; else over the arena under the pep bars. Never on a card.
+      const bands = [[this.bby + 78, Math.min(logTop, cardsTop) - 12], [this.hy + 95, this.bby - 78]];
+      const opts = [[4, 96], [4, 84], [8, 96], [8, 84], [8, 72], [8, 64]];
       const dims = o => ({ cols: o[0], cell: o[1], w: o[0] * o[1] + (o[0] - 1) * gap + 2 * pad, h: (16 / o[0]) * o[1] + (16 / o[0] - 1) * gap + 2 * pad });
-      let d = dims(opts[opts.length - 1]);
-      for (const o of opts) { const t = dims(o); if (t.h <= bot - top && t.w <= W - 20) { d = t; break; } }
+      let d = null, top = 0, bot = 0;
+      for (const bd of bands) { for (const o of opts) { const t = dims(o); if (t.h <= bd[1] - bd[0] && t.w <= W - 20) { d = t; [top, bot] = bd; break; } } if (d) break; }
+      if (!d) return; // no room anywhere without covering something: the button stays quiet
       const x = Math.round(W / 2 - d.w / 2), y = Math.round(Math.max(top, Math.min(bot - d.h, (top + bot) / 2 - d.h / 2)));
       const c = this.add.container(0, 0).setDepth(37);
       const g = this.add.graphics();
@@ -2210,12 +2212,15 @@
       this.time.delayedCall(900, () => this.emoAnswer(id));
       return true;
     }
+    // one clock (performance.now) for the cooldown and for the dim
+    emoCooling() { return performance.now() - this.emoAt < window.PSEmoji.COOLDOWN; }
     emoCool() {
       if (!this.emoBtn) return;
       this.emoBtn.setAlpha(0.45);
-      this.time.delayedCall(window.PSEmoji.COOLDOWN, () => { if (this.emoBtn && this.emoBtn.active) this.emoBtn.setAlpha(1); });
+      setTimeout(() => { if (this.emoBtn && this.emoBtn.active && !this.emoCooling()) this.emoBtn.setAlpha(1); }, window.PSEmoji.COOLDOWN + 20);
     }
-    emoSound(id, rival) { const sad = id === 6 || id === 10 || id === 15; if (sad) A.emoSad(); else if (rival) A.emoReply(); else A.emoSend(); }
+    // the doc: thumbs down = a soft boing, crying = a falling wobble, everything else a blip (high for Jack, lower for the rival)
+    emoSound(id, rival) { if (id === 15) A.emoBoing(); else if (id === 10) A.emoSad(); else if (rival) A.emoReply(); else A.emoSend(); }
     // the rival's answer: situation first, then mood and personality (js/emoji.js)
     emoAnswer(mine) {
       const E = window.PSEmoji, T = this.rival, P = this.hero;
@@ -2226,12 +2231,12 @@
       this.emoBubble(T, id, true); this.emoSound(id, true);
       return id;
     }
-    // the rival reacts alone, once per duel for each of two moments: a very big hit on it, and winning. Never in the first 2 s.
+    // the rival reacts alone at most ONCE per duel (a very big hit on it, or winning). Never in the first 2 s.
     emoSolo(kind) {
       const E = window.PSEmoji;
-      if (!this.emoBtn || !window.PSPrefs.emoji() || this.emoDone[kind] || performance.now() - this.emoT0 < 2000 || performance.now() - this.emoRivalAt < E.COOLDOWN) return false;
+      if (!this.emoBtn || !window.PSPrefs.emoji() || this.emoSoloDone || performance.now() - this.emoT0 < 2000 || performance.now() - this.emoRivalAt < E.COOLDOWN) return false;
       if (kind === 'hit' && (this.over || this.rival.asleep || this.hidden)) return false;
-      this.emoDone[kind] = true; this.emoRivalAt = performance.now();
+      this.emoSoloDone = true; this.emoRivalAt = performance.now();
       const id = kind === 'win' ? 2 : 10;
       this.emoBubble(this.rival, id, true); this.emoSound(id, true);
       return id;
@@ -2240,7 +2245,7 @@
     emoBubble(f, id, rival) {
       const key = rival ? 'r' : 'h', old = this.emoBub[key];
       if (old) { this.tweens.killTweensOf(old); old.destroy(true); }
-      const d = f.dir, hy = PORTRAIT ? 200 : 150;
+      const d = f.dir, hy = this.hy;
       const bx = f.root.x + d * 130;
       const lo = Math.max(hy + 110, this.bby + 150), hi = this.groundY - 150;
       const by = Math.round(Math.max(Math.min(lo, hi), Math.min(hi, f.root.y - f.height() * 0.8)));
@@ -2499,7 +2504,7 @@
       if (crit) { A.crit(); this.cameras.main.zoomTo(1.05, 90); this.time.delayedCall(260, () => this.cameras.main.zoomTo(1, 260)); }
       await this.hitStop(crit ? 130 : 60);
       target.hp = Math.max(0, target.hp - dmg); target.bar.set(target.hp, this);
-      if (target === this.rival) { this.lastBig = dmg >= 0.7 * this.heroMaxDmg; if (target.hp > 0 && dmg >= 0.9 * this.heroMaxDmg) this.time.delayedCall(500, () => this.emoSolo('hit')); } else if (target === this.hero) this.lastBig = false; // v1.2: what the rival says depends on it
+      if (target === this.rival) { if (this.inMove) this.moveDmg += dmg; if (target.hp > 0 && dmg >= 0.9 * this.heroMaxDmg) this.time.delayedCall(500, () => this.emoSolo('hit')); } // v1.2
       if (this.copyRec && target === this.rival) this.copyRec.hits.push(dmg); // COPYCAT!: the number the player saw
       this.number(p.x + (quiet ? rnd(-60, 60) : 0), p.y - 120, '-' + dmg, target === this.rival ? '#ffd23f' : '#ff6b5b', quiet ? 90 : 120);
       if (crit) this.popWord(p.x + (target.dir > 0 ? -150 : 150), p.y - 260, 'CRIT!', '#ff6b5b', 76, -10);
@@ -2838,6 +2843,7 @@
       this.busy = true; this.acted = true; this.setCards(false);
       const P = this.hero, T = this.rival;
       P.used[k] = (P.used[k] || 0) + 1;
+      this.moveDmg = 0; this.lastBig = false; this.inMove = true; // v1.2: the rival's emoji answer depends on the whole move
       emit('move', { k, type: m.type }, this);
       // Compass Spin: the LUCKY CURRENT card adds +5 to its first hit
       if (this.spin && this.moves.indexOf(m) === this.spin.lucky && m.dmg) { P.lucky5 = 5; emit('lucky', {}, this); }
@@ -2854,6 +2860,7 @@
         this.log(T.name + (this.R.plural ? ' giggle' : ' giggles') + ' and ' + (this.R.plural ? 'pop' : 'pops') + ' out!'); await this.unhide(true);
       }
       await this.doMove(m, P, T);
+      this.inMove = false; this.lastBig = this.moveDmg >= 0.7 * this.heroMaxDmg; // total damage of the move (multi-hit moves count)
       this.copyRec = null;
       if (this.hidden && !this.over) { await this.sneak(); if (this.checkEnd()) return; } // a heal or nap during a hide: then the sneak tickle
       P.lucky5 = 0;

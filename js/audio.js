@@ -131,6 +131,7 @@
     emoSend() { this.tone(880, 0.09, { type: 'triangle', vol: 0.16, slide: 1.4 }); this.tone(1320, 0.08, { type: 'sine', vol: 0.1, delay: 0.06 }); },
     emoReply() { this.tone(520, 0.1, { type: 'triangle', vol: 0.16, slide: 1.3 }); this.tone(660, 0.1, { type: 'sine', vol: 0.1, delay: 0.07 }); },
     emoSad() { this.tone(520, 0.3, { type: 'sine', vol: 0.15, slide: 0.55 }); this.tone(390, 0.28, { type: 'sine', vol: 0.1, slide: 0.7, delay: 0.12 }); },
+    emoBoing() { this.tone(180, 0.28, { type: 'sine', vol: 0.18, slide: 2.4 }); this.tone(430, 0.2, { type: 'sine', vol: 0.1, slide: 0.6, delay: 0.14 }); },
     pop() { this.tone(400, 0.12, { vol: 0.25, slide: 2 }); this.noise(0.1, { f: 2000, vol: 0.15, delay: 0.02 }); },
     peekaboo() { [[660, 0.12, 0], [660, 0.12, 0.16], [990, 0.35, 0.32]].forEach(([f, d, at]) => this.tone(f, d, { type: 'triangle', vol: 0.2, delay: at })); },
     huff() { this.noise(0.8, { type: 'lowpass', f: 700, vol: 0.3, attack: 0.2, slide: 0.6 }); },

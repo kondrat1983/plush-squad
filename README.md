@@ -30,7 +30,7 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 ## What's inside
 - `index.html` — page shell, PWA meta
 - `js/game.js` — the game (Boot → Title → Map / Squad / Studio / Star Catch / Capsules → Battle scenes)
-- `js/emoji.js` — v1.2 emoji chat data: the 16 ids, rival personality tags, the answer table
+- `js/emoji.js`: v1.2 emoji chat data: the 16 ids, rival personality tags, the answer table
 - `js/audio.js` — all sounds & music are synthesized live with Web Audio (no audio files)
 - `js/toys.js` — toy types, elements, personalities and the hero generator (no AI text, just rules)
 - `js/extra.js` — Me, Sticker Album, real-life Quests, Parents area, bedtime, What's new
