@@ -4,6 +4,7 @@ Owner decisions (Kondrat). They stand until Kondrat changes them; agents and doc
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| 21 Oct 2026 | **Emoji chat details (`1.2-emoji-chat.md`), all as recommended:** every rival gets a personality tag (grumpy / shy / cheeky / kind; toys, friends' toys and Jacks default to kind, the Kraken is cheeky); Settings gets an EMOJI toggle (default ON, device only, hides the button and the rival's answers); friend mail only on a WIN: the `beat` payload gets `emo: [ids]` (no schema change); nothing is sent on a loss. | Kondrat, 21 Oct 2026. Implemented in v1.2.0. |
 | 21 Oct 2026 | **Emoji chat in duels only, 16 preset emoji, no text and no free input.** The rival answers with its own emoji. In friend duels the emoji sent are attached to the `beat` mail as ids. This is the one exception to "no chat": it is a closed picture set. | Chief tester's request, approved by Kondrat. Design: `1.2-emoji-chat.md`. |
 | 18 Oct 2026 | **Poland keeps Kondrat's picture (red over white)** even though the real flag is white over red (QA B73). | Kondrat, answer to the v1.1.0 QA question. |
 | 17 Oct 2026 | **Countryballs design answers** (`1.1-countryballs.md` open questions): COPYCAT! (world rule) and Poland's PUSH! (boss mechanic) approved as written; USA attacks with **Burger Toss** (no popcorn); map tab label **FLAGS** (not BALLS); boss reward **Pierogi Hat** (reuses `dumpling.png`); Japan uses the rising-sun picture Kondrat supplied. | Kondrat. |

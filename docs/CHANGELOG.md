@@ -3,6 +3,12 @@
 What happened in Plush Squad, newest on top: game releases (what changed for the player), owner decisions, new or changed docs. Details: [decisions](gdd/decisions.md), [GitHub issues](https://github.com/kondrat1983/plush-squad/issues?q=is%3Aissue).
 
 
+## 21 Oct 2026
+**Game: v1.2.0**
+- Emoji in duels: a smiley button opens 16 emoji (Fluent Emoji 3D). Jack shows a speech bubble and the rival answers in character (grumpy, shy, cheeky or kind; bosses have their own answers). It never costs the turn and does not change the fight. A 1.2 s cooldown and 3 soft sounds.
+- Settings: EMOJI ON / OFF (default ON). When you beat a friend, they see your emoji (up to 6) in their mail.
+- Decisions and design: `gdd/1.2-emoji-chat.md`, `gdd/decisions.md`.
+
 ## 18 Oct 2026
 **Game: v1.1.1 (hotfix)**
 - Capsule machine: a SKIP ANIMATION checkbox (remembered on the device) and an OPEN 10 button (with 10 or more capsules) that shows all 10 prizes on one screen.
