@@ -13,15 +13,16 @@ test('the 5 new stickers are earned from their stats, the 6 new quests are in th
   for (const id of ['sasquatch', 'goalie', 'hattrick', 'slapshot', 'umbrella5']) expect(r.ach).toContain(id);
   for (const id of ['fort', 'pancakes', 'leaf', 'polite', 'animal', 'birds']) expect(r.quests).toContain(id);
   expect(r.quests.length).toBe(42); // v1.0: +6 Ocean, +6 Veggie Patch; v1.1: +6 Countryballs
-  expect(r.n).toBe(40); // 27 in v0.8 + Pillow Week (v0.9) + Explorer, Golden Toy, Toy Champion, 3 Ocean, 3 Veggie Patch (v1.0) + 3 Countryballs (v1.1)
+  expect(r.n).toBe(46); // 27 in v0.8 + Pillow Week (v0.9) + Explorer, Golden Toy, Toy Champion, 3 Ocean, 3 Veggie Patch (v1.0) + 3 Countryballs (v1.1) + 6 Snow Fort (v1.3)
   noErrors(page);
 });
 
-test('What\'s new 1.2 shows for a player coming from 1.1', async ({ page }) => {
-  await boot(page, save({ seenVersion: '1.1' })); // the title opens first and shows it (once per launch)
+test('What\'s new 1.3 shows for a player coming from 1.2', async ({ page }) => {
+  await boot(page, save({ seenVersion: '1.2' })); // the title opens first and shows it (once per launch)
   const texts = () => page.evaluate(() => __game.scene.getScene('title').children.list.flatMap(o => o.list || [o]).filter(o => o.type === 'Text').map(t => t.text).join(' | '));
-  await expect.poll(async () => { await wait(page, 500); return texts(); }, { timeout: 30000 }).toContain("WHAT'S NEW in v1.2!");
-  expect(await texts()).toContain('EMOJI');
+  await expect.poll(async () => { await wait(page, 500); return texts(); }, { timeout: 30000 }).toContain("WHAT'S NEW in v1.3!");
+  expect(await texts()).toContain('SNOW FORT');
+  expect(await texts()).toContain('ZZZ');
   noErrors(page);
 });
 

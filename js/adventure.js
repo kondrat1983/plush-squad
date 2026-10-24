@@ -9,7 +9,7 @@
   const X = () => window.PSExtra;
   const todayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const MAX_AWAY = 20, SQUAD_MAX = 14, CARDS = 3, SOUV_DAYS = 3, SOUV_XP = 20;
-  // worlds by key, in world-index order (v1.0: Ocean 3, Veggie Patch 4; v1.1: Countryballs 5, Spooky 6; WORLDS[6] exists only while the Spooky event runs).
+  // worlds by key, in world-index order (v1.0: Ocean 3, Veggie Patch 4; v1.1: Countryballs 5, Spooky 6; v1.3: slot 6 is 'winter' (Snow Fort) in winter; WORLDS[6] exists only while a season runs).
   // Trips store the key, not the index, so trips from before v1.1 stay where they are.
   const KEYS = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'spooky'];
   const WORLD = {
@@ -19,6 +19,7 @@
     ocean: { name: 'OCEAN', icon: 'compass', prop: 'ship', lines: ['Hermy the crab showed me his new shell. So shiny!', 'Puff puffed up like a balloon. I laughed so much!', 'Sleepy Thully snored so loud the waves wobbled.'] },
     veggie: { name: 'VEGGIE PATCH', icon: 'broccoli', prop: 'sunflower', lines: ['Olly the Onion made me cry. Happy tears!', 'The Peas and I played hide and seek in the pod.', 'Brock Lee let me nap in his fluffy florets.'] },
     countryballs: { name: 'COUNTRYBALLS', icon: 'globe', prop: 'teacup', lines: ['England poured me a cup of tea. Pinky up!', 'Japan taught me to roll sushi. Mine was round!', 'Poland and I almost got to space. Almost!'] },
+    winter: { name: 'SNOW FORT', icon: 'snowman', prop: 'scarf', lines: ['Waddles took me sliding on his belly. Wheee!', 'Pola shared her cocoa. It had a marshmallow hat!', 'Sir Frosty let me hold his carrot nose. Just for a second.'] },
     spooky: { name: 'SPOOKY', icon: 'pumpkin', prop: 'candy', lines: ['Pumpkin Pete told me a joke. It was corny!', 'Batty showed me how to sleep upside down. Like Jack!', 'Count Fang shared his candy. Only the red ones.'] },
   };
   const W_OF = k => WORLD[k] || WORLD.hills;
@@ -183,7 +184,7 @@
 
   // ---------- the Adventures list (from the ADVENTURES card in My Squad)
   function scenes(PS) {
-    P = PS;
+    P = PS; KEYS[6] = PS.WINTER_ON ? 'winter' : 'spooky'; // v1.3: slot 6 is Spooky in October and Snow Fort in winter
     const { W, H, PORTRAIT, C, A, txt, fit, img, iconScale, button, chip, fade, press, IDB, addTexture, groundKey } = PS;
     class AdventuresScene extends Phaser.Scene {
       constructor() { super('adventures'); }
@@ -269,7 +270,8 @@
         g.fillStyle(C.cream); g.fillRoundedRect(x0, y0, pw, ph, 40);
         layer.add(g);
         // the world's ground strip along the bottom (the top part of the ground texture: the hill line)
-        const gk = groundKey(wi), gt = this.textures.get(gk).getSourceImage(), gw = gt.width, gch = Math.min(gt.height, gw * 0.18);
+        if (e.trip.world === 'winter' && PS.winterArt) PS.winterArt(this); // (out of season the winter art is made only when needed)
+        const gk = e.trip.world === 'spooky' ? 'ground3' : e.trip.world === 'winter' ? 'ground8' : groundKey(wi), gt = this.textures.get(gk).getSourceImage(), gw = gt.width, gch = Math.min(gt.height, gw * 0.18);
         const sc = (pw - 40) / gw, gimg = this.add.image(x0 + 20, y0 + ph - 20 - gch * sc, gk).setOrigin(0, 0).setScale(sc).setCrop(0, 0, gw, gch);
         layer.add(gimg);
         const sky = this.add.graphics(); sky.lineStyle(6, C.star); sky.strokeRoundedRect(x0 + 16, y0 + 16, pw - 32, ph - 32, 30); layer.add(sky);

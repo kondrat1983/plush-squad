@@ -144,6 +144,11 @@
     train() { this.tone(784, 0.35, { type: 'triangle', vol: 0.18 }); this.tone(622, 0.45, { type: 'triangle', vol: 0.18, delay: 0.3 }); this.noise(0.6, { f: 500, slide: 5, vol: 0.3, attack: 0.1, delay: 0.5 }); },
     countdown() { [0, 0.42, 0.84].forEach((d, i) => this.tone(660 + i * 110, 0.12, { type: 'square', vol: 0.08, delay: d })); this.noise(0.6, { f: 300, slide: 6, vol: 0.3, attack: 0.2, delay: 1.2 }); },
     fizzle() { for (let i = 0; i < 5; i++) this.noise(0.06, { f: 1800 - i * 250, q: 3, vol: 0.2, delay: i * 0.09 }); this.tone(500, 0.5, { type: 'sawtooth', vol: 0.05, slide: 0.3 }); this.tone(220, 0.3, { vol: 0.25, slide: 2.2, delay: 0.55 }); },
+    // v1.3 Snow Fort: sleigh bells (4 fast high pings, also the "window opens" ting), a bright ting (perfect jump), a soft snowball thud, a rolling hiss
+    bells() { [0, 0.07, 0.14, 0.23].forEach((d, i) => { this.tone(2637 + i * 220, 0.18, { type: 'sine', vol: 0.09, delay: d }); this.tone(3951, 0.09, { type: 'square', vol: 0.02, delay: d }); }); },
+    ting() { this.tone(1568, 0.22, { type: 'triangle', vol: 0.16 }); this.tone(2349, 0.3, { type: 'sine', vol: 0.1, delay: 0.06 }); },
+    snowThud() { this.noise(0.22, { type: 'lowpass', f: 700, slide: 0.35, vol: 0.5, attack: 0.004 }); this.tone(130, 0.22, { vol: 0.35, slide: 0.5 }); },
+    snowRoll() { this.noise(1.1, { type: 'lowpass', f: 250, slide: 4, vol: 0.2, attack: 0.5 }); },
     catchStar() { this.tone(1319 + Math.random() * 300, 0.18, { type: 'triangle', vol: 0.16 }); this.tone(1760, 0.2, { type: 'sine', vol: 0.08, delay: 0.05 }); },
     levelUp() { [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.2, delay: i * 0.09 })); },
 
@@ -362,6 +367,28 @@
         ];
         const m = s % 2 === 0 ? MEL[bar][s / 2] : 0;
         if (m) { A.voice(m + 12, t, 0.001, { type: 'sine', vol: 0.05, r: sp * 3 }); A.voice(m + 24, t, 0.001, { type: 'sine', vol: 0.012, r: sp * 1.5 }); }
+      } },
+      // v1.3 Snow Fort: an original winter tune (no carol), G major 6/8 (2 beats of 3 eighths per bar), 16 bars at 120 bpm.
+      // Music-box lead (sine tines, octave up), sleigh bells on every eighth with a light shuffle, a soft bass on the 1 and the 4
+      snow: { bpm: 120, div: 3, len: 96, gain: 0.65, play(A, n, t, sp) {
+        const bar = Math.floor(n / 6), s = n % 6, partB = bar >= 8;
+        const roots = [43, 40, 36, 38, 43, 35, 45, 38, 36, 43, 45, 38, 40, 36, 38, 43]; // G Em C D | G Bm Am D | C G Am D | Em C D G
+        const minor = [0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0], root = roots[bar], third = minor[bar] ? 3 : 4;
+        if (s === 0) A.voice(root, t, sp * 2.4, { type: 'triangle', vol: 0.1, r: 0.08 });
+        if (s === 3) A.voice(root + 7, t, sp * 1.8, { type: 'triangle', vol: 0.06, r: 0.06 });
+        if (s === 2 || s === 5) [12, 12 + third, 19].forEach(iv => A.voice(root + 24 + iv, t, 0.001, { type: 'sine', vol: 0.012, r: sp * 1.4 }));
+        // sleigh bells: a short high noise burst on every eighth (accent on the 1 and the 4) plus a tiny ping, the off-eighths a hair late
+        A.hit(t + (s % 3 === 1 ? sp * 0.08 : 0), 0.05, { type: 'highpass', f: 7000, q: 0.5, vol: s % 3 === 0 ? 0.05 : 0.028 });
+        if (s % 3 === 0) A.voice(100 + (s ? 2 : 0), t, 0.001, { type: 'sine', vol: 0.012, r: sp * 0.8 });
+        if (partB && s === 4) A.hit(t, 0.04, { f: 3200, q: 5, vol: 0.05 }); // a little woodblock tick in part B
+        const MEL = [
+          [74, 0, 71, 0, 67, 71], [76, 0, 74, 0, 71, 0], [72, 0, 76, 0, 79, 76], [78, 0, 74, 0, 69, 0],
+          [74, 0, 71, 0, 67, 71], [74, 0, 78, 0, 79, 78], [76, 0, 72, 0, 69, 72], [74, 0, 0, 0, 0, 0],
+          [72, 0, 76, 0, 79, 0], [79, 0, 74, 0, 71, 74], [76, 0, 81, 0, 79, 76], [78, 0, 76, 0, 74, 0],
+          [71, 0, 76, 0, 79, 76], [72, 0, 79, 0, 76, 72], [74, 0, 78, 0, 81, 78], [79, 0, 0, 0, 0, 0],
+        ];
+        const m = MEL[bar][s];
+        if (m) { A.voice(m + 12, t, 0.001, { type: 'sine', vol: 0.05, r: sp * 2.4 }); A.voice(m + 24, t, 0.001, { type: 'sine', vol: 0.013, r: sp * 1.2 }); }
       } },
     },
     music(name) {

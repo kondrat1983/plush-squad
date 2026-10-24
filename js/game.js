@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '1.2.0';
+  const VERSION = '1.3.0';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -140,7 +140,19 @@
   Save.migrate(Save.data);
   // Halloween event: October + first week of November (or ?halloween to test)
   const NOW = new Date();
-  const EVENT_ON = /[?&]halloween/.test(location.search) || NOW.getMonth() === 9 || (NOW.getMonth() === 10 && NOW.getDate() <= 7);
+  // v1.3 seasons (docs/gdd/1.3-snow-fort.md): only one season at a time, both use world slot 6.
+  // Halloween: October + 1-7 November. Winter: 1 December to the end of February (Feb 29 included). ?halloween wins over ?winter.
+  function seasonFor(now, search) {
+    const m = now.getMonth(), d = now.getDate();
+    if (/[?&]halloween/.test(search)) return 'halloween'; // the test flags beat the calendar; ?halloween beats ?winter
+    if (/[?&]winter/.test(search)) return 'winter';
+    if (m === 9 || (m === 10 && d <= 7)) return 'halloween';
+    if (m === 11 || m === 0 || m === 1) return 'winter';
+    return null;
+  }
+  const SEASON_NOW = seasonFor(NOW, location.search);
+  const EVENT_ON = SEASON_NOW === 'halloween';
+  const WINTER_ON = SEASON_NOW === 'winter';
   // plugins (js/extra.js, js/net.js) add scenes and listen to game events
   const PLUGINS = window.PSPlugins || [];
   let PS = null;
@@ -166,6 +178,22 @@
     if (t >= T.perfect[0] && t <= T.perfect[1]) return 'perfect';
     if (t >= T.good[0] && t < T.good[1]) return 'good';
     return t < T.good[0] ? 'early' : 'late';
+  }
+
+  // SNOWBALL! (v1.3 Snow Fort, docs/gdd/1.3-snow-fort.md section 4). t = ms after the ball starts rolling; F = roll time (Dasher on HARD: 1000, windows scale with it).
+  const SNOW_T = {
+    easy: { F: 2200, grace: 400 },
+    normal: { F: 1500, perfect: [1100, 1500], good: [700, 1100] },
+    hard: { F: 1200, perfect: [950, 1200], good: [650, 950] },
+  };
+  // 'perfect', 'good', 'early' or 'late'. EASY: any tap until F + 400 is perfect.
+  function judgeSnow(t, d, fast) {
+    const T = SNOW_T[d] || SNOW_T.normal;
+    if (!T.perfect) return t <= T.F + T.grace ? 'perfect' : 'late';
+    const k = fast && d === 'hard' ? 1000 / T.F : 1, p = T.perfect.map(v => v * k), g = T.good.map(v => v * k);
+    if (t >= p[0] && t <= p[1]) return 'perfect';
+    if (t >= g[0] && t < g[1]) return 'good';
+    return t < g[0] ? 'early' : 'late';
   }
 
   // ---------- boosters from the capsule machine (just for the surprise, nothing to buy)
@@ -272,7 +300,7 @@
     if (key.startsWith('i:') || key.startsWith('j:') || key.startsWith('e:')) return size / 144;
     const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, crab: 242, blowfish: 242, jellyfish: 240, compass: 242, ship: 242, bubbles: 242, thully: 380, fogcap: 250, nightcap: 230, hand: 242,
       onion: 223, peapod: 243, garlic: 218, mushroom: 211, broccoli: 240, worm: 241, cheese: 238, bread: 242, sunflower: 242, brocklee: 380, mound: 200,
-      england: 300, spain: 300, japan: 300, usa: 300, poland: 400, teacup: 242, bull: 242, paella: 242, sushi: 242, burger: 242, globe: 242, balloon: 240, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
+      england: 300, spain: 300, japan: 300, usa: 300, poland: 400, teacup: 242, bull: 242, paella: 242, sushi: 242, burger: 242, globe: 242, balloon: 240, snowball: 120, penguin: 192, polarbear: 224, deer: 225, snowman: 224, cocoa: 224, carrot: 224, fish: 224, scarf: 224, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
     return size / base;
   }
 
@@ -281,12 +309,13 @@
   const CANADA = 2; // v0.8
   const OCEAN = 3, VEGGIE = 4; // v1.0 (docs/gdd/1.0-ocean.md, 1.0-veggie.md)
   const BALLS = 5; // v1.1 Countryballs (docs/gdd/1.1-countryballs.md)
-  const SPOOKY = 6; // the October event (3 before v1.0, 5 in v1.0; see mig10, mig11)
-  const GROUND = { [SPACE]: 'ground2', [CANADA]: 'ground4', [OCEAN]: 'ground5', [VEGGIE]: 'ground6', [BALLS]: 'ground7', [SPOOKY]: 'ground3' };
-  const SKY = { [SPACE]: 'sky2', [CANADA]: 'sky4', [OCEAN]: 'sky5', [VEGGIE]: 'sky6', [BALLS]: 'sky7', [SPOOKY]: 'sky3' };
+  const SEASON = 6; // v1.3: the seasonal world slot. October = SPOOKY (3 before v1.0, 5 in v1.0; see mig10, mig11), winter = SNOW FORT. Only one is ever on.
+  const SPOOKY = SEASON;
+  const GROUND = { [SPACE]: 'ground2', [CANADA]: 'ground4', [OCEAN]: 'ground5', [VEGGIE]: 'ground6', [BALLS]: 'ground7', [SEASON]: WINTER_ON ? 'ground8' : 'ground3' };
+  const SKY = { [SPACE]: 'sky2', [CANADA]: 'sky4', [OCEAN]: 'sky5', [VEGGIE]: 'sky6', [BALLS]: 'sky7', [SEASON]: WINTER_ON ? 'sky8' : 'sky3' };
   const groundKey = w => GROUND[w] || 'ground';
   function sky(scene, world = 0) {
-    const sp = world === SPACE, spook = world === SPOOKY, can = world === CANADA;
+    const sp = world === SPACE, spook = world === SPOOKY && !WINTER_ON, snowy = world === SEASON && WINTER_ON, can = world === CANADA;
     scene.add.image(BLEED.cx, BLEED.cy, SKY[world] || 'sky').setDisplaySize(GW, GH);
     const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(0.55);
     scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -298,6 +327,7 @@
     }
     if (sp) spaceDecor(scene, scene.scene.key === 'battle' ? 15000 : 7000);
     else if (spook) spookyDecor(scene);
+    else if (snowy) winterDecor(scene);
     else if (can) canadaDecor(scene);
     else if (world === OCEAN) oceanDecor(scene);
     else if (world === VEGGIE) veggieDecor(scene);
@@ -321,6 +351,17 @@
       const b = scene.add.image(dir > 0 ? -100 : W + 100, y, 'bat').setScale(0.3).setFlipX(dir < 0).setAlpha(0.85);
       scene.tweens.add({ targets: b, scaleY: 0.18, duration: 140, yoyo: true, repeat: -1 });
       scene.tweens.add({ targets: b, x: dir > 0 ? W + 100 : -100, y: y + rnd(-120, 120), duration: 5200, ease: 'Sine.inOut', onComplete: () => b.destroy() });
+    } });
+  }
+  // Winter (v1.3): soft falling snow (calm mode: none), a few snowflakes drifting, a pale glow
+  function winterDecor(scene) {
+    if (calm()) return;
+    const snow = scene.add.particles(0, 0, 'dot', { x: { min: -40, max: W + 40 }, y: -30, speedY: { min: 50, max: 120 }, speedX: { min: -30, max: 30 }, lifespan: 17000, scale: { min: 0.08, max: 0.24 }, alpha: { min: 0.5, max: 0.95 }, frequency: 220 });
+    snow.setDepth(3);
+    scene.time.addEvent({ delay: 5200, loop: true, callback: () => {
+      if (calm() || Math.random() < 0.4) return;
+      const y = H * (0.08 + Math.random() * 0.3), f = scene.add.image(-60, y, 'snow').setScale(0.22).setAlpha(0.7).setDepth(3);
+      scene.tweens.add({ targets: f, angle: 360, x: W + 60, y: y + rnd(80, 220), duration: 11000, ease: 'Sine.inOut', onComplete: () => f.destroy() });
     } });
   }
   // Canada: northern lights, pines on the horizon, falling snow and now and then a maple leaf
@@ -477,6 +518,26 @@
     return c;
   }
 
+  // v1.3 Snow Fort art: a deep blue winter dusk with a pink glow at the horizon (sky8) and white snowy hills with soft blue shadows (ground8).
+  // Made at boot in winter; out of season only when a replay needs them (the winter comic, a winter postcard, the Album cover),
+  // because every canvas texture costs memory.
+  function winterArt(scene) {
+    const tm = scene.textures; if (tm.exists('sky8')) return;
+    const t = tm.createCanvas('sky8', W, H), x = t.getContext(), gg = x.createLinearGradient(0, 0, 0, H);
+    [[0, '#101a4d'], [0.5, '#2c3f86'], [0.85, '#7a6fb0'], [1, '#e7a9c2']].forEach(([o, c]) => gg.addColorStop(o, c));
+    x.fillStyle = gg; x.fillRect(0, 0, W, H);
+    const sg = x.createRadialGradient(W * 0.5, H * 0.9, 0, W * 0.5, H * 0.9, W * 0.7); sg.addColorStop(0, 'rgba(255,200,220,0.28)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = sg; x.fillRect(0, 0, W, H); t.refresh();
+    const GW = Math.round(W * 1.5), GH = Math.round(PORTRAIT ? H * 0.5 : H * 0.6), RY = Math.min(GH * 0.62, GW * 0.17); // as the other ground textures in Boot
+    const g = tm.createCanvas('ground8', GW, GH), q = g.getContext();
+    q.save(); q.beginPath(); q.ellipse(GW / 2, RY, GW / 2, RY, 0, Math.PI, 0); q.lineTo(GW, GH); q.lineTo(0, GH); q.closePath(); q.clip();
+    const qg = q.createLinearGradient(0, 0, 0, GH); [[0, '#ffffff'], [0.4, '#e6f1ff'], [1, '#b4cdf0']].forEach(([o, c]) => qg.addColorStop(o, c)); q.fillStyle = qg; q.fillRect(0, 0, GW, GH);
+    q.strokeStyle = 'rgba(120,160,215,0.35)'; q.lineWidth = 6; q.lineCap = 'round';
+    for (let i = 1; i < 6; i++) { q.beginPath(); q.ellipse(GW / 2, RY + i * GH * 0.11, GW / 2 - i * 20, RY, 0, Math.PI, 0); q.stroke(); }
+    for (let i = 0; i < 60; i++) { q.fillStyle = 'rgba(255,255,255,0.9)'; q.beginPath(); q.arc(Math.random() * GW, RY * 0.5 + Math.random() * GH, 3 + Math.random() * 4, 0, Math.PI * 2); q.fill(); }
+    q.restore(); g.refresh();
+  }
+
   // ---------- Boot
   class Boot extends Phaser.Scene {
     constructor() { super('boot'); }
@@ -494,7 +555,9 @@
         'crab', 'blowfish', 'jellyfish', 'compass', 'ship', 'bubbles', 'thully', 'hand',
         'onion', 'peapod', 'garlic', 'mushroom', 'broccoli', 'worm', 'cheese', 'bread', 'sunflower', 'brocklee',
         // v1.1 Countryballs (the five balls from Kondrat's pictures; Fluent Emoji 3D props, MIT)
-        'england', 'spain', 'japan', 'usa', 'poland', 'teacup', 'bull', 'paella', 'sushi', 'burger', 'globe']
+        'england', 'spain', 'japan', 'usa', 'poland', 'teacup', 'bull', 'paella', 'sushi', 'burger', 'globe',
+        // v1.3 Snow Fort (Fluent Emoji 3D, MIT)
+        'penguin', 'polarbear', 'deer', 'snowman', 'cocoa', 'carrot', 'fish', 'scarf']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
       this.load.atlas('icons2', 'assets/icons2.webp', 'assets/icons2.json');
@@ -682,6 +745,7 @@
         for (let i = -14; i <= 14; i++) { q.beginPath(); q.moveTo(GW / 2 + i * GW * 0.03, 0); q.lineTo(GW / 2 + i * GW * 0.1, GH); q.stroke(); }
         q.setLineDash([]);
       });
+      if (WINTER_ON) winterArt(this); // v1.3 Snow Fort: the winter sky and hills
       // a striped hot-air balloon (the Countryballs sky extra)
       const bl = this.textures.createCanvas('balloon', 200, 240), bx = bl.getContext();
       bx.save(); bx.beginPath(); bx.ellipse(100, 92, 86, 90, 0, 0, Math.PI * 2); bx.clip();
@@ -721,7 +785,8 @@
     { name: 'OCEAN', tab: 'OCEAN', icon: 'compass' },
     { name: 'VEGGIE PATCH', tab: 'VEGGIES', icon: 'broccoli' },
     { name: 'COUNTRYBALLS', tab: 'FLAGS', icon: 'globe' }, // v1.1 (tab label: owner's decision, 17 Oct 2026)
-  ].concat(EVENT_ON ? [{ name: 'SPOOKY', tab: 'SPOOKY', icon: 'pumpkin', event: true }] : []);
+  ].concat(EVENT_ON ? [{ name: 'SPOOKY', tab: 'SPOOKY', icon: 'pumpkin', event: true }]
+    : WINTER_ON ? [{ name: 'SNOW FORT', tab: 'SNOW', icon: 'snowman', event: true }] : []); // v1.3: one seasonal world at a time, always id 6
   const RIVALS = [
     { id: 'timmy', name: 'Timmy the Tiger', nick: 'Timmy', short: 'TIMMY', tex: 'tiger', scale: 2.0, color: C.orange, hp: 100, xp: 40,
       intro: 'Timmy waves a paw: "Pillows at dawn, Jack!"', laugh: 'Timmy laughed so hard he gave up.',
@@ -944,6 +1009,33 @@
         { type: 'shield', w: 15, log: '{a} hides behind his cape. Next hit only does half!' },
         { type: 'heal', tex: 'j:chocolate', amt: 25, uses: 1, w: 10, log: '{a} snacks on Halloween chocolate.' },
         { type: 'roar', word: 'BLAH BLAH!', color: 0xff6b5b, sound: 'boo', dmg: [14, 22], w: 20, log: '{a} says BLAH so loud the bats fly away!' }] },
+  ] : WINTER_ON ? [
+    // ---- v1.3 winter season: SNOW FORT (docs/gdd/1.3-snow-fort.md), open from the start while the season runs. SNOWROLL = the timed jump (SNOWBALL!)
+    { id: 'waddles', world: SEASON, event: true, winter: true, name: 'Waddles the Penguin', nick: 'Waddles', short: 'WADDLES', tex: 'penguin', color: 0x8fd3ff, hp: 120, xp: 55, reward: 'penguinhat',
+      intro: 'Waddles waddles in: "Race you down the hill, Jack!"', laugh: 'Waddles slid away on his belly, giggling. Wheee!',
+      moves: [{ type: 'rush', word: 'WHEEE!', sound: 'whoosh', dmg: [11, 18], w: 35, log: '{a} belly-slides into {d}!' },
+        { type: 'throw', tex: 'fish', dmg: [10, 19], w: 25, log: '{a} throws a stinky... plush fish!' },
+        { type: 'snowroll', dmg: [13, 21], w: 20, log: '{a} rolls a snowball down the hill!' },
+        { type: 'heal', tex: 'snow', amt: 20, uses: 1, w: 20, log: '{a} cools off with his flippers.' }] },
+    { id: 'pola', world: SEASON, event: true, winter: true, name: 'Pola the Polar Bear', nick: 'Pola', short: 'POLA', tex: 'polarbear', color: 0xf2f2f7, hp: 135, xp: 65, reward: 'cocoahat',
+      intro: 'Pola yawns: "Hot cocoa first, pillow fight second."', laugh: 'Pola laughed so hard her cocoa went up her nose. Cozy win!',
+      moves: [{ type: 'spray', tex: 'cocoa', word: 'SLURP!', sound: 'whoosh', hitTint: 0xc98a5a, dmg: [12, 20], w: 30, log: '{a} sloshes warm cocoa at {d}! Slurp!' },
+        { type: 'snowroll', dmg: [14, 21], w: 25, log: '{a} rolls a snowball down the hill!' },
+        { type: 'roar', word: 'HUUUG!', color: 0xf2f2f7, sound: 'roar', dmg: [11, 19], w: 25, log: '{a} gives {d} a huge, squishy hug!' },
+        { type: 'heal', tex: 'cocoa', amt: 25, uses: 1, w: 20, log: '{a} sips cocoa. Mmm.' }] },
+    { id: 'dasher', world: SEASON, event: true, winter: true, name: 'Dasher the Deer', nick: 'Dasher', short: 'DASHER', tex: 'deer', color: 0xc99a6b, hp: 155, xp: 80,
+      intro: 'Dasher jingles his bells: "Catch me if you can!"', laugh: 'Dasher jingled and zoomed off laughing. Bye!',
+      moves: [{ type: 'rush', word: 'JINGLE JINGLE!', sound: 'bells', dmg: [12, 20], w: 30, log: '{a} dashes in, bells ringing!' },
+        { type: 'snowroll', fast: true, dmg: [13, 22], w: 25, log: '{a} kicks a snowball down the hill!' },
+        { type: 'hop', word: 'BONK!', dmg: [10, 18], w: 25, log: 'BONK! {a} boings {d} with his antlers!' },
+        { type: 'dizzy', color: 0xffd23f, word: 'JINGLE!', sound: 'bells', uses: 2, w: 20, log: '{a} jingles his bells. {d} cannot stop dancing!' }] },
+    { id: 'frosty', world: SEASON, event: true, winter: true, name: 'Sir Frosty the Snowman', nick: 'Sir Frosty', short: 'SIR FROSTY', tex: 'snowman', color: 0xbfe9ff, hp: 185, xp: 130, boss: true, reward: 'snowmanhat',
+      intro: 'Sir Frosty tips his hat: "No one beats a snowman in winter!"', laugh: 'Sir Frosty laughed until his carrot nose popped off. Jack is the Snow King!',
+      moves: [{ type: 'snowroll', big: true, double: true, dmg: [16, 24], w: 30, log: '{a} rolls a GIANT snowball down the hill!' },
+        { type: 'volley', tex: 'snowball', word: 'SNOWBALLS!', sound: 'whoosh', dmg: [13, 21], w: 25, log: '{a} throws a pile of snowballs!' },
+        { type: 'throw', tex: 'carrot', dmg: [12, 20], w: 20, log: '{a} pokes with his carrot nose!' },
+        { type: 'shield', w: 15, log: '{a} hides in a snow wall. Next hit only does half!' },
+        { type: 'heal', tex: 'cocoa', amt: 25, uses: 1, w: 10, log: '{a} sips cocoa. Mmm.' }] },
   ] : []);
   // costumes: Halloween hats (SPOOKY rivals), one hat per world boss, the Royal Crown (Superstar sticker; old Dragon Boss winners keep it)
   const COSTUMES = [
@@ -959,6 +1051,10 @@
     { id: 'nightcap', name: 'Nightcap', tex: 'nightcap', w: 0.5 }, // v1.0: beat Sleepy Thully
     { id: 'brochair', name: 'Broccoli Hair', tex: 'broccoli', w: 0.55 }, // v1.0: beat Brock Lee
     { id: 'pierogi', name: 'Pierogi Hat', tex: 'dumpling', w: 0.42 }, // v1.1: beat Poland
+    // v1.3 winter hats (only winnable in the season, kept forever)
+    { id: 'penguinhat', name: 'Penguin Hat', tex: 'penguin', w: 0.42 }, // beat Waddles
+    { id: 'cocoahat', name: 'Cocoa Hat', tex: 'cocoa', w: 0.42 }, // beat Pola
+    { id: 'snowmanhat', name: 'Snowman Hat', tex: 'snowman', w: 0.5 }, // beat Sir Frosty
   ];
   // a costume image (with its tint) for the title, the duel and the Me screen
   const hatImage = (scene, x, y, c) => { const h = scene.add.image(x, y, c.tex); if (c.tint) h.setTint(c.tint); return h; };
@@ -969,7 +1065,7 @@
       { type: 'spray', tex: 'dot', tint: [0x3b2a6e, 0x6a4fb0], word: 'INK!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} squirts pillow ink at {d}!' },
       { type: 'tickle', dmg: [8, 26], w: 25 },
       { type: 'roar', word: 'BLUB BLUB!', color: 0xff9ed8, sound: 'boo', dmg: [13, 21], w: 20, log: '{a} bubbles a giant BLUB!' }] };
-  const SCALE_FROM = { [SPACE]: 4, [CANADA]: 6, [OCEAN]: 9, [VEGGIE]: 11, [BALLS]: 13 };
+  const SCALE_FROM = Object.assign({ [SPACE]: 4, [CANADA]: 6, [OCEAN]: 9, [VEGGIE]: 11, [BALLS]: 13 }, WINTER_ON ? { [SEASON]: 5 } : {}); // winter 5 (v1.3); Spooky has no entry (scales from level 1)
   const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, beam: 30, slapshot: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
   const isUnlocked = i => i === 0 || (RIVALS[i].event && !RIVALS[i - 1].event) || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
   const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
@@ -1077,8 +1173,8 @@
     create() {
       this._leaving = false;
       this.cameras.main.fadeIn(400, 15, 18, 64);
-      sky(this, EVENT_ON ? SPOOKY : 0);
-      bottomGround(this, EVENT_ON ? 'ground3' : 'ground', PORTRAIT ? 0.55 : 0.6);
+      sky(this, EVENT_ON || WINTER_ON ? SEASON : 0);
+      bottomGround(this, EVENT_ON ? 'ground3' : WINTER_ON ? 'ground8' : 'ground', PORTRAIT ? 0.55 : 0.6);
       const moon = this.add.image(PORTRAIT ? W * 0.82 : W * 0.84, PORTRAIT ? 300 : H * 0.2, 'moon').setScale(PORTRAIT ? 0.9 : 1.3);
       if (EVENT_ON) moon.setTint(0xffa64d);
       this.tweens.add({ targets: moon, angle: 8, y: moon.y + 14, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -1092,11 +1188,12 @@
         });
       };
       word('PLUSH', ly, fs, '#fff3d2', 100);
-      word('SQUAD', ly + fs * 1.07, fs, EVENT_ON ? '#ff8a3d' : '#ffd23f', 450);
-      if (EVENT_ON) {
-        const pk = this.add.image(W / 2 + fs * 2.1, ly + fs * 1.07, 'pumpkin').setScale(fs / 300).setAngle(12);
+      word('SQUAD', ly + fs * 1.07, fs, EVENT_ON ? '#ff8a3d' : WINTER_ON ? '#bfe9ff' : '#ffd23f', 450);
+      if (EVENT_ON || WINTER_ON) {
+        const pk = this.add.image(W / 2 + fs * 2.1, ly + fs * 1.07, EVENT_ON ? 'pumpkin' : 'snowman').setScale(fs / (EVENT_ON ? 300 : 230)).setAngle(12);
         this.tweens.add({ targets: pk, angle: -8, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       }
+      if (WINTER_ON) this.garland();
       // hero
       const jy = PORTRAIT ? H - 330 : H * 0.95;
       // portrait: logo, level panel and Jack share the height evenly; Jack grows on tall phones (QA B44 / #45)
@@ -1150,6 +1247,21 @@
       muteButton(this);
       txt(this, 24, H - 26, 'v' + VERSION, 24, '#6a72d6', { ox: 0, st: 0, shadow: false, weight: '500' });
       this.input.keyboard && this.input.keyboard.once('keydown-SPACE', () => this.go());
+    }
+    // v1.3 winter: a garland of little lights along the top (stays in calm mode, only the slow twinkle stops)
+    garland() {
+      const g = this.add.graphics().setDepth(2), n = Math.round(W / 70), seg = W / n, cols = [0xff6b5b, 0x7fe39a, 0xffd23f];
+      g.lineStyle(4, 0x2a3a2a, 0.9);
+      g.beginPath(); g.moveTo(0, 4);
+      for (let i = 0; i < n; i++) for (let k = 1; k <= 8; k++) g.lineTo(i * seg + seg * k / 8, 4 + Math.sin(Math.PI * k / 8) * 8);
+      g.strokePath();
+      this.bulbs = [];
+      for (let i = 0; i < n; i++) {
+        const x = i * seg + seg / 2, b = this.add.image(x, 4 + 8 + 6, 'dot').setDepth(2).setScale(0.27).setTint(cols[i % 3]);
+        const halo = this.add.image(x, b.y, 'glow').setDepth(1.5).setScale(0.22).setTint(cols[i % 3]).setAlpha(0.5);
+        this.bulbs.push(b);
+        if (!calm()) this.tweens.add({ targets: [b, halo], alpha: 0.45, duration: 700 + (i % 4) * 260, yoyo: true, repeat: -1, delay: i * 90, ease: 'Sine.inOut' });
+      }
     }
     go() { A.init(); A.startMusic(); A.whoosh(); fade(this, 'map'); }
   }
@@ -1979,7 +2091,7 @@
       this.groundY = groundY;
       const zoom = compact ? 0.82 : (PORTRAIT ? clamp((groundY - 330) / 520, 0.55, 1) : 1);
       const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, space ? 'planet' : 'moon').setScale((PORTRAIT ? 0.6 : 0.62 * zoom) * (space ? 1.15 : 1)).setAlpha(0.95);
-      if (this.world === SPOOKY) moon.setTint(0xffa64d).setScale(moon.scale * 1.3);
+      if (this.world === SPOOKY && EVENT_ON) moon.setTint(0xffa64d).setScale(moon.scale * 1.3);
       if (this.world === CANADA) moon.setTint(0xd8ecff);
       if (this.world === OCEAN) moon.setTint(0xdff7f0);
       if (this.world === BALLS) moon.setTint(0xfff1c9);
@@ -2008,6 +2120,8 @@
       this.hero = this.fighter(W * (PORTRAIT ? 0.27 : 0.28), groundY, this.H.tex, heroScale, 1, heroMax, false);
       this.rival = this.fighter(W * (PORTRAIT ? 0.74 : 0.72), groundY, R.tex, rivScale, -1, this.rHp, !!(R.isToy || R.flip));
       this.addHat(this.hero);
+      // v1.3 SNOWBALL!: the stack of caught snowballs (not in the save; a rotation keeps it through snapshot())
+      this.snowStack = Math.max(0, Math.min(3, (res && res.snow) | 0)); this.snowIcons = []; this.snowRun = null; this.snowSync(false);
       const golden = d => !!(d && d.isToy && d.toy && TOYS.toyLevel(d.toy.xp) >= 4);
       if (golden(this.H)) this.goldCopy(this.hero, W * 0.27, PORTRAIT ? 200 : 150, !!boost);
       if (golden(R)) this.goldCopy(this.rival, W * 0.73, PORTRAIT ? 200 : 150, false);
@@ -2118,7 +2232,7 @@
       const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType, afterCharge: !!f.afterCharge, beamed: (f.beamed || []).slice(), asleep: !!f.asleep, meter: f.meter || 0, orbit: !!f.orbit });
       return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '', acted: !!this.acted,
         spin: this.spin ? Object.assign({}, this.spin, { order: this.spin.order.slice() }) : null, hidden: this.hidden ? Object.assign({}, this.hidden) : null,
-        copy: this.copy ? { k: this.copy.k, mini: !!this.copy.mini } : null, emoLog: (this.emoLog || []).slice() };
+        copy: this.copy ? { k: this.copy.k, mini: !!this.copy.mini } : null, emoLog: (this.emoLog || []).slice(), snow: this.snowStack || 0 };
     }
     // ---- v1.2 emoji chat (docs/gdd/1.2-emoji-chat.md): a smiley button, a tray of 16 pictures, speech bubbles, the rival answers.
     // It never costs the turn, never changes pep, and is only decoration plus a short list (emoLog) for the friend mail.
@@ -2225,7 +2339,9 @@
     // the rival's answer: situation first, then mood and personality (js/emoji.js)
     emoAnswer(mine) {
       const E = window.PSEmoji, T = this.rival, P = this.hero;
-      if (!this.emoOn() || !T || T.asleep || performance.now() - this.emoRivalAt < E.COOLDOWN) return null;
+      if (!this.emoOn() || !T || performance.now() - this.emoRivalAt < E.COOLDOWN) return null;
+      // v1.3: Sleepy Thully answers in his sleep with a Zzz bubble (no wake-up, no meter change, same cooldown and blip)
+      if (T.asleep) { this.emoRivalAt = performance.now(); this.emoBubble(T, 'zzz', true); A.emoReply(); return 'zzz'; }
       const tag = this.mode === 'campaign' || this.mode === 'boss' ? E.tagOf(this.R.id) : 'kind'; // toys, friends' toys and Jacks stay kind
       const id = E.reply({ mine, tag, boss: !!this.R.boss, rivalPct: T.hp / T.max * 100, heroPct: P.hp / P.max * 100, bigHit: !!this.lastBig });
       this.emoRivalAt = performance.now();
@@ -2256,7 +2372,8 @@
       g.fillStyle(fill); g.fillRoundedRect(-82, -70, 164, 140, 36);
       g.lineStyle(5, rival ? C.coral : C.star); g.strokeRoundedRect(-82, -70, 164, 140, 36);
       g.fillStyle(fill); g.fillTriangle(-d * 20, 56, -d * 62, 56, -d * 70, 102); // the tail points at the fighter
-      const ic = img(this, 0, -2, window.PSEmoji.FRAME(id)); ic.setScale(iconScale('e:x', 112));
+      const zzz = id === 'zzz'; // v1.3: a sleeping rival answers with the Zzz picture
+      const ic = img(this, 0, -2, zzz ? 'zzz' : window.PSEmoji.FRAME(id)); ic.setScale(iconScale(zzz ? 'zzz' : 'e:x', zzz ? 96 : 112));
       c.add([g, ic]); this.emoBub[key] = c;
       const gone = () => { if (this.emoBub[key] === c) this.emoBub[key] = null; c.destroy(true); };
       if (PSPrefs.calm()) { c.setAlpha(0); this.tweens.add({ targets: c, alpha: 1, duration: 150 }); }
@@ -2268,6 +2385,7 @@
     track() {
       const R = this.R, T = this.rival;
       if (R.sleepy && (!T || T.asleep)) return 'lullaby';
+      if (R.winter && !R.boss) return 'snow'; // v1.3 Snow Fort (Sir Frosty gets the boss music)
       return R.boss ? 'boss' : R.world === CANADA ? 'north' : R.world === OCEAN ? 'sea' : R.world === VEGGIE ? 'garden' : R.world === BALLS ? 'parade' : 'battle';
     }
 
@@ -2481,6 +2599,7 @@
       if (target === this.rival && dmg > 0 && !raw) {
         if (this.hero.bonus) dmg += this.hero.bonus;
         if (this.hero.firstBonus) { dmg += this.hero.firstBonus; this.hero.firstBonus = 0; this.popWord(p.x, p.y - 300, 'ROCKET START!', '#ff8a3d', 64, 6); }
+        if (this.hero.snowBonus) { const sb = this.hero.snowBonus; dmg += sb; this.hero.snowBonus = 0; this.popWord(p.x + 110, p.y - 340, 'SNOW FIGHT! +' + sb, '#dff0ff', 60, 6); }
         if (this.hero.lucky5) { dmg += this.hero.lucky5; this.hero.lucky5 = 0; this.popWord(p.x - 120, p.y - 340, 'LUCKY CURRENT +5!', '#5ff0e6', 60, -6); }
       }
       // Sleepy Thully: the dream bubble halves a hit, and every hit fills one pip of the Wake-o-meter
@@ -2806,6 +2925,7 @@
         case 'rain': await this.rain(m, att, def, d); break;
         case 'beam': await this.beam(m, att, def, d); break;
         case 'slapshot': await this.slapshot(m, att, def, d); break;
+        case 'snowroll': await this.snowroll(m, att, def, d); break;
         case 'whirl': await this.whirl(m, att, def, d); break;
         case 'yawn': await this.fallAsleep(m, att); break;
         case 'hide': await this.hide(m, att); break;
@@ -2848,6 +2968,11 @@
       emit('move', { k, type: m.type }, this);
       // Compass Spin: the LUCKY CURRENT card adds +5 to its first hit
       if (this.spin && this.moves.indexOf(m) === this.spin.lucky && m.dmg) { P.lucky5 = 5; emit('lucky', {}, this); }
+      // v1.3: the snowballs on the stack fly with the next throw / volley / tickle / pillow hit (+4 pep per ball, the stack is empty after)
+      if (this.snowStack && m.dmg && ['throw', 'volley', 'tickle'].includes(m.type)) {
+        const n = this.snowStack; P.snowBonus = 4 * n; this.snowStack = 0; this.snowSync(false);
+        if (n >= 3) emit('snowstack', { n }, this);
+      }
       if (T.asleep && m.type === 'rain') { T.meter = this.wakeNeed(); this.wakeUp('INFERNO RAIN wakes anyone up!'); await wait(this, 900); }
       // COPYCAT! armed: remember this move and every number it shows on the rival; the copy comes on his next turn
       if (this.copy && !this.copy.rec) {
@@ -2864,7 +2989,7 @@
       this.inMove = false; this.lastBig = this.moveDmg >= 0.7 * this.heroMaxDmg; // total damage of the move (multi-hit moves count)
       this.copyRec = null;
       if (this.hidden && !this.over) { await this.sneak(); if (this.checkEnd()) return; } // a heal or nap during a hide: then the sneak tickle
-      P.lucky5 = 0;
+      P.lucky5 = 0; P.snowBonus = 0;
       this.unspin(true);
       if (this.checkEnd()) return;
       await this.afterPlayer();
@@ -3371,6 +3496,166 @@
               freeze(stopT, tutorial ? 'TAP NOW!' : 'TAP!');
               if (!tutorial) this.time.delayedCall(3000, () => { if (!done) { this.popWord(gx, gy - 160, 'OOF!', '#ffd23f', 64, 6); finish('good'); } });
             }
+            return;
+          }
+          if (t > T.perfect[1]) finish('miss');
+        };
+        this.events.on('update', tick);
+      });
+    }
+    // ---- v1.3 SNOWROLL + SNOWBALL! (docs/gdd/1.3-snow-fort.md section 4). A rival rolls a snowball down the hill at the hero; the kid taps
+    // anywhere (or SPACE) to jump it. Perfect: no damage. Good: half damage. Late / early: full damage. Every perfect or good jump puts a
+    // snowball on the hero's stack (max 3); the next throw / volley / tickle / pillow hit adds +4 per ball and empties the stack.
+    // A one-turn move (not a charge): the ball rolls, the jump is judged, the damage lands, the turn is over.
+    async snowroll(m, att, def, d) {
+      const dk = Save.data.diff in SNOW_T ? Save.data.diff : 'normal';
+      const balls = m.double && dk === 'hard' ? 2 : 1; // Sir Frosty on HARD: a second, smaller ball 500 ms later
+      for (let i = 0; i < balls; i++) {
+        if (def.hp <= 0) break;
+        if (i) { this.log(att.name + ' rolls another one!'); await wait(this, 500); }
+        await this.snowBall(m, att, def, i ? Math.max(1, Math.ceil(d / 2)) : d, i > 0, dk);
+      }
+    }
+    async snowBall(m, att, def, d, mini, dk) {
+      const hero = def === this.hero;
+      const run = await this.snowJump(att, def, m, mini, dk); // { res: 'perfect' | 'good' | 'miss', ball }
+      const res = run.res, ball = run.ball, c = def.center();
+      if (res === 'perfect' || res === 'good') {
+        A.ting && A.ting();
+        if (res === 'perfect') {
+          this.popWord(c.x, c.y - 260, 'PERFECT!', '#7fe39a', 104, -6);
+          this.log(def.name + ' hops right over the snowball!');
+          this.tweens.add({ targets: ball, x: def.root.x - 320, y: this.groundY - 30, angle: -540, duration: 700, ease: 'Quad.in', onComplete: () => ball.destroy() });
+        } else {
+          this.popWord(c.x, c.y - 260, 'CLIPPED!', '#ffd23f', 92, -6);
+          this.log(def.name + ' is clipped by the snowball. Only half!');
+          this.snowBurst(ball); ball.destroy();
+          A.snowThud && A.snowThud();
+          await this.impact(def, Math.ceil(d / 2), 'pillow');
+        }
+        if (hero) this.addSnow(1);
+      } else {
+        this.popWord(c.x, c.y - 260, 'OOF!', '#ff9ed8', 100, 6);
+        this.snowBurst(ball); ball.destroy();
+        A.snowThud && A.snowThud();
+        await this.impact(def, d, 'pillow');
+        this.log(att.name + ': "Whoops! That one was big!"');
+        await wait(this, 300);
+      }
+      if (hero) {
+        const st = Save.data.stats || (Save.data.stats = {});
+        if (!st.snowSeen) { st.snowSeen = 1; Save.store(); }
+        emit('snow', { result: res, diff: dk }, this);
+      }
+    }
+    snowBurst(ball) {
+      if (!ball || !ball.active) return;
+      const sp = this.add.particles(ball.x, ball.y, 'dot', { emitting: false, speed: { min: 200, max: 700 }, angle: { min: 180, max: 360 }, gravityY: 900, lifespan: 700, scale: { start: 0.55, end: 0 }, tint: [0xffffff, 0xdff0ff, 0xbfe0ff] }).setDepth(27);
+      sp.explode(calm() ? 6 : 22); this.time.delayedCall(900, () => sp.destroy());
+    }
+    // the stack of caught snowballs by the hero's feet (max 3)
+    addSnow(n) {
+      const was = this.snowStack || 0;
+      this.snowStack = Math.min(3, was + n);
+      this.snowSync(this.snowStack > was);
+      if (this.snowStack > was) this.popWord(this.hero.root.x + 10, this.groundY - 40, 'SNOWBALL x' + this.snowStack, '#dff0ff', 54, 0);
+    }
+    snowSync(pop) {
+      if (this.snowIcons) this.snowIcons.forEach(o => o.destroy());
+      this.snowIcons = [];
+      const n = this.snowStack || 0, P = this.hero; if (!P) return;
+      for (let i = 0; i < n; i++) {
+        const o = this.add.image(P.root.x + 60 + i * 60, this.groundY - 28, 'snowball').setDepth(11).setScale(iconScale('snowball', 58)); // in front of his feet, clear of the log line
+        this.snowIcons.push(o);
+        if (pop && i === n - 1) { const s = o.scale; o.setScale(0); this.tweens.add({ targets: o, scale: s, duration: 260, ease: 'Back.out' }); }
+      }
+    }
+    // the timed jump: resolves { res, ball }. Judged with performance.now() (Phaser treats slow frames as 33 ms).
+    snowJump(att, def, m, mini, dk) {
+      this.emoHold(1); const p = this._snowJump(att, def, m, mini, dk); p.then(() => this.emoHold(-1), () => this.emoHold(-1)); return p;
+    }
+    _snowJump(att, def, m, mini, dk) {
+      const T = SNOW_T[dk], fast = !!m.fast && dk === 'hard';
+      const F = fast ? 1000 : T.F;
+      const auto = DEBUG && window.__psSnowAuto; // ?debug only: tests run at 2-3 fps and cannot time a tap. 'perfect' | 'good' | 'miss' | 'manual' | 'freeze' | 'tutorial' (the real first-ball flow without the slow-frame rule)
+      const tutorial = !((Save.data.stats || {}).snowSeen) && (!auto || auto === 'tutorial');
+      const sx = att.root.x - att.dir * 20, sy = this.groundY - 300, ex = def.root.x + def.dir * 130, ey = this.groundY - 70;
+      const size = (m.big ? 190 : mini ? 110 : 150), s0 = 50 / 120, s1 = size / 120;
+      const ball = this.add.image(sx, sy, 'snowball').setDepth(27).setScale(s0);
+      const ring = this.add.image(def.center().x, def.center().y, 'ring').setDepth(28).setAlpha(0).setScale(3.6);
+      const ready = txt(this, def.root.x, def.center().y - 250, 'GET READY...', 54, '#d8ecff', { st: 8 }).setDepth(30);
+      A.snowRoll && A.snowRoll();
+      this.tweens.add({ targets: att.squash, angle: -10 * att.dir, scaleX: 1.06, duration: 260, yoyo: true });
+      this.popWord(att.center().x, att.center().y - 250, m.big ? 'GIANT SNOWBALL!' : 'SNOWBALL!', '#dff0ff', 70, 6);
+      const hop = () => { // Jack hops as soon as he is told to (tap), whatever the judge says
+        const r = def.root;
+        this.tweens.add({ targets: r, y: this.groundY - 250, duration: 240, ease: 'Quad.out', yoyo: true, onComplete: () => { r.y = this.groundY; } });
+      };
+      const clean = () => { [ring, ready].forEach(o => this.tweens.add({ targets: o, alpha: 0, duration: 250, delay: 100, onComplete: () => o.destroy() })); if (this.snowTapHint) { this.snowTapHint.destroy(); this.snowTapHint = null; } };
+      const place = k => { ball.x = sx + (ex - sx) * k; ball.y = sy + (ey - sy) * k + Math.sin(k * 20) * 5 * (1 - k); ball.setScale(s0 + (s1 - s0) * k); };
+      if (auto && auto !== 'manual' && auto !== 'freeze' && auto !== 'tutorial') {
+        return new Promise(r => this.time.delayedCall(300, () => {
+          place(1); clean();
+          const res = auto === 'perfect' || auto === 'good' ? auto : 'miss';
+          if (res !== 'miss') hop();
+          r({ res, ball });
+        }));
+      }
+      return new Promise(resolve => {
+        const run = this.snowRun = { t0: performance.now() + 450, last: performance.now(), done: false, stalls: 0, frozen: null, F };
+        let early = 0, launched = false;
+        const finish = res => {
+          if (run.done) return; run.done = true;
+          this.events.off('update', tick); this.input.off('pointerdown', onTap);
+          if (this.input.keyboard) this.input.keyboard.off('keydown-SPACE', onKey);
+          if (this.snowRun === run) this.snowRun = null;
+          clean(); resolve({ res, ball });
+        };
+        const tap = () => {
+          if (run.done) return;
+          const now = performance.now(), t = run.frozen != null ? run.frozen : now - run.t0;
+          if (t < 0) return; // still "GET READY"
+          if (run.frozen != null) { hop(); finish('perfect'); return; } // tutorial / freeze: the tap is the jump
+          if (tutorial && T.perfect) return; // the tutorial waits for its frozen moment
+          const j = judgeSnow(t, dk, fast);
+          if (j === 'early' && dk !== 'easy' && !early++) { // the first early tap is a free "wait for it" (no jump spent)
+            this.popWord(def.root.x, def.center().y - 230, 'WAIT FOR IT!', '#ffb3b3', 56, 6); return;
+          }
+          hop();
+          finish(j === 'perfect' || j === 'good' ? j : 'miss');
+        };
+        run.tapAt = ms => { run.t0 = performance.now() - ms; run.last = performance.now(); tap(); }; // tests (?debug, __psSnowAuto = 'manual')
+        const onTap = p => { if (p.worldY > (PORTRAIT ? 300 : 170)) tap(); };
+        const onKey = () => tap();
+        this.input.on('pointerdown', onTap);
+        if (this.input.keyboard) this.input.keyboard.on('keydown-SPACE', onKey);
+        const freeze = (t, word) => {
+          run.frozen = t; ready.setVisible(false);
+          this.snowTapHint = txt(this, def.root.x, def.center().y - 250, word, 64, '#7fe39a', { st: 9 }).setDepth(31);
+          this.tweens.add({ targets: this.snowTapHint, scale: 1.15, duration: 320, yoyo: true, repeat: -1 });
+        };
+        const tick = () => {
+          if (run.done) return;
+          const now = performance.now(), gap = now - run.last; run.last = now;
+          // a stalled frame during the roll (rotation, background, old iPad): the clock waits; a device that keeps stalling gets a good jump
+          if (run.frozen == null && gap > 250 && !auto) {
+            if (++run.stalls > 8) { hop(); finish('good'); return; }
+            run.t0 += gap; return;
+          }
+          const t = run.frozen != null ? run.frozen : now - run.t0;
+          if (t < 0) return;
+          if (!launched) { launched = true; ready.setText('JUMP!'); ring.setAlpha(0.9); A.bells && A.bells(); }
+          const k = Math.min(1, t / F);
+          place(k); ball.angle = t * 0.5;
+          ring.setScale(3.6 - 1.6 * k);
+          const j = judgeSnow(t, dk, fast);
+          ring.setTint(j === 'perfect' ? 0x7fe39a : j === 'good' ? 0xffd23f : 0xffffff);
+          if (run.frozen != null) return;
+          // the very first SNOWBALL! (and ?debug __psSnowAuto = 'freeze'): freeze inside the perfect window and wait for the tap (no time limit)
+          if ((tutorial || auto === 'freeze') && t >= (T.perfect ? (T.perfect[0] + T.perfect[1]) / 2 - 60 : F)) { freeze(t, 'TAP NOW!'); return; }
+          if (!T.perfect) {
+            // EASY: the ball waits just before Jack up to 400 ms past the roll time (any tap until then is perfect)
+            if (t > F + T.grace) { this.popWord(def.root.x, def.center().y - 230, 'OOF!', '#ffd23f', 60, 6); finish('miss'); }
             return;
           }
           if (t > T.perfect[1]) finish('miss');
@@ -4023,7 +4308,7 @@
       const pw = PORTRAIT ? 900 : 1000, ph = PORTRAIT ? 760 : 620;
       c.add(panel(this, 0, 0, pw, ph, C.night2, 0));
       c.add(txt(this, 0, -ph / 2 + 100, 'STAR CATCH!', 90, '#ffd23f', { stroke: '#0f1240', st: 14 }));
-      const rows = [['star', '+1', '#ffd23f'], [EVENT_ON ? 'candy' : 'dumpling', '+3', '#7fe39a'], ['pillow', 'OUCH! -2', '#ff6b5b']];
+      const rows = [['star', '+1', '#ffd23f'], [EVENT_ON ? 'candy' : WINTER_ON ? 'cocoa' : 'dumpling', '+3', '#7fe39a'], ['pillow', 'OUCH! -2', '#ff6b5b']];
       rows.forEach(([k, l, col], i) => {
         const x = (i - 1) * (PORTRAIT ? 280 : 300), y = -10;
         c.add(img(this, x, y, k).setScale(iconScale(k, 130)));
@@ -4047,7 +4332,7 @@
     spawn() {
       const r = Math.random(), sp = this.elapsed / 30;
       const kind = r < 0.2 + sp * 0.12 ? 'pillow' : (r < 0.33 + sp * 0.12 ? 'dumpling' : 'star');
-      const o = img(this, rnd(90, W - 90), -80, kind === 'dumpling' && EVENT_ON ? 'candy' : kind).setDepth(15);
+      const o = img(this, rnd(90, W - 90), -80, kind === 'dumpling' ? (EVENT_ON ? 'candy' : WINTER_ON ? 'cocoa' : kind) : kind).setDepth(15);
       o.setScale(iconScale(kind, kind === 'pillow' ? 150 : 110));
       const base = H * (PORTRAIT ? 0.32 : 0.45);
       this.items.push({ o, kind, vy: base * (1 + Math.random() * 0.5) * (1 + sp * 0.8), spin: rnd(-200, 200), wob: Math.random() * 6 });
@@ -4141,7 +4426,7 @@
   // ---------- Comics: a short animated comic page the first time the player arrives in a world (#31, #62; docs/gdd/0.9-world-comics.md)
   // One script per comic: 3 panels (functions (scene, panel, instant) drawn with the scene helpers) + the title page.
   // Each panel function must also work with instant = true (fast taps, coming back after a rotation).
-  const COMIC_OF_WORLD = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'spooky'];
+  const COMIC_OF_WORLD = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', WINTER_ON ? 'winter' : 'spooky'];
   const COMIC_SCRIPTS = {
     canada: {
       world: CANADA, title: 'CANADA!', len: [2700, 2500, 3500],
@@ -4368,6 +4653,59 @@
     },
     sting: s => s.time.delayedCall(1300, () => A.boo()),
   };
+  // v1.3 Snow Fort "Big Snowman" (docs/gdd/1.3-snow-fort.md section 7): Jack in a scarf (the scarf icon on top of him), Waddles belly-slides in, a tall snowman stands up
+  COMIC_SCRIPTS.winter = {
+    world: SEASON, title: 'SNOW FORT!', len: [2700, 2600, 3500],
+    confetti: { key: 'snow', speedY: { min: 120, max: 240 }, scale: { min: 0.1, max: 0.22 }, lifespan: Math.round(H / 120 * 1000) + 1000 },
+    panels: [
+      // a snowy day: snowflakes fall, Jack wears a scarf
+      (s, c, instant) => {
+        s.bg(c, 'sky8');
+        s.strip(c, 0xf2f8ff, 0.82, 1);
+        const jack = s.actor(c, 'jack_front', PORTRAIT ? 0.3 : 0.4, 0.98, PORTRAIT ? 0.55 : 0.5, PORTRAIT ? 0.45 : 0.3);
+        const sc = s.actor(c, 'scarf', 0, 0, 0.1, 0.1); sc.setOrigin(0.5, 0.5); sc.setScale(jack.displayWidth * 0.6 / sc.width); sc.x = jack.x; sc.y = jack.y - jack.displayHeight * 0.62;
+        s.anim({ targets: [jack, sc], angle: { from: -2, to: 2 }, duration: 600, yoyo: true, repeat: -1 });
+        if (!instant) { const sn = s.add.particles(0, 0, 'dot', { x: { min: -c.r.w / 2, max: c.r.w / 2 }, y: -c.r.h / 2, speedY: { min: 80, max: 160 }, lifespan: c.r.h / 160 * 1000, scale: { min: 0.1, max: 0.22 }, frequency: 120 }); c.add(sn); }
+        else for (let k = 0; k < 14; k++) { const d = s.add.image((Math.random() - 0.5) * c.r.w * 0.9, (Math.random() - 0.5) * c.r.h * 0.8, 'dot').setScale(0.08 + Math.random() * 0.12).setAlpha(0.8); c.add(d); }
+        s.caption(c, 'MEANWHILE, ON A SNOWY DAY...', instant);
+        const say = inst => s.bubble(c, PORTRAIT ? 0.68 : 0.62, PORTRAIT ? 0.62 : 0.48, 'Snow! Who wants a fight?', -1, inst);
+        instant ? say(true) : s.at(900, say);
+      },
+      // WHEEE! Waddles belly-slides across and knocks over a snowman
+      (s, c, instant) => {
+        s.bg(c, 'sky8');
+        s.strip(c, 0xf2f8ff, 0.8, 1);
+        const sm = s.actor(c, 'snowman', 0.76, 0.98, PORTRAIT ? 0.34 : 0.42, 0.3);
+        const wd = s.actor(c, 'penguin', instant ? 0.62 : 0.0, 0.98, PORTRAIT ? 0.22 : 0.3, 0.3).setAngle(70);
+        if (!instant) { s.anim({ targets: wd, x: (0.58 - 0.5) * c.r.w, duration: 700, ease: 'Quad.out' }); A.whoosh(); }
+        const hit = inst => {
+          s.burst(c, PORTRAIT ? 0.25 : 0.3, PORTRAIT ? 0.3 : 0.25, 'WHEEE!', PORTRAIT ? 72 : 60, inst);
+          if (inst) { sm.angle = 80; sm.x += c.r.w * 0.06; return; }
+          s.anim({ targets: sm, angle: 80, x: sm.x + c.r.w * 0.06, duration: 300, ease: 'Back.out' }); A.snowThud && A.snowThud();
+        };
+        instant ? hit(true) : s.at(650, hit);
+        const say = inst => s.bubble(c, 0.5, PORTRAIT ? 0.62 : 0.55, 'Oops!', 0.6, inst);
+        instant ? say(true) : s.at(1500, say);
+      },
+      // the snowman stands up again with a tall hat; Jack: a BIG one
+      (s, c, instant) => {
+        s.bg(c, 'sky8');
+        s.strip(c, 0xf2f8ff, 0.78, 1);
+        s.peekObj = s.actor(c, 'snowman', PORTRAIT ? 0.74 : 0.7, 0.98, PORTRAIT ? 0.46 : 0.5, 0.42);
+        s.actor(c, 'penguin', PORTRAIT ? 0.5 : 0.52, 0.98, PORTRAIT ? 0.14 : 0.2, 0.16);
+        s.actor(c, 'jack_front', 0.24, 0.98, 0.5);
+        const s1 = inst => s.bubble(c, 0.62, 0.2, 'I am back! Taller!', 0.7, inst);
+        const s2 = inst => s.bubble(c, 0.34, PORTRAIT ? 0.42 : 0.46, 'Okay... a BIG one.', -1, inst);
+        if (instant) { s1(true); s2(true); } else { s.at(300, s1); s.at(1400, s2); }
+      },
+    ],
+    // Sir Frosty rises a little taller on the last panel
+    peek: s => {
+      const o = s.peekObj; if (!o) return;
+      const sc = o.scale; s.tweens.add({ targets: o, scaleY: sc * 1.08, duration: 500, ease: 'Back.out', onComplete: () => s.tweens.add({ targets: o, angle: { from: -4, to: 4 }, duration: 500, yoyo: true, repeat: -1 }) });
+    },
+    sting: s => s.time.delayedCall(1300, () => A.bells && A.bells()),
+  };
   // v1.0 Ocean "Foggy Business" (docs/gdd/1.0-ocean.md 6c): fog, a cheeky gull, the ship with Captain Fog; Thully's nightcap peeks out of the water
   COMIC_SCRIPTS.ocean = {
     world: OCEAN, title: 'OCEAN!', len: [2800, 2600, 3500],
@@ -4561,6 +4899,7 @@
     veggie: () => worldOpen(VEGGIE),
     countryballs: () => worldOpen(BALLS),
     spooky: () => EVENT_ON && worldOpen(SPOOKY), // during the event only
+    winter: () => WINTER_ON && worldOpen(SEASON), // v1.3, during the season only
   };
   // a comic plays once, the first time its world opens (docs/gdd/0.9-world-comics.md section 4)
   const comicDue = id => !!(id && COMIC_SCRIPTS[id] && COMIC_DUE[id] && !comicSeen(id) && COMIC_DUE[id]());
@@ -4573,6 +4912,7 @@
     create() {
       this._leaving = false;
       if (!this.S) { this.scene.start('map'); return; } // an unknown comic: back to the map
+      if (this.id === 'winter') winterArt(this); // (out of season the art is not made at boot)
       this.cameras.main.fadeIn(300, 15, 18, 64);
       // paper with halftone dots
       this.add.rectangle(W / 2, H / 2, W, H, 0xfff3d2);
@@ -5180,9 +5520,9 @@
 
   // ---------- start
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
-  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA, OCEAN, VEGGIE, BALLS,
+  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, WINTER_ON, SEASON, SPOOKY, SPACE, CANADA, OCEAN, VEGGIE, BALLS,
     txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, press, backButton, muteButton, capsuleButton, drawCapsule,
-    addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyStreak, worldOpen, bottomGround };
+    addTexture, hatImage, winterArt, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyStreak, worldOpen, bottomGround };
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
   function snapshot(game) {
     const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');
@@ -5213,7 +5553,7 @@
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
     sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.track ? sc.track() : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
-  window.__psJudgeSave = judgeSave; window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
+  window.__psJudgeSave = judgeSave; window.__psJudgeSnow = judgeSnow; window.__psSeasonFor = seasonFor; window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   if (DEBUG) {
     // v1.0 test handles (headless tests run at 2-3 fps): a Compass Spin now or at the next turn, fill Thully's Wake-o-meter
     const bt = () => game.scene.getScene('battle');

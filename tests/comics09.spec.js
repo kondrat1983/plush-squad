@@ -2,9 +2,9 @@
 const { test, expect } = require('@playwright/test');
 const { BASE_SAVE, boot, go, wait, fast, offscreen, noErrors } = require('./helpers');
 
-const IDS = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'spooky']; // v1.0: Ocean and Veggie Patch; v1.1: Countryballs
-const TITLES = { hills: 'PILLOW HILLS!', space: 'SPACE!', canada: 'CANADA!', ocean: 'OCEAN!', veggie: 'VEGGIE PATCH!', countryballs: 'COUNTRYBALLS!', spooky: 'SPOOKY!' };
-const COVERS = ['Pillows at Dawn', 'Beam Me Up... Oops', 'Welcome to Canada!', 'Foggy Business', 'Who Planted Jack?', 'The Great Round Picnic', 'Hats for Everyone'];
+const IDS = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'spooky', 'winter']; // v1.0: Ocean and Veggie Patch; v1.1: Countryballs; v1.3: Snow Fort
+const TITLES = { hills: 'PILLOW HILLS!', space: 'SPACE!', canada: 'CANADA!', ocean: 'OCEAN!', veggie: 'VEGGIE PATCH!', countryballs: 'COUNTRYBALLS!', spooky: 'SPOOKY!', winter: 'SNOW FORT!' };
+const COVERS = ['Pillows at Dawn', 'Beam Me Up... Oops', 'Welcome to Canada!', 'Foggy Business', 'Who Planted Jack?', 'The Great Round Picnic', 'Hats for Everyone', 'Big Snowman']; // BASE_SAVE has seen both season comics, so both covers show
 const OPEN = { timmy: 3, moo: 3, sly: 3, hoot: 3, robot: 3, polandball: 3, ghost: 3, dragonboss: 1, moose: 1, beaver: 1, bear: 1, sasquatch: 1 };
 const save = extra => Object.assign({}, BASE_SAVE, extra);
 const scenes = page => page.evaluate(() => __game.scene.getScenes(true).map(s => s.scene.key));
@@ -59,8 +59,8 @@ test('each comic starts by its id: panels, taps, SKIP (top right, 90 px+) sets o
     expect(words.length).toBeGreaterThanOrEqual(5);
     for (const [s, fs] of words) { expect(s.length, s).toBeLessThan(42); expect(fs, s).toBeGreaterThanOrEqual(30); }
   }
-  expect(await flags(page)).toEqual({ hills: true, space: true, canada: true, ocean: true, veggie: true, countryballs: true, spooky: true });
-  await page.evaluate(() => __game.scene.getScenes(true)[0].scene.start('comic', { world: 'nope' }));
+  expect(await flags(page)).toEqual({ hills: true, space: true, canada: true, ocean: true, veggie: true, countryballs: true, spooky: true, winter: true });
+  await page.evaluate(() => { __game.scene.getScenes(true)[0].scene.start('comic', { world: 'nope' }); }); // (no return value: Playwright would serialize the whole game)
   await until(page, () => scenes(page), ['map']);
   noErrors(page);
 });
@@ -258,7 +258,7 @@ for (const [name, vp] of [['iPhone SE', [375, 667]], ['iPhone 15 Pro Max', [430,
       return { swTop: Math.min(...sw.map(o => o.y - o.height / 2)), cov };
     });
     expect(r.cov.map(c => c.title)).toEqual(COVERS);
-    // v1.1: 7 covers, portrait 2 columns x 4 rows, landscape 3 x 3 (a short last row is centred)
+    // v1.3: 8 covers, portrait 2 columns x 4 rows, landscape 3 x 3 (a short last row is centred)
     const cols = vp[0] < vp[1] ? 2 : 3, full = i => r.cov.length - (i - (i % cols)) >= cols;
     r.cov.forEach((k, i) => {
       expect(k.y).toBe(r.cov[i - (i % cols)].y);

@@ -123,7 +123,16 @@
     { id: 'poland', name: 'Liftoff!', desc: 'Beat Poland', icon: 'poland', title: 'Rocket Pal', ok: d => (d.stars.poland || 0) > 0 },
     { id: 'push5', name: 'Mission Control', desc: 'Help Poland into space 5 times', icon: 'rocket', title: 'Mission Control', ok: d => (d.stats.pushes || 0) >= 5 },
     { id: 'copycat5', name: 'Mirror Master', desc: 'Make 5 copies flop (nap, dance)', icon: 'j:cool', title: 'Mirror Master', ok: d => (d.stats.copyFlops || 0) >= 5 },
+    // v1.3 Snow Fort (docs/gdd/1.3-snow-fort.md section 6). winter: true = hidden in the Album out of season unless earned (like 'fang')
+    { id: 'wpen', name: 'Slide Time', desc: 'Beat Waddles', icon: 'penguin', title: 'Belly Slider', winter: true, ok: d => (d.stars.waddles || 0) > 0 },
+    { id: 'wpola', name: 'Cocoa Time', desc: 'Beat Pola', icon: 'cocoa', title: 'Cocoa Buddy', winter: true, ok: d => (d.stars.pola || 0) > 0 },
+    { id: 'wdash', name: 'Jingle Jam', desc: 'Beat Dasher', icon: 'deer', title: 'Jingle Jammer', winter: true, ok: d => (d.stars.dasher || 0) > 0 },
+    { id: 'wfrosty', name: 'Snow King', desc: 'Beat Sir Frosty', icon: 'snowman', title: 'Snow King', winter: true, ok: d => (d.stars.frosty || 0) > 0 },
+    { id: 'wjump', name: 'Jump Master', desc: 'Jump 20 snowballs', icon: 'snowball', title: 'Jump Master', winter: true, ok: d => (d.stats.snowJumps || 0) >= 20 },
+    { id: 'wstack', name: 'Snow Fight', desc: 'Throw a stack of 3 snowballs', icon: 'snowball', title: 'Snow Fighter', winter: true, ok: d => (d.stats.snowStack3 || 0) >= 1 },
   ];
+  // how many stickers the kid can see: the winter ones are hidden out of season unless earned (v1.3)
+  const achTotal = (PS, d) => ACH.filter(a => !a.winter || PS.WINTER_ON || (d.ach || {})[a.id]).length;
   const ACH_BY_ID = {}; ACH.forEach(a => ACH_BY_ID[a.id] = a);
   const titles = () => ['Plush Friend'].concat(ACH.filter(a => a.title && S().ach && S().ach[a.id]).map(a => a.title));
   let pending = [];
@@ -292,7 +301,12 @@
 
 
   // ---------- "What's new" popup: shows once per version (CLOSE = see it again next time, DON'T SHOW AGAIN = hide until the next update)
+  const seasonIsWinter = () => { try { return window.__psSeasonFor(new Date(), location.search) === 'winter'; } catch (e) { return false; } };
   const WHATS_NEW = {
+    '1.3': [
+      { icon: 'snowman', title: 'SNOW FORT', get text() { return seasonIsWinter() ? 'Winter is here! Snowball fights, penguins and 3 new hats!' : 'Winter is coming! Snowball fights, penguins and 3 new hats!'; } },
+      { icon: 'zzz', title: 'ZZZ', text: 'Sleepy Thully now snores back when you send him an emoji.' },
+    ],
     '1.2': [
       { icon: 'e:grin', title: 'EMOJI', text: 'Tap the smiley in a duel and send an emoji. Your rival answers back!' },
     ],
@@ -470,7 +484,7 @@
         if (!PORTRAIT) tchip.x = tx + tchip.w / 2;
         tchip.setSize(tchip.w, 60).setInteractive({ useHandCursor: true }); PS.press(this, tchip);
         tchip.on('pointerup', () => { const t = titles(), i = t.indexOf(d.title); d.title = t[(i + 1) % t.length]; Save.store(); A.click(); this.scene.restart(); });
-        const stats = 'Level ' + lv + '   ·   ★ ' + totalStars() + '   ·   Stickers ' + Object.keys(d.ach || {}).length + '/' + ACH.length + '   ·   Best catch ' + (d.bestCatch || 0);
+        const stats = 'Level ' + lv + '   ·   ★ ' + totalStars() + '   ·   Stickers ' + Object.keys(d.ach || {}).length + '/' + achTotal(PS, d) + '   ·   Best catch ' + (d.bestCatch || 0);
         const sy = PORTRAIT ? 130 : 150, sg = PORTRAIT ? 48 : 55; // portrait: a little tighter, so the Pillow Week line stays on the card
         fit(txt(this, tx, ty + sy, stats, 30, '#bcc0ee', { st: 5, ox, weight: '500' }), PORTRAIT ? cw - 60 : cw - 440);
         txt(this, tx, ty + sy + sg, 'Wins ' + (d.wins || 0) + '   ·   Toys ' + (d.toys || []).length, 30, '#bcc0ee', { st: 5, ox, weight: '500' });
@@ -495,7 +509,7 @@
           b.setSize(cs, cs).setInteractive({ useHandCursor: true }); PS.press(this, b);
           b.on('pointerup', () => { d.costume = c.id; Save.store(); A.click(); this.scene.restart(); });
         });
-        if (owned.length === 1) txt(this, cx, short ? hy + cs / 2 + 40 : yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : 'Beat Professor Hoot to win the Owl Hat!', 28, '#bcc0ee', { st: 5, weight: '500' });
+        if (owned.length === 1) txt(this, cx, short ? hy + cs / 2 + 40 : yC + (PORTRAIT ? 230 : 200), PS.EVENT_ON ? 'Beat the SPOOKY rivals to win Halloween hats!' : PS.WINTER_ON ? 'Beat the SNOW FORT rivals to win winter hats!' : 'Beat Professor Hoot to win the Owl Hat!', 28, '#bcc0ee', { st: 5, weight: '500' });
         // account
         const yA = PORTRAIT ? H - (short ? 230 : 260) : H - 55;
         if (Net && Net.ready) {
@@ -520,6 +534,7 @@
       { id: 'veggie', title: 'Who Planted Jack?', icon: 'broccoli', bg: 'sky6', jack: 'jack_side', hint: 'Reach the Veggie Patch to unlock' },
       { id: 'countryballs', title: 'The Great Round Picnic', icon: 'globe', bg: 'sky7', jack: 'jack_side', hint: 'Reach COUNTRYBALLS to unlock' },
       { id: 'spooky', title: 'Hats for Everyone', icon: 'pumpkin', bg: 'sky3', jack: 'jack_upside', hint: 'Visit Spooky to unlock' },
+      { id: 'winter', title: 'Big Snowman', icon: 'snowman', bg: 'sky8', jack: 'jack_front', hint: 'Visit Snow Fort to unlock' },
     ];
     class AlbumScene extends Phaser.Scene {
       constructor() { super('album'); }
@@ -534,10 +549,10 @@
         });
         if (tab === 'comics') { this.comics(); return; }
         const d = Save.data, got = Object.keys(d.ach || {}).length;
-        txt(this, W / 2, PORTRAIT ? 270 : 150, got + ' / ' + ACH.length + ' stickers  ·  each one = +1 capsule', 32, '#ffd23f', { st: 6 });
+        txt(this, W / 2, PORTRAIT ? 270 : 150, got + ' / ' + achTotal(PS, d) + ' stickers  ·  each one = +1 capsule', 32, '#ffd23f', { st: 6 });
         const cols = PORTRAIT ? 3 : 7, cw = PORTRAIT ? 310 : Math.min(200, (W - 120) / 7 - 14), ch = PORTRAIT ? 230 : 250;
         const top = PORTRAIT ? 330 : 200;
-        const all = ACH.filter(a => a.id !== 'fang' || PS.EVENT_ON || d.ach[a.id]);
+        const all = ACH.filter(a => (a.id !== 'fang' || PS.EVENT_ON || d.ach[a.id]) && (!a.winter || PS.WINTER_ON || d.ach[a.id]));
         // pages when the stickers do not fit (QA B06; v0.8 has 22+): as many rows as fit above the page buttons
         const rows = Math.max(1, Math.floor((H - top - 150 - (PORTRAIT ? 120 : 110)) / (ch + 14))), per = rows * cols, pages = Math.ceil(all.length / per);
         const pg = Math.min(pages - 1, Math.max(0, (this.sys.settings.data && this.sys.settings.data.page) || 0));
@@ -571,7 +586,7 @@
       // v1.0: 5-6 covers. Portrait 2 columns x 3 rows, landscape 3 x 2; the shelf shrinks to stay clear of the STICKERS / COMICS switch.
       // (v1.1: 6-7 covers, portrait 2 x 4, landscape 3 x 3)
       // Spooky out of season only if it was seen (like the fang sticker)
-      const list = COMICS.filter(cm => cm.id !== 'spooky' || PS.EVENT_ON || seen.spooky);
+      const list = COMICS.filter(cm => (cm.id !== 'spooky' || PS.EVENT_ON || seen.spooky) && (cm.id !== 'winter' || PS.WINTER_ON || seen.winter));
       const cols = PORTRAIT ? 2 : 3, rows = Math.ceil(list.length / cols), top = PORTRAIT ? 330 : 200, gap = PORTRAIT ? 26 : 24;
       const bottom = H - (PORTRAIT ? 90 : 70) - 50 - 24; // the switch's top edge, minus a gap
       const cw = Math.min(PORTRAIT ? 470 : 420, (W - 80 - gap * (cols - 1)) / cols), ch = Math.min(PORTRAIT ? 290 : 300, (bottom - top - gap * (rows - 1)) / rows);
@@ -582,6 +597,7 @@
         c.add(card(this, PS, 0, 0, cw, ch, has ? C.cream : 0x161946, has ? C.star : C.seam));
         if (has) {
           // a little cover: the comic's sky, Jack, the world's character
+          if (cm.bg === 'sky8' && PS.winterArt) PS.winterArt(this);
           const sky = this.add.image(0, -ch * 0.1, cm.bg).setDisplaySize(cw - 60, ch * 0.6); c.add(sky);
           if (cm.aurora) { const au = this.add.image(0, -ch * 0.16, 'aurora').setDisplaySize(cw - 60, ch * 0.4).setAlpha(0.8); c.add(au); }
           const j = this.add.image(-cw * 0.18, -ch * 0.02, cm.jack); j.setScale(ch * 0.4 / j.height).setAngle(-10); c.add(j);
@@ -747,11 +763,14 @@
     if (name === 'push' && d.full) bump('pushes');
     if (name === 'copyflop' && (d.how === 'nap' || d.how === 'dizzy')) bump('copyFlops');
     if (name === 'save' && d.result === 'perfect') bump('perfectSaves');
+    // v1.3 Snow Fort: snowballs jumped (perfect or good), a stack of 3 thrown
+    if (name === 'snow' && (d.result === 'perfect' || d.result === 'good')) bump('snowJumps');
+    if (name === 'snowstack' && d.n >= 3) bump('snowStack3');
     if (name === 'hockey') { const st = S().stats; st.hockeyStreak = Math.max(st.hockeyStreak || 0, d.streak || 0); }
     if (name === 'capsule') { bump('capsOpened'); if (d.boost && d.boost.r === 3) bump('superRares'); }
     if (name === 'friendAdded') bump('friends');
     if (name === 'giftSent') bump('gifts');
-    if (['duel', 'block', 'save', 'hockey', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene', 'alarm', 'lucky', 'gull', 'found', 'push', 'copyflop'].includes(name)) checkAch();
+    if (['duel', 'block', 'save', 'hockey', 'capsule', 'toyAdded', 'catch', 'friendAdded', 'giftSent', 'scene', 'alarm', 'lucky', 'gull', 'found', 'push', 'copyflop', 'snow', 'snowstack'].includes(name)) checkAch();
     if (name === 'scene') {
       // bedtime / daily limit: checked whenever a menu screen opens (never in the middle of a duel)
       // a new duel counts too (REMATCH / NEXT RIVAL), a duel restored after rotating does not (QA B03)
@@ -771,7 +790,7 @@
     else flushToasts(scene, PS);
   }
 
-  window.PSExtra = { ACH, QUESTS, todaysQuests, pendingQuests, blockedReason, toast, header, card, parentGate, checkAch, bump,
+  window.PSExtra = { ACH, achTotal, QUESTS, todaysQuests, pendingQuests, blockedReason, toast, header, card, parentGate, checkAch, bump,
     todayKey, dayNum, STREAK_REWARDS, blankStreak, streakStep, mergeStreak, streakDue, streakCounted, streakLine, streakPopup, whatsNew };
   (window.PSPlugins = window.PSPlugins || []).push({
     name: 'extra',

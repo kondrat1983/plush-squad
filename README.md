@@ -41,6 +41,8 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - `sw.js`, `manifest.json` — offline + install
 
 ## Versions
+- **v1.3**
+  - **Snow Fort**, a free winter season (1 Dec to end of Feb): Waddles, Pola, Dasher and boss Sir Frosty. Jump the rolling snowballs (SNOWBALL!), stack them for a bigger throw, win Penguin, Cocoa and Snowman hats. Sleepy Thully snores back (Zzz) when you send him an emoji.
 - **v1.2**
   - **Emoji in duels**: tap the smiley, send one of 16 emoji, the rival answers in character. Friends see your emoji after you beat them. EMOJI ON / OFF in Settings.
 - **v1.1**

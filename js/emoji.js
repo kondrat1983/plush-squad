@@ -21,6 +21,7 @@
     onion: 'shy', peas: 'cheeky', garlic: 'grumpy', fungi: 'cheeky', brocklee: 'kind',
     england: 'kind', spain: 'cheeky', japan: 'shy', usa: 'cheeky', poland: 'kind',
     pumpkin: 'cheeky', batty: 'shy', webster: 'shy', fang: 'grumpy', kraken: 'cheeky',
+    waddles: 'cheeky', pola: 'kind', dasher: 'cheeky', frosty: 'grumpy', // v1.3 Snow Fort
   };
   const tagOf = id => TAGS[id] || 'kind';
   const BY_MOOD = { friendly: [4, 7, 14], calm: [4, 7, 14], cheeky: [2, 8, 13], angry: [12, 11, 6], sad: [7, 14] };

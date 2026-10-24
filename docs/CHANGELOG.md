@@ -3,6 +3,13 @@
 What happened in Plush Squad, newest on top: game releases (what changed for the player), owner decisions, new or changed docs. Details: [decisions](gdd/decisions.md), [GitHub issues](https://github.com/kondrat1983/plush-squad/issues?q=is%3Aissue).
 
 
+## 24 Oct 2026
+**Game: v1.3.0**
+- New free winter season SNOW FORT (1 December to the end of February, test it any time with `?winter`): Waddles the Penguin, Pola the Polar Bear, Dasher the Deer and the boss Sir Frosty the Snowman. It shares world slot 6 with Spooky (only one season at a time, nothing to migrate).
+- SNOWBALL!: rivals roll snowballs, tap to jump. Every jump you make puts a snowball on your stack (up to 3); your next throw adds +4 pep per ball. Winter hats (Penguin, Cocoa, Snowman) and 6 stickers, a winter comic, an adventure postcard, a winter title with a garland and a snowman, cocoa in Star Catch, the `snow` music with sleigh bells.
+- Sleepy Thully answers an emoji with a Zzz bubble while asleep.
+- Decisions: `gdd/decisions.md` (whole winter, neutral theme). Design: `gdd/1.3-snow-fort.md`.
+
 ## 21 Oct 2026
 **Game: v1.2.0**
 - Emoji in duels: a smiley button opens 16 emoji (Fluent Emoji 3D). Jack shows a speech bubble and the rival answers in character (grumpy, shy, cheeky or kind; bosses have their own answers). It never costs the turn and does not change the fight. A 1.2 s cooldown and 3 soft sounds.
