@@ -4,6 +4,7 @@ Owner decisions (Kondrat). They stand until Kondrat changes them; agents and doc
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| 24 Oct 2026 | **v1.3 = Snow Fort, the first free season** (`1.3-snow-fort.md`): picked from the idea log "Free seasons". Window 1 Dec to 7 Jan [?] plus a `?winter` test flag, never overlapping Halloween. **Seasonal worlds share world id 6** (no migration, WORLDS stays dense) [?, proposed, waits for Kondrat's OK]. **Sleepy Thully answers emoji with a "Zzz" bubble while asleep** (owner decision, small extra in v1.3). | Kondrat. |
 | 21 Oct 2026 | **Emoji chat details (`1.2-emoji-chat.md`), all as recommended:** every rival gets a personality tag (grumpy / shy / cheeky / kind; toys, friends' toys and Jacks default to kind, the Kraken is cheeky); Settings gets an EMOJI toggle (default ON, device only, hides the button and the rival's answers); friend mail only on a WIN: the `beat` payload gets `emo: [ids]` (no schema change); nothing is sent on a loss. | Kondrat, 21 Oct 2026. Implemented in v1.2.0. |
 | 21 Oct 2026 | **Emoji chat in duels only, 16 preset emoji, no text and no free input.** The rival answers with its own emoji. In friend duels the emoji sent are attached to the `beat` mail as ids. This is the one exception to "no chat": it is a closed picture set. | Chief tester's request, approved by Kondrat. Design: `1.2-emoji-chat.md`. |
 | 18 Oct 2026 | **Poland keeps Kondrat's picture (red over white)** even though the real flag is white over red (QA B73). | Kondrat, answer to the v1.1.0 QA question. |
