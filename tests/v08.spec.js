@@ -17,11 +17,11 @@ test('the 5 new stickers are earned from their stats, the 6 new quests are in th
   noErrors(page);
 });
 
-test('What\'s new 1.1 shows for a player coming from 1.0', async ({ page }) => {
-  await boot(page, save({ seenVersion: '1.0' })); // the title opens first and shows it (once per launch)
+test('What\'s new 1.2 shows for a player coming from 1.1', async ({ page }) => {
+  await boot(page, save({ seenVersion: '1.1' })); // the title opens first and shows it (once per launch)
   const texts = () => page.evaluate(() => __game.scene.getScene('title').children.list.flatMap(o => o.list || [o]).filter(o => o.type === 'Text').map(t => t.text).join(' | '));
-  await expect.poll(async () => { await wait(page, 500); return texts(); }, { timeout: 30000 }).toContain("WHAT'S NEW in v1.1!");
-  expect(await texts()).toContain('COUNTRYBALLS');
+  await expect.poll(async () => { await wait(page, 500); return texts(); }, { timeout: 30000 }).toContain("WHAT'S NEW in v1.2!");
+  expect(await texts()).toContain('EMOJI');
   noErrors(page);
 });
 

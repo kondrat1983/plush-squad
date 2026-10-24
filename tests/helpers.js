@@ -7,7 +7,7 @@ const URL = '/index.html?debug';
 // a mid-game save: level ~5, Pillow Hills cleared, sound muted (music state is still tracked); mig08: already on v0.8 (no migration gift toasts);
 // all comics seen (v0.9, v1.0 Ocean and Veggie Patch, v1.1 Countryballs), so no map open lands in a comic; Pillow Week (v0.9) already counted today, so no map open gets the popup
 const TODAY = (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date());
-const BASE_SAVE = { mig08: 1, mig09: 1, comics: { hills: true, space: true, canada: true, ocean: true, veggie: true, countryballs: true, spooky: true }, xp: 1500, wins: 12, muted: true, stars: { timmy: 3, moo: 2, sly: 2, hoot: 1 }, toys: [], hero: 'jack', diff: 'normal', caps: 0, daily: 'x', streak: { days: [TODAY], pillow: 0, at: Date.now(), weeks: 0, seen: TODAY }, seenVersion: '1.1', costumes: {} };
+const BASE_SAVE = { mig08: 1, mig09: 1, comics: { hills: true, space: true, canada: true, ocean: true, veggie: true, countryballs: true, spooky: true }, xp: 1500, wins: 12, muted: true, stars: { timmy: 3, moo: 2, sly: 2, hoot: 1 }, toys: [], hero: 'jack', diff: 'normal', caps: 0, daily: 'x', streak: { days: [TODAY], pillow: 0, at: Date.now(), weeks: 0, seen: TODAY }, seenVersion: '1.2', costumes: {} };
 
 // Opens the game with a given save. Collects page errors in page._errors. Blocks the online backend (tests are offline).
 async function boot(page, save = BASE_SAVE, query = '') {

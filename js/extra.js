@@ -293,6 +293,9 @@
 
   // ---------- "What's new" popup: shows once per version (CLOSE = see it again next time, DON'T SHOW AGAIN = hide until the next update)
   const WHATS_NEW = {
+    '1.2': [
+      { icon: 'e:grin', title: 'EMOJI', text: 'Tap the smiley in a duel and send an emoji. Your rival answers back!' },
+    ],
     '1.1': [
       { icon: 'globe', title: 'COUNTRYBALLS', text: 'Round plush countries roll in. Careful, they COPY your moves!' },
       { icon: 'poland', title: 'Poland', text: 'Poland dreams of space. Tap PUSH! to help him fly!' },

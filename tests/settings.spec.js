@@ -38,7 +38,7 @@ test.describe('audio and prefs', () => {
     await bootWith(page, null);
     await go(page, 'settings');
     // first run: defaults stored on the device
-    expect(await page.evaluate(k => JSON.parse(localStorage.getItem(k)), PREFS)).toEqual({ music: 3, sfx: 3, calm: false, hand: 'right', buzz: true, skipCaps: false });
+    expect(await page.evaluate(k => JSON.parse(localStorage.getItem(k)), PREFS)).toEqual({ music: 3, sfx: 3, calm: false, hand: 'right', buzz: true, skipCaps: false, emoji: true });
     // a real tap on MUSIC 1 creates the audio context with the chosen level
     await tap(page, 'settings', "s.rows.music[1].c");
     expect(await page.evaluate(() => PSPrefs.data.music)).toBe(1);
@@ -72,7 +72,7 @@ test.describe('audio and prefs', () => {
     const save = await page.evaluate(() => JSON.parse(localStorage.getItem('plushsquad_v1')));
     for (const k of ['music', 'sfx', 'calm', 'hand', 'buzz', 'prefs']) expect(save[k]).toBeUndefined();
     await page.evaluate(() => { __save.data = Object.assign({}, __save.data, { xp: 99 }); __save.store(); });
-    expect(await page.evaluate(() => PSPrefs.data)).toEqual({ music: 1, sfx: 4, calm: false, hand: 'left', buzz: false, skipCaps: false });
+    expect(await page.evaluate(() => PSPrefs.data)).toEqual({ music: 1, sfx: 4, calm: false, hand: 'left', buzz: false, skipCaps: false, emoji: true });
     // rotation: the game is rebuilt into the Settings screen with the same choices
     await page.evaluate(() => { window.__oldGame = __game; });
     await page.setViewportSize({ width: 844, height: 390 });
@@ -83,7 +83,7 @@ test.describe('audio and prefs', () => {
     // reload
     await page.goto('/index.html?debug');
     await page.waitForFunction(() => window.__game && __game.scene.getScenes(true).length > 0, null, { timeout: 60000 });
-    expect(await page.evaluate(() => PSPrefs.data)).toEqual({ music: 1, sfx: 4, calm: false, hand: 'left', buzz: false, skipCaps: false });
+    expect(await page.evaluate(() => PSPrefs.data)).toEqual({ music: 1, sfx: 4, calm: false, hand: 'left', buzz: false, skipCaps: false, emoji: true });
     expect(await page.evaluate(() => [PSAudio.musicLevel, PSAudio.sfxLevel])).toEqual([1, 4]);
     noErrors(page);
   });
@@ -93,7 +93,7 @@ test.describe('audio and prefs', () => {
     await page.goto('/manifest.json');
     await page.evaluate(k => localStorage.setItem(k, '{oops'), PREFS);
     await boot(page);
-    expect(await page.evaluate(() => PSPrefs.data)).toEqual({ music: 3, sfx: 3, calm: false, hand: 'right', buzz: true, skipCaps: false });
+    expect(await page.evaluate(() => PSPrefs.data)).toEqual({ music: 3, sfx: 3, calm: false, hand: 'right', buzz: true, skipCaps: false, emoji: true });
     noErrors(page);
   });
 
@@ -277,7 +277,7 @@ test.describe('screen', () => {
     await page.addInitScript(() => { delete Navigator.prototype.vibrate; });
     await boot(page);
     await go(page, 'settings');
-    expect(await page.evaluate(() => Object.keys(__game.scene.getScene('settings').rows))).toEqual(['music', 'sfx', 'calm', 'hand']);
+    expect(await page.evaluate(() => Object.keys(__game.scene.getScene('settings').rows))).toEqual(['music', 'sfx', 'calm', 'hand', 'emoji']);
     noErrors(page);
   });
 

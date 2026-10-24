@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '1.1.1';
+  const VERSION = '1.2.0';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -264,11 +264,12 @@
   function img(scene, x, y, key) {
     if (key && key.startsWith('i:')) return scene.add.image(x, y, 'icons', key.slice(2));
     if (key && key.startsWith('j:')) return scene.add.image(x, y, 'icons2', key.slice(2));
+    if (key && key.startsWith('e:')) return scene.add.image(x, y, 'icons3', key.slice(2)); // v1.2 emoji chat atlas
     return scene.add.image(x, y, key);
   }
   function iconScale(key, size) { // scale so the icon is ~size px
     if (!key) return 1;
-    if (key.startsWith('i:') || key.startsWith('j:')) return size / 144;
+    if (key.startsWith('i:') || key.startsWith('j:') || key.startsWith('e:')) return size / 144;
     const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, crab: 242, blowfish: 242, jellyfish: 240, compass: 242, ship: 242, bubbles: 242, thully: 380, fogcap: 250, nightcap: 230, hand: 242,
       onion: 223, peapod: 243, garlic: 218, mushroom: 211, broccoli: 240, worm: 241, cheese: 238, bread: 242, sunflower: 242, brocklee: 380, mound: 200,
       england: 300, spain: 300, japan: 300, usa: 300, poland: 400, teacup: 242, bull: 242, paella: 242, sushi: 242, burger: 242, globe: 242, balloon: 240, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
@@ -497,6 +498,7 @@
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
       this.load.atlas('icons2', 'assets/icons2.webp', 'assets/icons2.json');
+      this.load.atlas('icons3', 'assets/icons3.webp', 'assets/icons3.json'); // v1.2 emoji (Fluent Emoji 3D, MIT)
     }
     create() {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -1138,7 +1140,7 @@
         const x = PORTRAIT ? 90 + i * Math.min(170, (W - 300) / Math.max(1, nav.length - 1)) : 90, y = PORTRAIT ? 85 : 85 + i * navStep;
         const c = this.add.container(x, y).setDepth(50);
         c.add(this.add.circle(0, 0, 46, it.color || C.night2).setStrokeStyle(4, C.seam));
-        const ic = img(this, 0, 0, typeof it.icon === 'function' ? it.icon(PS) : it.icon); ic.setScale(iconScale(ic.texture.key === 'icons2' || ic.texture.key === 'icons' ? 'j:x' : ic.texture.key, 62)); c.add(ic);
+        const ic = img(this, 0, 0, typeof it.icon === 'function' ? it.icon(PS) : it.icon); ic.setScale(iconScale(ic.texture.key === 'icons2' || ic.texture.key === 'icons' || ic.texture.key === 'icons3' ? 'j:x' : ic.texture.key, 62)); c.add(ic);
         c.add(txt(this, PORTRAIT ? 0 : 64, PORTRAIT ? 66 : 0, typeof it.label === 'function' ? it.label(PS) : it.label, 24, '#fff3d2', { st: 5, ox: PORTRAIT ? 0.5 : 0 }));
         const n = it.badge ? it.badge(PS) : 0;
         if (n) { c.add(this.add.circle(32, -32, 20, C.coral).setStrokeStyle(3, 0x0f1240)); c.add(txt(this, 32, -32, n > 9 ? '9+' : String(n), 22, '#ffffff', { st: 0, shadow: false })); }
@@ -1867,6 +1869,7 @@
       this._leaving = false; this.hero = null; this.rival = null; this.over = false; this.busy = false; this.shown = null; this.celebrating = false;
       this.spin = null; this.spinNext = null; this.hidden = null; this.logBg = null; this.sleepParts = null; this.meterBox = null; this.fogBand = null; this.mounds = null; // v1.0 Compass Spin, PEEKABOO! (the scene object is reused)
       this.copy = null; this.copyRec = null; this.copyChip = null; this.copyHand = null; this.rocketImg = null; this.pushEv = null; // v1.1 COPYCAT!, PUSH!
+      this.emoBtn = null; this.emoTray = null; this.emoBub = {}; this.emoTimer = null; this.emoHolds = 0; // v1.2 emoji chat (the scene object is reused)
       // a friend's toy picture may be missing (e.g. after rotating the screen): load it first
       const ft = this.data0.ftoy;
       if (ft && !this.textures.exists('ftoy_' + ft.id)) {
@@ -2020,7 +2023,7 @@
         return o;
       });
 
-      const hy = PORTRAIT ? 200 : 150;
+      const hy = this.hy = PORTRAIT ? 200 : 150;
       this.hero.bar = this.hpBar(W * 0.27, hy, this.H.short, this.H.color, heroMax);
       this.rival.bar = this.hpBar(W * 0.73, hy, R.short, R.color, this.rHp);
       const vs = txt(this, W / 2, hy + 10, 'VS', PORTRAIT ? 56 : 72, '#ffd23f', { stroke: '#0f1240', st: 12 });
@@ -2067,6 +2070,8 @@
         fade(this, this.backKey, { world: this.world });
       });
       muteButton(this);
+      this.heroMaxDmg = Math.max(20, ...this.moves.map(m => (m.dmg ? m.dmg[1] : 0)));
+      this.emoInit(res); // v1.2
       this.over = false; this.busy = false; this.acted = !!(res && res.acted);
       // booster effects
       const P = this.hero, T = this.rival;
@@ -2113,7 +2118,151 @@
       const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType, afterCharge: !!f.afterCharge, beamed: (f.beamed || []).slice(), asleep: !!f.asleep, meter: f.meter || 0, orbit: !!f.orbit });
       return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '', acted: !!this.acted,
         spin: this.spin ? Object.assign({}, this.spin, { order: this.spin.order.slice() }) : null, hidden: this.hidden ? Object.assign({}, this.hidden) : null,
-        copy: this.copy ? { k: this.copy.k, mini: !!this.copy.mini } : null };
+        copy: this.copy ? { k: this.copy.k, mini: !!this.copy.mini } : null, emoLog: (this.emoLog || []).slice() };
+    }
+    // ---- v1.2 emoji chat (docs/gdd/1.2-emoji-chat.md): a smiley button, a tray of 16 pictures, speech bubbles, the rival answers.
+    // It never costs the turn, never changes pep, and is only decoration plus a short list (emoLog) for the friend mail.
+    emoInit(res) {
+      const E = window.PSEmoji;
+      this.emoLog = res && Array.isArray(res.emoLog) ? E.clean(res.emoLog) : [];
+      this.emoAt = -1e9; this.emoRivalAt = -1e9; this.emoT0 = performance.now(); this.emoHolds = 0; this.emoSoloDone = false; this.lastBig = false; this.moveDmg = 0; this.inMove = false;
+      this.emoTray = null; this.emoBub = {}; this.emoTimer = null;
+      const left = PREF().hand === 'left', R = 48;
+      // clear of the back and mute buttons, the pep bars and names, the cards, the tool buttons and the log; the hand side follows the Cards setting.
+      // Portrait: top centre, beside VS. Landscape: the side edge under the pep bars (the bars and names fill the top row).
+      const c = this.emoBtn = this.add.container(PORTRAIT ? W / 2 + (left ? -1 : 1) * 130 : (left ? 70 : W - 70), PORTRAIT ? 70 : 260).setDepth(34);
+      c.add([this.add.circle(0, 8, R, 0x000000, 0.3), this.add.circle(0, 0, R, C.cream).setStrokeStyle(5, C.star)]);
+      const ic = img(this, 0, 0, 'e:grin'); ic.setScale(iconScale('e:grin', 68)); c.add(ic);
+      c.setSize(96, 96).setInteractive({ useHandCursor: true }); press(this, c, 0.9, 1);
+      c.on('pointerup', () => { A.init(); A.click(); this.emoTray ? this.emoClose() : this.emoOpen(); });
+      // a tap outside the tray closes it (the tap still reaches whatever was tapped, e.g. a card)
+      if (this._emoOut) this.input.off('pointerdown', this._emoOut);
+      this._emoOut = p => {
+        const t = this.emoTray; if (!t) return;
+        const x = p.worldX, y = p.worldY, b = this.emoBtn;
+        if (x >= t.x && x <= t.x + t.w && y >= t.y && y <= t.y + t.h) return;
+        if (b && Math.abs(x - b.x) < 52 && Math.abs(y - b.y) < 52) return;
+        this.emoClose();
+      };
+      this.input.on('pointerdown', this._emoOut);
+      this.emoSync();
+    }
+    emoOn() { return !!this.emoBtn && !!window.PSPrefs && window.PSPrefs.emoji() && !this.over && !this.emoHolds && !this.hidden; }
+    // the button shows only while it is useful; the tray closes with it
+    emoSync() {
+      if (!this.emoBtn) return;
+      const on = this.emoOn();
+      this.emoBtn.setVisible(on);
+      if (!on) this.emoClose();
+    }
+    // SAVE IT! reads taps anywhere on the screen: no emoji button while it runs
+    emoHold(d) { this.emoHolds = Math.max(0, (this.emoHolds || 0) + d); this.emoSync(); }
+    emoClose() {
+      const t = this.emoTray; if (!t) return;
+      this.emoTray = null; if (this.emoTimer) { this.emoTimer.remove(false); this.emoTimer = null; }
+      t.c.destroy(true);
+      if (this.emoBtn) this.emoBtn.setAlpha(this.emoCooling() ? 0.45 : 1);
+    }
+    // the tray: 4 x 4 when it fits between the tool buttons and the log, else 4 x 4 smaller or 8 x 2
+    emoOpen() {
+      if (!this.emoOn() || this.emoTray) return;
+      const E = window.PSEmoji, gap = 8, pad = 14;
+      const logTop = this.logT.y - this.logT.height / 2, cardsTop = Math.min(...this.rects.map(r => r.y - r.h / 2));
+      // bands, best first: between the tool buttons and the log / cards; else over the arena under the pep bars. Never on a card.
+      const bands = [[this.bby + 78, Math.min(logTop, cardsTop) - 12], [this.hy + 95, this.bby - 78]];
+      const opts = [[4, 96], [4, 84], [8, 96], [8, 84], [8, 72], [8, 64]];
+      const dims = o => ({ cols: o[0], cell: o[1], w: o[0] * o[1] + (o[0] - 1) * gap + 2 * pad, h: (16 / o[0]) * o[1] + (16 / o[0] - 1) * gap + 2 * pad });
+      let d = null, top = 0, bot = 0;
+      for (const bd of bands) { for (const o of opts) { const t = dims(o); if (t.h <= bd[1] - bd[0] && t.w <= W - 20) { d = t; [top, bot] = bd; break; } } if (d) break; }
+      if (!d) return; // no room anywhere without covering something: the button stays quiet
+      const x = Math.round(W / 2 - d.w / 2), y = Math.round(Math.max(top, Math.min(bot - d.h, (top + bot) / 2 - d.h / 2)));
+      const c = this.add.container(0, 0).setDepth(37);
+      const g = this.add.graphics();
+      g.fillStyle(0x000000, 0.3); g.fillRoundedRect(x, y + 10, d.w, d.h, 30);
+      g.fillStyle(C.night2); g.fillRoundedRect(x, y, d.w, d.h, 30);
+      g.lineStyle(5, C.seam); g.strokeRoundedRect(x, y, d.w, d.h, 30);
+      c.add(g);
+      c.add(this.add.rectangle(x + d.w / 2, y + d.h / 2, d.w, d.h, 0x000000, 0.001).setInteractive()); // taps on the panel never fall through to the duel
+      const cells = [];
+      for (let i = 0; i < 16; i++) {
+        const cx = x + pad + d.cell / 2 + (i % d.cols) * (d.cell + gap), cy = y + pad + d.cell / 2 + Math.floor(i / d.cols) * (d.cell + gap);
+        const cell = this.add.container(cx, cy);
+        const bg = this.add.graphics(); bg.fillStyle(C.cream); bg.fillRoundedRect(-d.cell / 2, -d.cell / 2, d.cell, d.cell, 22);
+        const ic = img(this, 0, 0, E.FRAME(i)); ic.setScale(iconScale(E.FRAME(i), d.cell - 22));
+        cell.add([bg, ic]); cell.emo = i; cell.setSize(d.cell, d.cell).setInteractive({ useHandCursor: true }); press(this, cell, 0.9, 1);
+        cell.on('pointerup', () => { A.init(); this.emoSend(i); });
+        c.add(cell); cells.push(cell);
+      }
+      this.emoTray = { c, x, y, w: d.w, h: d.h, cols: d.cols, cell: d.cell, cells };
+      if (!PSPrefs.calm()) { c.setAlpha(0); this.tweens.add({ targets: c, alpha: 1, duration: 140 }); }
+      this.emoTimer = this.time.delayedCall(this.emoTrayMs || 6000, // tests stretch or shorten it (b.emoTrayMs)
+         () => { this.emoTimer = null; this.emoClose(); });
+    }
+    // a tap on one of the 16: Jack's bubble now, the rival answers about 0.9 s later. Returns false while cooling down.
+    emoSend(id) {
+      const E = window.PSEmoji;
+      if (!this.emoOn() || !(id >= 0 && id < 16)) return false;
+      const now = performance.now();
+      if (now - this.emoAt < E.COOLDOWN) return false; // the tray stays open, the button dims
+      this.emoAt = now;
+      if (this.emoLog.length < E.MAX_LOG) this.emoLog.push(id); // more are shown but not kept for the friend mail
+      this.emoClose();
+      this.emoCool();
+      this.emoBubble(this.hero, id, false);
+      this.emoSound(id, false);
+      this.time.delayedCall(900, () => this.emoAnswer(id));
+      return true;
+    }
+    // one clock (performance.now) for the cooldown and for the dim
+    emoCooling() { return performance.now() - this.emoAt < window.PSEmoji.COOLDOWN; }
+    emoCool() {
+      if (!this.emoBtn) return;
+      this.emoBtn.setAlpha(0.45);
+      setTimeout(() => { if (this.emoBtn && this.emoBtn.active && !this.emoCooling()) this.emoBtn.setAlpha(1); }, window.PSEmoji.COOLDOWN + 20);
+    }
+    // the doc: thumbs down = a soft boing, crying = a falling wobble, everything else a blip (high for Jack, lower for the rival)
+    emoSound(id, rival) { if (id === 15) A.emoBoing(); else if (id === 10) A.emoSad(); else if (rival) A.emoReply(); else A.emoSend(); }
+    // the rival's answer: situation first, then mood and personality (js/emoji.js)
+    emoAnswer(mine) {
+      const E = window.PSEmoji, T = this.rival, P = this.hero;
+      if (!this.emoOn() || !T || T.asleep || performance.now() - this.emoRivalAt < E.COOLDOWN) return null;
+      const tag = this.mode === 'campaign' || this.mode === 'boss' ? E.tagOf(this.R.id) : 'kind'; // toys, friends' toys and Jacks stay kind
+      const id = E.reply({ mine, tag, boss: !!this.R.boss, rivalPct: T.hp / T.max * 100, heroPct: P.hp / P.max * 100, bigHit: !!this.lastBig });
+      this.emoRivalAt = performance.now();
+      this.emoBubble(T, id, true); this.emoSound(id, true);
+      return id;
+    }
+    // the rival reacts alone at most ONCE per duel (a very big hit on it, or winning). Never in the first 2 s.
+    emoSolo(kind) {
+      const E = window.PSEmoji;
+      if (!this.emoBtn || !window.PSPrefs.emoji() || this.emoSoloDone || performance.now() - this.emoT0 < 2000 || performance.now() - this.emoRivalAt < E.COOLDOWN) return false;
+      if (kind === 'hit' && (this.over || this.rival.asleep || this.hidden)) return false;
+      this.emoSoloDone = true; this.emoRivalAt = performance.now();
+      const id = kind === 'win' ? 2 : 10;
+      this.emoBubble(this.rival, id, true); this.emoSound(id, true);
+      return id;
+    }
+    // a speech bubble by a fighter (cream for Jack / the hero, pale coral for the rival); one per side, 1.4 s, calm mode fades only
+    emoBubble(f, id, rival) {
+      const key = rival ? 'r' : 'h', old = this.emoBub[key];
+      if (old) { this.tweens.killTweensOf(old); old.destroy(true); }
+      const d = f.dir, hy = this.hy;
+      const bx = f.root.x + d * 130;
+      const lo = Math.max(hy + 110, this.bby + 150), hi = this.groundY - 150;
+      const by = Math.round(Math.max(Math.min(lo, hi), Math.min(hi, f.root.y - f.height() * 0.8)));
+      const c = this.add.container(bx, by).setDepth(38);
+      const g = this.add.graphics(), fill = rival ? 0xffd6d0 : C.cream;
+      g.fillStyle(0x000000, 0.25); g.fillRoundedRect(-82, -66, 164, 140, 36); // shadow
+      g.fillStyle(fill); g.fillRoundedRect(-82, -70, 164, 140, 36);
+      g.lineStyle(5, rival ? C.coral : C.star); g.strokeRoundedRect(-82, -70, 164, 140, 36);
+      g.fillStyle(fill); g.fillTriangle(-d * 20, 56, -d * 62, 56, -d * 70, 102); // the tail points at the fighter
+      const ic = img(this, 0, -2, window.PSEmoji.FRAME(id)); ic.setScale(iconScale('e:x', 112));
+      c.add([g, ic]); this.emoBub[key] = c;
+      const gone = () => { if (this.emoBub[key] === c) this.emoBub[key] = null; c.destroy(true); };
+      if (PSPrefs.calm()) { c.setAlpha(0); this.tweens.add({ targets: c, alpha: 1, duration: 150 }); }
+      else { c.setScale(0); this.tweens.add({ targets: c, scale: 1, duration: 220, ease: 'Back.out' }); }
+      this.time.delayedCall(1400, () => { if (!c.active) return; this.tweens.add({ targets: c, alpha: 0, duration: 250, onComplete: gone }); });
+      return c;
     }
     // the duel's music: Thully asleep = lullaby; bosses = boss; Canada = north; Ocean = sea; Veggie Patch = garden; Countryballs = parade
     track() {
@@ -2290,6 +2439,7 @@
         const dx = 230, sw = (this.toolSwap ? -1 : 1) * (PREF().hand === 'left' ? -1 : 1); // left-handed: FOAM! on the right
         this.extBtn.x = W / 2 - dx * sw; this.umbBtn.x = two ? W / 2 + dx * sw : W / 2;
       }
+      this.emoSync && this.emoSync(); // v1.2
     }
     log(s) {
       this.logT.setText(s); this.logBack();
@@ -2355,6 +2505,7 @@
       if (crit) { A.crit(); this.cameras.main.zoomTo(1.05, 90); this.time.delayedCall(260, () => this.cameras.main.zoomTo(1, 260)); }
       await this.hitStop(crit ? 130 : 60);
       target.hp = Math.max(0, target.hp - dmg); target.bar.set(target.hp, this);
+      if (target === this.rival) { if (this.inMove) this.moveDmg += dmg; if (target.hp > 0 && dmg >= 0.9 * this.heroMaxDmg) this.time.delayedCall(500, () => this.emoSolo('hit')); } // v1.2
       if (this.copyRec && target === this.rival) this.copyRec.hits.push(dmg); // COPYCAT!: the number the player saw
       this.number(p.x + (quiet ? rnd(-60, 60) : 0), p.y - 120, '-' + dmg, target === this.rival ? '#ffd23f' : '#ff6b5b', quiet ? 90 : 120);
       if (crit) this.popWord(p.x + (target.dir > 0 ? -150 : 150), p.y - 260, 'CRIT!', '#ff6b5b', 76, -10);
@@ -2693,6 +2844,7 @@
       this.busy = true; this.acted = true; this.setCards(false);
       const P = this.hero, T = this.rival;
       P.used[k] = (P.used[k] || 0) + 1;
+      this.moveDmg = 0; this.lastBig = false; this.inMove = true; // v1.2: the rival's emoji answer depends on the whole move
       emit('move', { k, type: m.type }, this);
       // Compass Spin: the LUCKY CURRENT card adds +5 to its first hit
       if (this.spin && this.moves.indexOf(m) === this.spin.lucky && m.dmg) { P.lucky5 = 5; emit('lucky', {}, this); }
@@ -2709,6 +2861,7 @@
         this.log(T.name + (this.R.plural ? ' giggle' : ' giggles') + ' and ' + (this.R.plural ? 'pop' : 'pops') + ' out!'); await this.unhide(true);
       }
       await this.doMove(m, P, T);
+      this.inMove = false; this.lastBig = this.moveDmg >= 0.7 * this.heroMaxDmg; // total damage of the move (multi-hit moves count)
       this.copyRec = null;
       if (this.hidden && !this.over) { await this.sneak(); if (this.checkEnd()) return; } // a heal or nap during a hide: then the sneak tickle
       P.lucky5 = 0;
@@ -3135,7 +3288,10 @@
       }
     }
     // the timed save: resolves 'perfect' | 'good' | 'miss'. Judged with performance.now() (Phaser treats slow frames as 33 ms).
-    saveIt(att, def) {
+    saveIt(att, def) { // v1.2: no emoji button meanwhile (the timed tap reads taps anywhere)
+      this.emoHold(1); const p = this._saveIt(att, def); p.then(() => this.emoHold(-1), () => this.emoHold(-1)); return p;
+    }
+    _saveIt(att, def) {
       const dk = Save.data.diff in SAVE_T ? Save.data.diff : 'normal', T = SAVE_T[dk];
       const auto = window.__psSaveAuto; // ?debug only: tests run at 2-3 fps and cannot time a tap
       const tutorial = !((Save.data.stats || {}).saveSeen);
@@ -3679,6 +3835,7 @@
         for (let i = 0; i < 3; i++) await tw(this, { targets: P.root, y: this.groundY - 140, duration: 230, yoyo: true, ease: 'Quad.out' });
       } else {
         this.log(P.name + ' is too sleepy to go on...');
+        this.emoSolo('win'); // v1.2
         await this.flipNap(P, true);
         A.lose();
         for (let i = 0; i < 3; i++) {
@@ -3722,7 +3879,7 @@
       Save.store();
       const hadCrown = !!Save.data.costumes.crown;
       emit('duel', { won, mode: this.mode, rival: R, rivalIdx: this.rivalIdx, stars, firstClear, diff: Save.data.diff, boss: !!R.boss,
-        dmg: Math.max(0, this.rival.max - Math.max(0, this.rival.hp)), data: this.data0, hero: this.H }, this);
+        dmg: Math.max(0, this.rival.max - Math.max(0, this.rival.hp)), data: this.data0, hero: this.H, emo: (this.emoLog || []).slice() }, this);
       const after = levelOf(Save.data.xp);
       const newMoves = MOVES.filter(m => m.lvl > before.l && m.lvl <= after.l);
       const nextIdx = this.rivalIdx + 1;

@@ -1,5 +1,5 @@
 // Plush Squad: v1.0 Settings (docs/gdd/1.0-settings.md). Device-only preferences, never in the synced save:
-// localStorage['plushsquad_prefs'] = { music: 0-4, sfx: 0-4, calm, hand: "right" | "left", buzz, skipCaps }.
+// localStorage['plushsquad_prefs'] = { music: 0-4, sfx: 0-4, calm, hand: "right" | "left", buzz, skipCaps, emoji }.
 // Calm mode works through three small hooks on Phaser itself (camera shake, endless tweens, confetti),
 // so every screen follows it without changes scattered over game.js.
 (function () {
@@ -21,6 +21,7 @@
         hand: r.hand === 'left' ? 'left' : 'right',
         buzz: r.buzz !== false,
         skipCaps: r.skipCaps === true, // v1.1.1: capsule machine without the opening animation
+        emoji: r.emoji !== false, // v1.2: emoji reactions in duels (default on)
       };
       if (first) this.save();
       return this.data;
@@ -29,6 +30,7 @@
     set(k, v) { this.data[k] = v; this.save(); this.apply(); },
     apply() { const A = window.PSAudio; if (A && A.setVolumes) A.setVolumes(this.data.music, this.data.sfx); },
     calm() { return !!(this.data && this.data.calm); },
+    emoji() { return !this.data || this.data.emoji !== false; },
     left() { return !!(this.data && this.data.hand === 'left'); },
     canBuzz() { return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function'; },
     // endless tweens that still run in calm mode (they tell the kid what is happening, e.g. the rival's charge glow)
@@ -84,6 +86,7 @@
           { key: 'calm', label: 'CALM MODE', sub: 'Less shaking and sparkles', icon: 'zzz', vals: [false, true], name: v => (v ? 'ON' : 'OFF') },
           { key: 'hand', label: 'CARDS', sub: 'Which hand do you play with?', icon: 'j:hug', vals: ['left', 'right'], name: v => v.toUpperCase() },
         ];
+        rows.push({ key: 'emoji', label: 'EMOJI', sub: 'Smileys in duels', icon: 'e:grin', vals: [false, true], name: v => (v ? 'ON' : 'OFF') });
         if (Prefs.canBuzz()) rows.push({ key: 'buzz', label: 'BUZZ', icon: 'j:bell', vals: [false, true], name: v => (v ? 'ON' : 'OFF') });
         const credits = 'v' + PS.VERSION + '  ·  Art: Fluent Emoji (MIT)  ·  Font: Poppins (OFL)  ·  Sounds made by the game';
         if (PORTRAIT) {
@@ -95,8 +98,8 @@
           txt(this, W / 2, Math.max(by + 140, H - 90), credits, 26, '#8a91e0', { st: 0, shadow: false, weight: '500', wrap: W - 120 });
         } else {
           // two columns: rows 1-3 left, the rest right; the label sits above its pills
-          const colW = Math.min(900, (W - 160) / 2), lx = W / 2 - 40 - colW, rx = W / 2 + 40, top = 210, pitch = 230;
-          const right = rows.slice(3);
+          const colW = Math.min(900, (W - 160) / 2), lx = W / 2 - 40 - colW, rx = W / 2 + 40, top = 210, right = rows.slice(3), pitch = right.length > 2 ? 190 : 230; // 6 rows (EMOJI + BUZZ): tighter, WHAT'S NEW stays on screen
+
           rows.slice(0, 3).forEach((r, i) => this.row(r, lx, top + i * pitch, lx, lx + colW, true));
           right.forEach((r, i) => this.row(r, rx, top + i * pitch, rx, rx + colW, true));
           this.wnBtn = this.wn(rx + colW / 2, top + right.length * pitch + 70);

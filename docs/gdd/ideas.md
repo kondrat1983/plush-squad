@@ -4,6 +4,7 @@ Newest on top. ✅ = shipped (with version). Source: Kondrat, the chief tester, 
 
 | Date | Idea | Source | Status |
 |---|---|---|---|
+| 21 Oct 2026 | Emoji chat in duels (v1.2): a smiley button opens a tray of 16 preset emoji, Jack shows a bubble, the rival answers in character; friend duel emoji go in the `beat` mail. Presets only, no text. See `1.2-emoji-chat.md`. | Chief tester / Kondrat | approved, design doc |
 | 17 Oct 2026 | itch.io release: upload the HTML5 build as is, free with "pay what you want" (itch share can be 0%) and a Buy Me a Coffee / Ko-fi link on the itch page only, never inside the game (kids). Needs first: own countryball art (the current pictures are from the internet [?]), privacy note. Steam later if itch works (100 $ fee, refunded after 1000 $; Electron/Tauri wrapper; Steam Deck: file picker instead of camera, gamepad, 1280x800). | Kondrat | idea |
 | 17 Oct 2026 | Roblox version: full rewrite in Luau (no code reuse). Online duels and friends come built in, but players cannot upload their own toy photos in a game (Roblox moderates every image), so the main feature is lost. Kondrat: probably not worth it without photos. | Kondrat | idea, parked |
 | 17 Oct 2026 | Countryballs world (v1.1.0): England, Spain, Japan, USA (mini-boss), boss Poland; COPYCAT! (a ball paints itself like Jack and copies your next move); PUSH! (help Poland into space); Pierogi Hat; `parade` track. See `1.1-countryballs.md`. | Kondrat / `game-designer` | design doc, waits for Kondrat |
