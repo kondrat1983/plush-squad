@@ -5,7 +5,7 @@ A kid-friendly pillow-fight game: Jack the plush dragon against rivals, plus the
 This repo is **public**. Never commit secrets, personal names of the family, e-mails, recovery codes or private notes. Private context lives with Kondrat (see "Handshake" below).
 
 ## Run and test
-- Play locally: `python3 -m http.server 8765`, open http://localhost:8765/index.html (add `?debug` for debug handles, `?halloween` to force the October event, `?local` to load toy models from `models/`, which is git-ignored).
+- Play locally: `python3 -m http.server 8765`, open http://localhost:8765/index.html (add `?debug` for debug handles, `?halloween` to force the October event, `?localmodels` to load toy models from `models/`, which is git-ignored).
 - Tests: `npm install && npx playwright install chromium && npm test` (Playwright, `tests/`). CI runs them on every push (`.github/workflows/test.yml`).
 - Headless Chromium renders through SwiftShader at 2-3 fps. **Phaser's tween manager treats frames > 500 ms as 33 ms**, so duels look frozen; `tests/helpers.js` `fast()` calls `setLagSmooth(5000, 33)` on every scene (again after any scene start or rebuild). `game.step()` does not advance tweens.
 - Debug handles (with `?debug`): `window.__game`, `__save` (`__save.data` = the save), `__RIVALS`, `__BOOSTS`, `__IDB`, `PSAudio`, `PSExtra`, `PSNet`, `__psRotatePending`, `__psTryRebuild`. Pick a booster from a script: `__game.scene.getScene('battle')._pick(__BOOSTS.find(b => b.id === 'fort'))` (`null` = no booster).
@@ -36,7 +36,7 @@ This repo is **public**. Never commit secrets, personal names of the family, e-m
 
 ## Files
 - `index.html`: page shell, PWA meta, service worker registration (reloads once when a new version takes over).
-- `js/game.js` (~2600 lines): everything core. Boot → Title → Map / Squad / Studio (+ Toy) / Catch (Star Catch) / Gacha (capsules) → Battle. Save (`localStorage['plushsquad_v1']` + IndexedDB for toy pictures), rivals (`RIVALS`, `KRAKEN`), moves, boosters, layout helpers, rotation rebuild (`main()`), plugin system (`PS`, `emit()`).
+- `js/game.js` (~5300 lines): everything core. Boot → Title → Map / Squad / Studio (+ Toy) / Catch (Star Catch) / Gacha (capsules) → Battle. Save (`localStorage['plushsquad_v1']` + IndexedDB for toy pictures), rivals (`RIVALS`, `KRAKEN`), moves, boosters, layout helpers, rotation rebuild (`main()`), plugin system (`PS`, `emit()`).
 - `js/extra.js`: plugin: Me, Sticker Album, Quests, Parents (gate = multiplication table, keep it), Bedtime, What's new.
 - `js/net.js`: plugin: accounts, cloud save, friends, mail, weekly Kraken boss, museum, Star Catch board (Supabase via `vendor/supabase.js`).
 - `js/audio.js`: all sound synthesized with Web Audio. SFX + procedural music tracks in `A.TRACKS`: `calm` (menus), `battle` (D minor 144 bpm), `boss` (C minor 112 bpm, crowned rivals + Kraken). `A.music(name)` crossfades; the scene `create` hook in game.js picks the track; `finish()` silences music for the jingle, `result()` returns to `calm`.
