@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '1.2.1';
+  const VERSION = '1.2.2';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -282,6 +282,8 @@
   const OCEAN = 3, VEGGIE = 4; // v1.0 (docs/gdd/1.0-ocean.md, 1.0-veggie.md)
   const BALLS = 5; // v1.1 Countryballs (docs/gdd/1.1-countryballs.md)
   const SPOOKY = 6; // the October event (3 before v1.0, 5 in v1.0; see mig10, mig11)
+  // duel music per world (js/audio.js); the world map plays the quiet version (name + 'Map': slower, no drums)
+  const WORLD_TRACK = ['battle', 'space', 'north', 'sea', 'garden', 'parade', 'battle'];
   const GROUND = { [SPACE]: 'ground2', [CANADA]: 'ground4', [OCEAN]: 'ground5', [VEGGIE]: 'ground6', [BALLS]: 'ground7', [SPOOKY]: 'ground3' };
   const SKY = { [SPACE]: 'sky2', [CANADA]: 'sky4', [OCEAN]: 'sky5', [VEGGIE]: 'sky6', [BALLS]: 'sky7', [SPOOKY]: 'sky3' };
   const groundKey = w => GROUND[w] || 'ground';
@@ -2268,7 +2270,7 @@
     track() {
       const R = this.R, T = this.rival;
       if (R.sleepy && (!T || T.asleep)) return 'lullaby';
-      return R.boss ? 'boss' : R.world === CANADA ? 'north' : R.world === OCEAN ? 'sea' : R.world === VEGGIE ? 'garden' : R.world === BALLS ? 'parade' : 'battle';
+      return R.boss ? 'boss' : WORLD_TRACK[R.world] || 'battle';
     }
 
     fighter(x, y, key, scale, dir, maxHp, flip) {
@@ -5211,9 +5213,9 @@
   // ...and a rotation held back (duel turn, result celebration) is applied on the next screen if it is still waiting
   game.events.once('ready', () => game.scene.scenes.forEach(sc => {
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
-    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key === 'title' ? 'hop' : sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.track ? sc.track() : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
+    sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key === 'title' ? 'hop' : sc.scene.key === 'map' && sc.world != null ? (WORLD_TRACK[sc.world] || 'battle') + 'Map' : sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.track ? sc.track() : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
-  window.__psJudgeSave = judgeSave; window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
+  window.__psJudgeSave = judgeSave; window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__WORLD_TRACK = WORLD_TRACK; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   if (DEBUG) {
     // v1.0 test handles (headless tests run at 2-3 fps): a Compass Spin now or at the next turn, fill Thully's Wake-o-meter
     const bt = () => game.scene.getScene('battle');

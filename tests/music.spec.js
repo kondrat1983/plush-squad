@@ -1,4 +1,4 @@
-// Music: 'hop' main theme on the title, lullaby in other menus, 'battle' in normal duels, 'boss' with crowned rivals and the Kraken, silence for the result jingle.
+// Music: 'hop' main theme on the title, the world's quiet track on the map, lullaby in other menus, 'battle' in normal duels, 'boss' with crowned rivals and the Kraken, silence for the result jingle.
 const { test, expect } = require('@playwright/test');
 const { boot, go, wait, waitTurn, noErrors } = require('./helpers');
 
@@ -6,8 +6,11 @@ test('music track follows the scene', async ({ page }) => {
   await boot(page, Object.assign({}, require('./helpers').BASE_SAVE, { muted: false }));
   await page.evaluate(() => { PSAudio.init(); PSAudio.startMusic(); });
   const track = () => page.evaluate(() => PSAudio._track);
-  await go(page, 'map'); expect(await track()).toBe('calm');
+  await go(page, 'map', { world: 0 }); expect(await track()).toBe('battleMap');
+  await go(page, 'squad'); expect(await track()).toBe('calm');
   await go(page, 'battle', { rival: 0 }); expect(await track()).toBe('battle');
+  const robot = await page.evaluate(() => __RIVALS.findIndex(r => r.id === 'robot'));
+  await go(page, 'battle', { rival: robot }); expect(await track()).toBe('space');
   const hoot = await page.evaluate(() => __RIVALS.findIndex(r => r.id === 'hoot'));
   await go(page, 'battle', { rival: hoot }); expect(await track()).toBe('boss');
   await go(page, 'battle', { boss: true }); expect(await track()).toBe('boss');
@@ -15,7 +18,7 @@ test('music track follows the scene', async ({ page }) => {
   await wait(page, 500); expect(await track()).toBe(null);
   await expect.poll(async () => { await wait(page, 500); return track(); }, { timeout: 90000 }).toBe('calm');
   await go(page, 'title'); expect(await track()).toBe('hop');
-  await go(page, 'map'); expect(await track()).toBe('calm');
+  await go(page, 'map', { world: 1 }); expect(await track()).toBe('spaceMap');
   noErrors(page);
 });
 
@@ -57,5 +60,42 @@ test('B34: rotating between turns does not restart the duel music', async ({ pag
   await wait(page, 2000);
   expect(await page.evaluate(() => __switches)).toEqual([]);
   expect(await page.evaluate(() => PSAudio._track)).toBe('battle');
+  noErrors(page);
+});
+
+// map versions: the world's tune, slower, without drums or noise hits
+test('map versions are soft copies of the duel tracks', async ({ page }) => {
+  await boot(page);
+  const r = await page.evaluate(() => {
+    const A = PSAudio, out = {};
+    for (const k of ['battle', 'space', 'north', 'sea', 'garden', 'parade']) {
+      const T = A.TRACKS[k], M = A.TRACKS[k + 'Map'];
+      out[k] = [M.play === T.play, M.bpm < T.bpm, M.gain < T.gain, M.soft === true];
+    }
+    // a soft space track makes no noise sources (drums, hats); its notes still play
+    const c = new OfflineAudioContext(1, 44100, 44100);
+    Object.assign(A, { ctx: c, noiseBuf: c.createBuffer(1, 44100, 44100) });
+    A._bus = c.createGain(); A._bus.connect(c.destination);
+    let noise = 0, notes = 0;
+    const src = c.createBufferSource.bind(c), osc = c.createOscillator.bind(c);
+    c.createBufferSource = () => { noise++; return src(); };
+    c.createOscillator = () => { notes++; return osc(); };
+    A._soft = true;
+    for (let i = 0; i < 256; i++) A.TRACKS.spaceMap.play(A, i, 0.01, 0.1);
+    A._soft = false;
+    return { out, noise, notes };
+  });
+  for (const v of Object.values(r.out)) expect(v).toEqual([true, true, true, true]);
+  expect(r.noise).toBe(0);
+  expect(r.notes).toBeGreaterThan(100);
+  noErrors(page);
+});
+
+// QA B79: every world has its duel track and a map version (worlds 2..6 are not opened in the scene test above)
+test('B79: every world maps to an existing duel track and map track', async ({ page }) => {
+  await boot(page);
+  const r = await page.evaluate(() => __WORLD_TRACK.map(k => [k, !!PSAudio.TRACKS[k], !!PSAudio.TRACKS[k + 'Map']]));
+  expect(r.map(x => x[0])).toEqual(['battle', 'space', 'north', 'sea', 'garden', 'parade', 'battle']); // hills, space, canada, ocean, veggie, countryballs, spooky
+  for (const [k, duel, map] of r) expect([k, duel, map]).toEqual([k, true, true]);
   noErrors(page);
 });
