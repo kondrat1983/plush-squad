@@ -4,6 +4,10 @@ What happened in Plush Squad, newest on top: game releases (what changed for the
 
 
 ## 2 Nov 2026
+**Game: v1.2.2**
+- Space has its own duel music: a retro chiptune (square lead with an echo, fast arps, a sine "theremin").
+- Each world map plays a quiet version of its world's duel tune (slower, no drums), so you hear the world before the first duel. Pillow Hills and Spooky use the classic duel tune for now.
+
 **Game: v1.2.1**
 - New main theme "Hop" on the title screen: a happy electro tune in the spirit of Castle Crashers (an original melody, synthesized like the other tracks, no audio file). The other menus keep the calm lullaby.
 
