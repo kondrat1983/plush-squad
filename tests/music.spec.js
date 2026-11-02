@@ -99,3 +99,15 @@ test('B79: every world maps to an existing duel track and map track', async ({ p
   for (const [k, duel, map] of r) expect([k, duel, map]).toEqual([k, true, true]);
   noErrors(page);
 });
+
+// v1.2.3: browsers need a tap before any sound; the first tap anywhere on the title starts the Hop theme
+test('first tap on the title starts the music', async ({ page }) => {
+  await boot(page, Object.assign({}, require('./helpers').BASE_SAVE, { muted: false }));
+  await go(page, 'title');
+  expect(await page.evaluate(() => !!PSAudio._timer)).toBe(false);
+  const box = await page.locator('canvas').boundingBox();
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.97);
+  await expect.poll(() => page.evaluate(() => [!!PSAudio._timer, PSAudio._track])).toEqual([true, 'hop']);
+  expect(await page.evaluate(() => __game.scene.isActive('title'))).toBe(true);
+  noErrors(page);
+});

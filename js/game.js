@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '1.2.2';
+  const VERSION = '1.2.3';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -1078,6 +1078,8 @@
     constructor() { super('title'); }
     create() {
       this._leaving = false;
+      // browsers allow sound only after a tap: the first tap anywhere on the title starts the Hop theme (before v1.2.3 only PLAY did)
+      this.input.once('pointerup', () => { A.init(); A.startMusic(); });
       this.cameras.main.fadeIn(400, 15, 18, 64);
       sky(this, EVENT_ON ? SPOOKY : 0);
       bottomGround(this, EVENT_ON ? 'ground3' : 'ground', PORTRAIT ? 0.55 : 0.6);
