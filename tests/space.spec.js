@@ -19,7 +19,7 @@ test('Space map and duels show The Blips and The Mothership, never Polandball or
   let t = await allText(page);
   expect(t).toContain('The Blips');
   expect(t).not.toMatch(/Polandball|Dragon Boss/);
-  for (const [id, name, tex, track] of [['polandball', 'BLIPS', 'aliens', 'battle'], ['dragonboss', 'MOTHERSHIP', 'mothership', 'boss']]) {
+  for (const [id, name, tex, track] of [['polandball', 'BLIPS', 'aliens', 'space'], ['dragonboss', 'MOTHERSHIP', 'mothership', 'boss']]) {
     await go(page, 'battle', { rival: await idx(page, id) });
     await page.evaluate(() => { const b = __game.scene.getScene('battle'); if (b._pick) b._pick(null); });
     await wait(page, 1500);

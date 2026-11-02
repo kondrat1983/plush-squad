@@ -149,7 +149,7 @@
 
     // ---- music: procedural tracks (hop main theme on the title, calm lullaby for other menus, battle, boss, north for Canada, v1.0 sea and garden, lullaby while Sleepy Thully sleeps, v1.1 parade)
     // music(name) picks the track (crossfade); startMusic() starts the scheduler after the first tap.
-    _timer: null, _next: 0, _step: 0, _track: null, _want: 'calm', _bus: null,
+    _timer: null, _next: 0, _step: 0, _track: null, _want: 'calm', _bus: null, _soft: false,
     mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); },
     // one synth voice: attack, hold, release; optional lowpass with a closing filter envelope and detune
     voice(m, at, dur, o = {}) {
@@ -171,7 +171,7 @@
       out.connect(g); g.connect(bus); osc.start(at); osc.stop(at + Math.max(a, dur) + r + 0.05);
     },
     hit(at, dur, o = {}) { // filtered noise burst for drums
-      const c = this.ctx, bus = this._bus; if (!c || !bus) return;
+      const c = this.ctx, bus = this._bus; if (!c || !bus || this._soft) return;
       const src = c.createBufferSource(); src.buffer = this.noiseBuf;
       const f = c.createBiquadFilter(); f.type = o.type || 'bandpass'; f.Q.value = o.q || 0.8; f.frequency.setValueAtTime(o.f || 1000, at);
       const g = c.createGain(); g.gain.setValueAtTime(o.vol || 0.1, at); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
@@ -186,14 +186,14 @@
       src.connect(f); f.connect(g); g.connect(bus); src.start(at); src.stop(at + dur + 0.05);
     },
     riser(at, dur, vol = 0.05) { // noise sweeping up before the drop (the hop track's break)
-      const c = this.ctx, bus = this._bus; if (!c || !bus) return;
+      const c = this.ctx, bus = this._bus; if (!c || !bus || this._soft) return;
       const src = c.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
       const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(300, at); f.frequency.exponentialRampToValueAtTime(7000, at + dur);
       const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol, at + dur); g.gain.linearRampToValueAtTime(0.0001, at + dur + 0.05);
       src.connect(f); f.connect(g); g.connect(bus); src.start(at); src.stop(at + dur + 0.1);
     },
     drum(kind, at, v = 1) {
-      const c = this.ctx, bus = this._bus; if (!c || !bus) return;
+      const c = this.ctx, bus = this._bus; if (!c || !bus || this._soft) return; // map versions have no drums
       const thud = (f0, f1, dur, vol) => {
         const osc = c.createOscillator(), g = c.createGain();
         osc.frequency.setValueAtTime(f0, at); osc.frequency.exponentialRampToValueAtTime(f1, at + dur * 0.7);
@@ -370,7 +370,7 @@
         const m = s % 2 === 0 ? MEL[bar][s / 2] : 0;
         if (m) { A.voice(m + 12, t, 0.001, { type: 'sine', vol: 0.05, r: sp * 3 }); A.voice(m + 24, t, 0.001, { type: 'sine', vol: 0.012, r: sp * 1.5 }); }
       } },
-      // v1.3 hop: a happy electro romp in the spirit of Castle Crashers (original tune), A major 140 bpm, 32 bars:
+      // v1.2.1 hop: a happy electro romp in the spirit of Castle Crashers (original tune), A major 140 bpm, 32 bars:
       // intro (drums, rolling bass, arp) | lead x2 | break (pumping pad, bells, riser) | lead + octave + harmony | outro
       hop: { bpm: 140, div: 4, len: 512, gain: 0.7, play(A, n, t, sp) {
         const bar = Math.floor(n / 16), s = n % 16;
@@ -413,6 +413,44 @@
           if (second) { const h = SCALE.includes((m - 3) % 12) ? m - 3 : m - 4; A.voice(h, t, d, { type: 'sawtooth', vol: 0.011, lp: 2800, r: 0.08, det: 5 }); }
         });
       } },
+      // v1.2.2 Space: a retro chiptune, E minor 120 bpm, 16 bars: A = square lead with an echo, B = fast arps + a sine "theremin";
+      // NES-style triangle bass, noise drums, a rising blip every 4 bars
+      space: { bpm: 120, div: 4, len: 256, gain: 0.7, play(A, n, t, sp) {
+        const bar = Math.floor(n / 16), b8 = bar % 8, s = n % 16, partB = bar >= 8;
+        const root = [40, 36, 38, 40, 45, 36, 38, 35][b8], third = [3, 4, 4, 3, 3, 4, 4, 4][b8]; // Em C D Em Am C D B
+        if (s === 0 || s === 8 || (s === 6 && bar % 2)) A.drum('kick', t, 0.9);
+        if (s === 4 || s === 12) A.drum('snare', t, 0.7);
+        if (s % 2 === 1) A.hit(t, 0.025, { type: 'highpass', f: 8000, vol: 0.035 });
+        if (b8 === 7 && s >= 12) A.drum('snare', t, 0.35 + (s - 12) * 0.1);
+        if (n === 0 || n === 128) A.drum('crash', t, 0.7);
+        // triangle bass in eighths, root and octave
+        if (s % 2 === 0) A.voice(root + (s % 4 ? 12 : 0), t, sp * 1.6, { type: 'triangle', vol: 0.12, r: 0.03 });
+        // chip arp: a new chord tone every 16th
+        const arp = [0, third, 7, 12];
+        A.voice(root + 36 + arp[s % 4] + (partB && s % 8 >= 4 ? 12 : 0) - 12, t, sp * 0.7, { type: 'square', vol: partB ? 0.016 : 0.009, lp: 3600, r: 0.02 });
+        // a space pad on each bar
+        if (s === 0) [12, 12 + third, 19].forEach(iv => A.voice(root + 24 + iv, t, sp * 15, { type: 'sine', vol: 0.02, a: 0.4, r: 0.4 }));
+        if (bar % 4 === 3 && s === 14) A.voice(84, t, sp * 1.5, { type: 'square', vol: 0.02, slide: 2, lp: 4000, r: 0.03 });
+        if (!partB) {
+          const MEL = [
+            [[0, 76, 2], [2, 79, 2], [4, 83, 4], [8, 81, 2], [10, 79, 2], [12, 78, 2], [14, 79, 2]],
+            [[0, 76, 6], [6, 72, 2], [8, 76, 2], [10, 79, 2], [12, 84, 4]],
+            [[0, 83, 2], [2, 81, 2], [4, 78, 4], [8, 74, 2], [10, 78, 2], [12, 81, 4]],
+            [[0, 79, 6], [6, 78, 2], [8, 76, 8]],
+            [[0, 81, 2], [2, 84, 2], [4, 88, 4], [8, 86, 2], [10, 84, 2], [12, 83, 2], [14, 81, 2]],
+            [[0, 79, 4], [4, 76, 2], [6, 79, 2], [8, 84, 4], [12, 83, 4]],
+            [[0, 81, 2], [2, 78, 2], [4, 74, 2], [6, 78, 2], [8, 81, 2], [10, 86, 2], [12, 84, 2], [14, 83, 2]],
+            [[0, 83, 8], [8, 78, 4], [12, 75, 4]],
+          ];
+          MEL[b8].forEach(([st, m, l]) => {
+            if (st === s) { A.voice(m, t, sp * l * 0.85, { type: 'square', vol: 0.03, lp: 3000, r: 0.05 }); A.voice(m - 12, t, sp * l * 0.85, { type: 'triangle', vol: 0.025, r: 0.05 }); }
+            if ((st + 3) % 16 === s && st + 3 < 16) A.voice(m, t, sp * Math.min(l, 2) * 0.7, { type: 'square', vol: 0.01, lp: 2200, r: 0.04 }); // echo
+          });
+        } else if (s === 0 || s === 8) {
+          const TH = [[76, 79], [76, 84], [81, 78], [79, 76], [81, 88], [79, 84], [81, 86], [83, 78]];
+          A.voice(TH[b8][s / 8], t, sp * 7, { type: 'sine', vol: 0.045, a: 0.08, r: 0.2, det: s ? 10 : -10 });
+        }
+      } },
     },
     music(name) {
       if (name === undefined) name = 'calm';
@@ -435,11 +473,13 @@
         const now = this.ctx.currentTime, sp = 60 / T.bpm / T.div;
         if (this._next < now - 0.1) this._next = now + 0.05; // came back from a pause: don't fire a backlog of notes
         while (this._next < now + 0.25) {
-          T.play(this, this._step % T.len, this._next, sp);
+          this._soft = !!T.soft; T.play(this, this._step % T.len, this._next, sp);
           this._next += sp; this._step++;
         }
       }, 60);
     },
   };
+  // the world map plays a quiet version of its world's duel track: 80 % tempo, a bit softer, no drums (soft: drum() and hit() do nothing)
+  ['battle', 'space', 'north', 'sea', 'garden', 'parade'].forEach(k => { const T = Audio.TRACKS[k]; Audio.TRACKS[k + 'Map'] = { bpm: Math.round(T.bpm * 0.8), div: T.div, len: T.len, gain: T.gain * 0.75, soft: true, play: T.play }; });
   window.PSAudio = Audio;
 })();
