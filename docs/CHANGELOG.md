@@ -4,6 +4,9 @@ What happened in Plush Squad, newest on top: game releases (what changed for the
 
 
 ## 2 Nov 2026
+**Game: v1.2.3 (hotfix)**
+- The title music starts on the first tap anywhere on the title screen. Before, it waited for PLAY or another button.
+
 **Game: v1.2.2**
 - Space has its own duel music: a retro chiptune (square lead with an echo, fast arps, a sine "theremin").
 - Each world map plays a quiet version of its world's duel tune (slower, no drums), so you hear the world before the first duel. Pillow Hills and Spooky use the classic duel tune for now.
