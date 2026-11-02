@@ -1,4 +1,4 @@
-// Music: lullaby in menus, 'battle' in normal duels, 'boss' with crowned rivals and the Kraken, silence for the result jingle.
+// Music: 'hop' main theme on the title, lullaby in other menus, 'battle' in normal duels, 'boss' with crowned rivals and the Kraken, silence for the result jingle.
 const { test, expect } = require('@playwright/test');
 const { boot, go, wait, waitTurn, noErrors } = require('./helpers');
 
@@ -14,7 +14,8 @@ test('music track follows the scene', async ({ page }) => {
   await page.evaluate(() => { const b = __game.scene.getScene('battle'); if (b._pick) b._pick(null); b.rival.hp = 0; b.finish(true); });
   await wait(page, 500); expect(await track()).toBe(null);
   await expect.poll(async () => { await wait(page, 500); return track(); }, { timeout: 90000 }).toBe('calm');
-  await go(page, 'title'); expect(await track()).toBe('calm');
+  await go(page, 'title'); expect(await track()).toBe('hop');
+  await go(page, 'map'); expect(await track()).toBe('calm');
   noErrors(page);
 });
 

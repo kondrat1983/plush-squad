@@ -147,7 +147,7 @@
     catchStar() { this.tone(1319 + Math.random() * 300, 0.18, { type: 'triangle', vol: 0.16 }); this.tone(1760, 0.2, { type: 'sine', vol: 0.08, delay: 0.05 }); },
     levelUp() { [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.2, delay: i * 0.09 })); },
 
-    // ---- music: procedural tracks (calm lullaby for menus, battle, boss, north for Canada, v1.0 sea and garden, lullaby while Sleepy Thully sleeps, v1.1 parade)
+    // ---- music: procedural tracks (hop main theme on the title, calm lullaby for other menus, battle, boss, north for Canada, v1.0 sea and garden, lullaby while Sleepy Thully sleeps, v1.1 parade)
     // music(name) picks the track (crossfade); startMusic() starts the scheduler after the first tap.
     _timer: null, _next: 0, _step: 0, _track: null, _want: 'calm', _bus: null,
     mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); },
@@ -184,6 +184,13 @@
       const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(300, at); f.frequency.linearRampToValueAtTime(1100, at + dur / 2); f.frequency.linearRampToValueAtTime(300, at + dur);
       const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(vol, at + dur / 2); g.gain.linearRampToValueAtTime(0.0001, at + dur);
       src.connect(f); f.connect(g); g.connect(bus); src.start(at); src.stop(at + dur + 0.05);
+    },
+    riser(at, dur, vol = 0.05) { // noise sweeping up before the drop (the hop track's break)
+      const c = this.ctx, bus = this._bus; if (!c || !bus) return;
+      const src = c.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+      const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(300, at); f.frequency.exponentialRampToValueAtTime(7000, at + dur);
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol, at + dur); g.gain.linearRampToValueAtTime(0.0001, at + dur + 0.05);
+      src.connect(f); f.connect(g); g.connect(bus); src.start(at); src.stop(at + dur + 0.1);
     },
     drum(kind, at, v = 1) {
       const c = this.ctx, bus = this._bus; if (!c || !bus) return;
@@ -362,6 +369,49 @@
         ];
         const m = s % 2 === 0 ? MEL[bar][s / 2] : 0;
         if (m) { A.voice(m + 12, t, 0.001, { type: 'sine', vol: 0.05, r: sp * 3 }); A.voice(m + 24, t, 0.001, { type: 'sine', vol: 0.012, r: sp * 1.5 }); }
+      } },
+      // v1.2.1 hop: a happy electro romp in the spirit of Castle Crashers (original tune), A major 140 bpm, 32 bars:
+      // intro (drums, rolling bass, arp) | lead x2 | break (pumping pad, bells, riser) | lead + octave + harmony | outro
+      hop: { bpm: 140, div: 4, len: 512, gain: 0.7, play(A, n, t, sp) {
+        const bar = Math.floor(n / 16), s = n % 16;
+        const brk = bar >= 12 && bar < 20, quiet = bar >= 12 && bar < 16, lead = (bar >= 4 && bar < 12) || (bar >= 20 && bar < 28);
+        const root = (brk ? [42, 38, 45, 40] : [45, 40, 42, 38])[bar % 4], third = root === 42 ? 3 : 4; // A E F#m D | break: F#m D A E
+        // drums: four on the floor, clap on 2 and 4, open hat on the off-beats, 16th hats; the first half of the break drops the kick
+        if (!quiet && s % 4 === 0) A.drum('kick', t, 1.1);
+        if (!quiet && (s === 4 || s === 12)) A.drum('snare', t, 0.9);
+        if (s % 4 === 2) A.drum('ohat', t, quiet ? 0.4 : 0.8); else if (s % 2 === 1 && bar >= 2) A.drum('hat', t, 0.5);
+        if (([3, 11, 27].includes(bar) && s >= 12) || (bar === 19 && s >= 8)) A.drum('snare', t, 0.4 + (s % 8) * 0.08);
+        if (s === 0 && [0, 4, 20, 28].includes(bar)) A.drum('crash', t, 0.9);
+        if (bar === 18 && s === 0) A.riser(t, sp * 32, 0.06);
+        // rolling off-beat bass; a soft sub instead while the kick is out
+        if (!quiet) { if (s % 4 >= 2) A.voice(root + 12, t, sp * 0.8, { type: 'sawtooth', vol: 0.06, lp: 900, env: 2.2, envT: 0.06, r: 0.03 }); }
+        else if (s === 0) A.voice(root, t, sp * 15, { type: 'sine', vol: 0.1, a: 0.05, r: 0.2 });
+        // pumping pad: the chord swells in after every beat (side-chain feel)
+        if (s % 4 === 0) [12, 12 + third, 19].forEach(iv => [-7, 7].forEach(d => A.voice(root + 24 + iv, t, sp * 3.2, { type: 'sawtooth', vol: brk ? 0.012 : 0.008, a: sp * 1.8, lp: 2400, r: 0.04, det: d })));
+        // 16th pluck arp, softer under the lead
+        const arp = [0, 7, 12, 12 + third, 19, 12 + third, 12, 7];
+        A.voice(root + 24 + arp[s % 8], t, sp * 0.6, { type: 'square', vol: lead ? 0.007 : 0.014, lp: 3200, env: 2, envT: 0.05, r: 0.04 });
+        // break: bells on the chord tones
+        if (brk && (s === 0 || s === 6 || s === 12)) A.voice(root + 24 + [12 + third, 19, 12][s / 6], t, 0.001, { type: 'sine', vol: 0.045, r: sp * 3 });
+        if (!lead) return;
+        const MEL = [
+          [[0, 76, 2], [2, 81, 2], [4, 80, 1], [5, 81, 1], [6, 76, 2], [8, 73, 2], [10, 76, 2], [12, 78, 3], [15, 76, 1]],
+          [[0, 76, 2], [2, 80, 2], [4, 83, 2], [6, 80, 2], [8, 76, 4], [12, 71, 2], [14, 73, 2]],
+          [[0, 73, 2], [2, 78, 2], [4, 81, 1], [5, 80, 1], [6, 78, 2], [8, 73, 2], [10, 78, 2], [12, 81, 2], [14, 83, 2]],
+          [[0, 85, 4], [4, 83, 2], [6, 81, 2], [8, 78, 4], [12, 80, 2], [14, 81, 2]],
+          [[0, 76, 2], [2, 81, 2], [4, 80, 1], [5, 81, 1], [6, 76, 2], [8, 73, 2], [10, 76, 2], [12, 78, 3], [15, 76, 1]],
+          [[0, 76, 2], [2, 80, 2], [4, 83, 2], [6, 80, 2], [8, 76, 4], [12, 71, 2], [14, 73, 2]],
+          [[0, 73, 2], [2, 78, 2], [4, 81, 2], [6, 85, 2], [8, 88, 4], [12, 85, 2], [14, 83, 2]],
+          [[0, 81, 4], [4, 78, 2], [6, 81, 2], [8, 80, 2], [10, 78, 2], [12, 76, 4]],
+        ];
+        const second = bar >= 20, SCALE = [9, 11, 1, 2, 4, 6, 8]; // A major pitch classes, for the harmony a third below
+        MEL[(bar - (second ? 20 : 4)) % 8].forEach(([st, m, l]) => {
+          if (st !== s) return;
+          const d = sp * l * 0.8;
+          [-12, 0, 12].forEach(det => A.voice(m, t, d, { type: 'sawtooth', vol: 0.016, lp: 3400, env: 1.5, envT: 0.1, r: 0.08, det }));
+          A.voice(m + 12, t, d, { type: 'square', vol: second ? 0.012 : 0.006, lp: 4000, r: 0.06 });
+          if (second) { const h = SCALE.includes((m - 3) % 12) ? m - 3 : m - 4; A.voice(h, t, d, { type: 'sawtooth', vol: 0.011, lp: 2800, r: 0.08, det: 5 }); }
+        });
       } },
     },
     music(name) {

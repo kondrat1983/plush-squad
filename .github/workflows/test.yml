@@ -6,12 +6,12 @@ on:
 jobs:
   browser-tests:
     runs-on: ubuntu-24.04 # Playwright 1.56 has no browsers for ubuntu-latest (26.04)
-    timeout-minutes: 60
-    # v0.9 has ~130 browser tests; 5 parallel shards keep each job well under the time limit
+    timeout-minutes: 90
+    # v1.2 has ~200 browser tests; 8 parallel shards keep each job under the time limit (5 shards hit 60 min on main since v1.2.0)
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,7 +19,7 @@ jobs:
           node-version: 22
       - run: npm install --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test --shard=${{ matrix.shard }}/5
+      - run: npx playwright test --shard=${{ matrix.shard }}/8
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
