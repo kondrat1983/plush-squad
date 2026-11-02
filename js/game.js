@@ -5215,7 +5215,7 @@
     sc.events.on('start', () => { safeCam(sc); sc._psFades = []; });
     sc.events.on('create', () => { safeCam(sc); if (sc.scene.key !== 'boot') A.music(sc.scene.key === 'title' ? 'hop' : sc.scene.key === 'map' && sc.world != null ? (WORLD_TRACK[sc.world] || 'battle') + 'Map' : sc.scene.key !== 'battle' || sc.over ? 'calm' : sc.track ? sc.track() : 'battle'); emit('scene', { key: sc.scene.key }, sc); if (window.__psRotatePending && sc.scene.key !== 'boot') sc.time.delayedCall(100, () => window.__psTryRebuild && window.__psTryRebuild()); [700, 2200].forEach(t => sc.time.delayedCall(t, () => tintPage(game))); });
   }));
-  window.__psJudgeSave = judgeSave; window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
+  window.__psJudgeSave = judgeSave; window.__game = game; window.__save = Save; window.__RIVALS = RIVALS; window.__WORLD_TRACK = WORLD_TRACK; window.__IDB = IDB; window.__BOOSTS = BOOSTS;
   if (DEBUG) {
     // v1.0 test handles (headless tests run at 2-3 fps): a Compass Spin now or at the next turn, fill Thully's Wake-o-meter
     const bt = () => game.scene.getScene('battle');

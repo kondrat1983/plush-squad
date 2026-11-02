@@ -90,3 +90,12 @@ test('map versions are soft copies of the duel tracks', async ({ page }) => {
   expect(r.notes).toBeGreaterThan(100);
   noErrors(page);
 });
+
+// QA B79: every world has its duel track and a map version (worlds 2..6 are not opened in the scene test above)
+test('B79: every world maps to an existing duel track and map track', async ({ page }) => {
+  await boot(page);
+  const r = await page.evaluate(() => __WORLD_TRACK.map(k => [k, !!PSAudio.TRACKS[k], !!PSAudio.TRACKS[k + 'Map']]));
+  expect(r.map(x => x[0])).toEqual(['battle', 'space', 'north', 'sea', 'garden', 'parade', 'battle']); // hills, space, canada, ocean, veggie, countryballs, spooky
+  for (const [k, duel, map] of r) expect([k, duel, map]).toEqual([k, true, true]);
+  noErrors(page);
+});
