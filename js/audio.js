@@ -370,7 +370,7 @@
         const m = s % 2 === 0 ? MEL[bar][s / 2] : 0;
         if (m) { A.voice(m + 12, t, 0.001, { type: 'sine', vol: 0.05, r: sp * 3 }); A.voice(m + 24, t, 0.001, { type: 'sine', vol: 0.012, r: sp * 1.5 }); }
       } },
-      // v1.3 hop: a happy electro romp in the spirit of Castle Crashers (original tune), A major 140 bpm, 32 bars:
+      // v1.2.1 hop: a happy electro romp in the spirit of Castle Crashers (original tune), A major 140 bpm, 32 bars:
       // intro (drums, rolling bass, arp) | lead x2 | break (pumping pad, bells, riser) | lead + octave + harmony | outro
       hop: { bpm: 140, div: 4, len: 512, gain: 0.7, play(A, n, t, sp) {
         const bar = Math.floor(n / 16), s = n % 16;
