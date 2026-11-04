@@ -1465,7 +1465,9 @@
       c.add([g, im]);
       if (r.boss && !r.ownCrown) c.add(this.add.image(0, -R - 10, 'crown').setScale(0.42));
       if (!open) { im.setTint(0x000000).setAlpha(0.75); c.add(this.add.image(0, 10, 'lock').setScale(0.42)); }
-      c.add(fit(txt(this, 0, R + 46, open ? r.name : '???', 38, open ? '#fff3d2' : '#8a8fd6', { st: 7 }), this.labelW || 420));
+      const lbl = fit(txt(this, 0, R + 46, open ? r.name : '???', 38, open ? '#fff3d2' : '#8a8fd6', { st: 7 }), this.labelW || 420); c.add(lbl);
+      const half = lbl.displayWidth / 2, pad = 24; // a long name next to the screen edge moves inwards (QA B84)
+      if (c.x - half < pad) lbl.x = pad + half - c.x; else if (c.x + half > W - pad) lbl.x = W - pad - half - c.x;
       if (open) c.add(starRow(this, 0, R + 104, stars, 64, 70));
       if (current && open) {
         this.tweens.add({ targets: c, scale: 1.07 * ns, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -2840,13 +2842,15 @@
       if (!calm()) this.time.addEvent({ delay: 4000, loop: true, callback: () => { if (this.heart && this.heart.state === 'closed' && this.chest.active) this.tweens.add({ targets: this.chest, angle: { from: -6, to: 6 }, duration: 80, yoyo: true, repeat: 3, onComplete: () => this.chest.setAngle(0) }); } });
       this.heartImg = null; if (this.heart.state === 'up') this.showHeart(true);
       // the score chip under the VS badge
-      this.scoreT = this.add.text(W / 2, (this.hy || 150) + (PORTRAIT ? 120 : 110), '', { fontFamily: PX_FONT, fontSize: PORTRAIT ? 30 : 28, color: '#ffffff', stroke: '#101830', strokeThickness: 8 }).setOrigin(0.5).setDepth(30);
+      this.scoreT = this.add.text(W / 2, (this.hy || 150) + (PORTRAIT ? 120 : this.diffChip ? 160 : 110), '', // landscape: below the EASY / HARD chip { fontFamily: PX_FONT, fontSize: PORTRAIT ? 30 : 28, color: '#ffffff', stroke: '#101830', strokeThickness: 8 }).setOrigin(0.5).setDepth(30);
       this.pxScore();
       // the 1-UP button sits where BLOCK IT! goes
-      const b = this.oneBtn = button(this, W / 2, this.bby, 400, 130, '1-UP!', 0xff5050, () => this.playerOneUp(), { size: 50, color: '#fff3d2' }).setDepth(35).setVisible(false);
+      const oy = this.oneY = Math.max(this.bby, this.scoreT.y + 120); // under the SCORE chip and the VS badge (QA B80)
+      const b = this.oneBtn = button(this, W / 2, oy, 400, 130, '1-UP!', 0xff5050, () => this.playerOneUp(), { size: 50, color: '#fff3d2' }).setDepth(35).setVisible(false);
       fit(b.list[1], 240); b.list[1].x = 50;
       b.icon = img(this, -130, -10, 'heart8').setScale(iconScale('heart8', 100)); b.add(b.icon);
       this.tweens.add({ targets: b, scale: 1.05, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      this.heartBtnSync(); // after a rotation with the heart up, the button comes back (QA B82)
     }
     pxScore() { if (this.scoreT && this.scoreT.active) this.scoreT.setText('SCORE ' + String(this.pxPoints(false)).padStart(6, '0')); }
     pxPoints(won) { return (this.pxDmg || 0) * 10 + (this.oneups || 0) * 1000 + (won ? Math.max(0, this.hero.hp) * 10 + (this.R.boss && !this.contRevived ? 2000 : 0) : 0); }
@@ -2938,7 +2942,8 @@
       const T = this.rival, st = Save.data.stats || (Save.data.stats = {});
       const big = (t, y, size, col) => this.add.text(W / 2, y, t, { fontFamily: PX_FONT, fontSize: size, color: col, stroke: '#101830', strokeThickness: 12 }).setOrigin(0.5).setDepth(50);
       A.gameover && A.gameover();
-      const go = big('GAME OVER', H * 0.3, PORTRAIT ? 76 : 70, '#ff5050');
+      const ty = Math.max(H * 0.3, (this.scoreT ? this.scoreT.y : 0) + 90), ny = ty + (PORTRAIT ? 110 : 96), by = Math.max(this.bby, ny + 150); // title, number, buttons top-down (QA B81)
+      const go = big('GAME OVER', ty, PORTRAIT ? 76 : 70, '#ff5050');
       this.tweens.add({ targets: T.spr, alpha: 0.3, duration: 120, yoyo: true, repeat: 3 });
       await wait(this, 900);
       if (this.easy) {
@@ -2946,15 +2951,15 @@
         go.destroy(); this.contOpen = false; this.finish(true); return;
       }
       go.setText('CONTINUE?');
-      const num = big('9', H * 0.3 + (PORTRAIT ? 110 : 100), PORTRAIT ? 110 : 96, '#ffffff');
+      const num = big('9', ny, PORTRAIT ? 110 : 96, '#ffd23f'); // gold with a dark edge: readable over the pixel sun (QA B83)
       const kinds = this.hard ? Phaser.Utils.Array.Shuffle(['yes', 'maybe', 'no']) : ['no'];
       const btns = kinds.map((k, i) => {
         const x = kinds.length === 1 ? W / 2 : W / 2 + (i - 1) * (PORTRAIT ? 330 : 300), lbl = { yes: 'YES!', maybe: 'MAYBE?', no: 'NO!' }[k];
-        const b = button(this, x, this.bby, kinds.length === 1 ? 400 : (PORTRAIT ? 300 : 280), 130, lbl, k === 'no' ? 0x58d854 : k === 'yes' ? 0xff5050 : 0xbcbcbc, () => pick(k), { size: 50, color: '#fff3d2' }).setDepth(51);
+        const b = button(this, x, by, kinds.length === 1 ? 400 : (PORTRAIT ? 300 : 280), 130, lbl, k === 'no' ? 0x58d854 : k === 'yes' ? 0xff5050 : 0xbcbcbc, () => pick(k), { size: 50, color: '#fff3d2' }).setDepth(51);
         return b;
       });
-      const hand = !st.contSeen ? img(this, btns[kinds.indexOf('no')].x, this.bby - 150, 'hand').setScale(iconScale('hand', 110)).setDepth(52) : null;
-      if (hand) this.tweens.add({ targets: hand, y: this.bby - 120, duration: 450, yoyo: true, repeat: -1 });
+      const hand = !st.contSeen ? img(this, btns[kinds.indexOf('no')].x, by + 150, 'hand').setScale(iconScale('hand', 110)).setAngle(180).setDepth(52) : null;
+      if (hand) this.tweens.add({ targets: hand, y: by + 120, duration: 450, yoyo: true, repeat: -1 });
       st.contSeen = 1;
       let left = 9, done = false;
       const close = () => { done = true; ev.remove(false); [go, num, hand].concat(btns).forEach(o => o && o.destroy()); this.contOpen = false; };
