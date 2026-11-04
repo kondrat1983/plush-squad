@@ -9,6 +9,8 @@
   - [World pitch](gdd/0.8-world-pitch.md)
   - [Canada](gdd/0.8-canada.md)
   - [Space rework](gdd/0.8-space-rework.md)
+- v1.x
+  - [Pixel Land (v1.3)](gdd/1.3-pixel-land.md)
 - QA reports
   - [v0.7.8](qa/Plush_Squad_v0.7.8_QA_Report.md)
   - [v0.7.6](qa/Plush_Squad_v0.7.6_QA_Report.md)

@@ -3,6 +3,12 @@
 What happened in Plush Squad, newest on top: game releases (what changed for the player), owner decisions, new or changed docs. Details: [decisions](gdd/decisions.md), [GitHub issues](https://github.com/kondrat1983/plush-squad/issues?q=is%3Aissue).
 
 
+## 4 Nov 2026
+**Docs and decisions**
+- New design doc `gdd/1.3-pixel-land.md`: PIXEL LAND, the 8-bit world for v1.3 (rivals Sir Leafy, Bolty, Bibi, Pipo, boss 8-Bit Jack, the 1-UP heart, the automatic 8-bit look for Jack and your toys, a chiptune track). The winter Snow Fort moves to v1.4.
+- Owner answers for Pixel Land: the boss is the Pixel Dragon (not 8-Bit Jack), the 8-Bit Cap is its hat, Jack gets hand-made pixel sprites with frames, the automatic pixel filter is only for photo toys, Press Start 2P font for Pixel Land texts.
+- Decisions: [decisions](gdd/decisions.md) and [ideas](gdd/ideas.md) have the new rows.
+
 ## 2 Nov 2026
 **Game: v1.2.3 (hotfix)**
 - The title music starts on the first tap anywhere on the title screen. Before, it waited for PLAY or another button.
