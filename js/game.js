@@ -264,7 +264,7 @@
     try {
       if (window.__psPixFail) throw new Error('test');
       const t0 = performance.now(), src = scene.textures.get(key).getSourceImage();
-      const h = 68, w = Math.max(8, Math.min(120, Math.round(src.width * h / src.height)));
+      const s0 = Math.min(68 / src.height, 120 / src.width), h = Math.max(8, Math.round(src.height * s0)), w = Math.max(8, Math.round(src.width * s0)); // 68 px tall, 120 wide at most
       const c = document.createElement('canvas'); c.width = w + 2; c.height = h + 2;
       const x = c.getContext('2d'); x.drawImage(src, 1, 1, w, h);
       const im = x.getImageData(0, 0, w + 2, h + 2), d = im.data, n = d.length / 4, on = [];
@@ -343,7 +343,7 @@
     const sp = world === SPACE, spook = world === SPOOKY, can = world === CANADA;
     scene.add.image(BLEED.cx, BLEED.cy, SKY[world] || 'sky').setDisplaySize(GW, GH);
     const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(world === PIXEL ? 0 : 0.55);
-    scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    if (world !== PIXEL) scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' }); // no glow in the flat pixel sky
     const few = world === OCEAN || world === VEGGIE ? 0.6 : world === BALLS ? 0.35 : world === PIXEL ? 0 : 1; // foggy sea, moonlit garden, dusk picnic: fewer stars
     for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : few); i++) {
       const s = scene.add.image(Math.random() * W, Math.random() * H * (sp ? 0.75 : 0.62), 'dot')
@@ -572,6 +572,7 @@
         'england', 'spain', 'japan', 'usa', 'poland', 'teacup', 'bull', 'paella', 'sushi', 'burger', 'globe']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
       PX_KEYS.forEach(k => this.load.image(k, 'assets/px/' + k + '.png')); // v1.3 Pixel Land
+      if (document.fonts && document.fonts.load) document.fonts.load('40px "Press Start 2P"').catch(() => {}); // ready before the first Pixel Land text
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
       this.load.atlas('icons2', 'assets/icons2.webp', 'assets/icons2.json');
       this.load.atlas('icons3', 'assets/icons3.webp', 'assets/icons3.json'); // v1.2 emoji (Fluent Emoji 3D, MIT)
@@ -2273,7 +2274,7 @@
       return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '', acted: !!this.acted,
         spin: this.spin ? Object.assign({}, this.spin, { order: this.spin.order.slice() }) : null, hidden: this.hidden ? Object.assign({}, this.hidden) : null,
         copy: this.copy ? { k: this.copy.k, mini: !!this.copy.mini } : null, emoLog: (this.emoLog || []).slice(),
-        heart: this.heart ? Object.assign({}, this.heart) : null, contUsed: !!this.contUsed, pxDmg: this.pxDmg || 0, oneups: this.oneups || 0 };
+        heart: this.heart ? Object.assign({}, this.heart) : null, contUsed: !!this.contUsed, contRevived: !!this.contRevived, pxDmg: this.pxDmg || 0, oneups: this.oneups || 0 };
     }
     // ---- v1.2 emoji chat (docs/gdd/1.2-emoji-chat.md): a smiley button, a tray of 16 pictures, speech bubbles, the rival answers.
     // It never costs the turn, never changes pep, and is only decoration plus a short list (emoLog) for the friend mail.
@@ -2454,7 +2455,7 @@
     addHat(f) {
       const c = COSTUMES.find(x => x.id === Save.data.costume);
       if (!c || !c.tex || !this.textures.exists(c.tex)) return;
-      const w = f.spr.displayWidth, h = f.spr.displayHeight, jack = f.key === 'jack_side';
+      const w = f.spr.displayWidth, h = f.spr.displayHeight, jack = f.key === 'jack_side' || f.key === 'jack_px_idle1'; // pixel Jack faces right like jack_side
       const hat = hatImage(this, jack ? w * 0.2 : 0, -h * (jack ? 0.9 : 0.96), c).setOrigin(0.5, 0.85);
       hat.setScale(w * c.w / hat.width * (jack ? 0.8 : 1)).setAngle(jack ? 14 : -6);
       f.squash.add(hat); f.hat = hat;
@@ -2830,12 +2831,12 @@
     // ---- v1.3 Pixel Land extras (docs/gdd/1.3-pixel-land.md 4, 4b): the 1-UP chest, the score, CONTINUE? on the boss
     pxInit(res) {
       const P = this.hero, T = this.rival;
-      this.pxDmg = res ? res.pxDmg || 0 : 0; this.oneups = res ? res.oneups || 0 : 0; this.contUsed = !!(res && res.contUsed);
+      this.pxDmg = res ? res.pxDmg || 0 : 0; this.oneups = res ? res.oneups || 0 : 0; this.contUsed = !!(res && res.contUsed); this.contRevived = !!(res && res.contRevived);
+      if (this.contRevived) this.contChip = chip(this, W * 0.73, (this.hy || 150) + (PORTRAIT ? 70 : 76), 'x1', 0xffd23f, 26).setDepth(30);
       this.heart = res && res.heart ? res.heart : { at: rnd(3, 4), side: Math.random() < 0.5 ? 'p' : 'r', state: 'closed', n: { p: 0, r: 0 }, next: null, left: 0 };
       if (DEBUG && window.__psHeart) { this.heart.at = 1; this.heart.side = window.__psHeart === 'rival' ? 'p' : 'r'; } // 'player': you choose first
       this.chest = img(this, W / 2, this.groundY + 6, this.heart.state === 'closed' ? 'chest' : 'chestopen').setOrigin(0.5, 1).setDepth(9);
       this.chest.setScale(iconScale('chest', PORTRAIT ? 150 : 130));
-      this.chest.setVisible(this.heart.state !== 'gone' || true);
       if (!calm()) this.time.addEvent({ delay: 4000, loop: true, callback: () => { if (this.heart && this.heart.state === 'closed' && this.chest.active) this.tweens.add({ targets: this.chest, angle: { from: -6, to: 6 }, duration: 80, yoyo: true, repeat: 3, onComplete: () => this.chest.setAngle(0) }); } });
       this.heartImg = null; if (this.heart.state === 'up') this.showHeart(true);
       // the score chip under the VS badge
