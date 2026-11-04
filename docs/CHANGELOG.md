@@ -4,6 +4,12 @@ What happened in Plush Squad, newest on top: game releases (what changed for the
 
 
 ## 4 Nov 2026
+**Game: v1.3.0**
+- New world PIXEL LAND (map tab PIXEL), after Countryballs: Sir Leafy, Bolty, Bibi, Pipo the Plumber and boss the Pixel Dragon. Everyone turns 8-bit there: Jack has hand-made pixel frames, your photo toys get an automatic 8-bit look (the saved picture never changes), a NOW LOADING screen, a pixel sky, bricks and a castle.
+- 1-UP: a chest opens and a heart pops out; whoever takes it first heals (it costs the turn). SCORE and HI-SCORE in Pixel Land duels.
+- The Pixel Dragon asks CONTINUE? after his first KO: tap NO! in time, or he comes back once with a little pep. Win the 8-Bit Cap.
+- A chiptune for Pixel Land (pulse waves like the old consoles) and a quiet map version, comic "Press Start", 3 stickers, 6 quests, a postcard. Spooky is now world 7 (old saves are moved).
+
 **Docs and decisions**
 - New design doc `gdd/1.3-pixel-land.md`: PIXEL LAND, the 8-bit world for v1.3 (rivals Sir Leafy, Bolty, Bibi, Pipo, boss 8-Bit Jack, the 1-UP heart, the automatic 8-bit look for Jack and your toys, a chiptune track). The winter Snow Fort moves to v1.4.
 - Owner answers for Pixel Land: the boss is the Pixel Dragon (not 8-Bit Jack), the 8-Bit Cap is its hat, Jack gets hand-made pixel sprites with frames, the automatic pixel filter is only for photo toys, Press Start 2P font for Pixel Land texts.
