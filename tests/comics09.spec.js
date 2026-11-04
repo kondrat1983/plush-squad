@@ -2,8 +2,8 @@
 const { test, expect } = require('@playwright/test');
 const { BASE_SAVE, boot, go, wait, fast, offscreen, noErrors } = require('./helpers');
 
-const IDS = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'spooky']; // v1.0: Ocean and Veggie Patch; v1.1: Countryballs
-const TITLES = { hills: 'PILLOW HILLS!', space: 'SPACE!', canada: 'CANADA!', ocean: 'OCEAN!', veggie: 'VEGGIE PATCH!', countryballs: 'COUNTRYBALLS!', spooky: 'SPOOKY!' };
+const IDS = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'pixel', 'spooky']; // v1.0: Ocean and Veggie Patch; v1.1: Countryballs; v1.3: Pixel Land
+const TITLES = { hills: 'PILLOW HILLS!', space: 'SPACE!', canada: 'CANADA!', ocean: 'OCEAN!', veggie: 'VEGGIE PATCH!', countryballs: 'COUNTRYBALLS!', pixel: 'PIXEL LAND!', spooky: 'SPOOKY!' };
 const COVERS = ['Pillows at Dawn', 'Beam Me Up... Oops', 'Welcome to Canada!', 'Foggy Business', 'Who Planted Jack?', 'The Great Round Picnic', 'Hats for Everyone'];
 const OPEN = { timmy: 3, moo: 3, sly: 3, hoot: 3, robot: 3, polandball: 3, ghost: 3, dragonboss: 1, moose: 1, beaver: 1, bear: 1, sasquatch: 1 };
 const save = extra => Object.assign({}, BASE_SAVE, extra);

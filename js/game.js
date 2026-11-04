@@ -77,7 +77,7 @@
     } catch (e) {}
   }
   const DEBUG = /[?&]debug/.test(location.search);
-  const VERSION = '1.2.3';
+  const VERSION = '1.3.0';
   const A = window.PSAudio;
   const FONT = 'Poppins, "Arial Rounded MT Bold", Arial, sans-serif';
   const C = { night: 0x1d2163, night2: 0x272c7c, night3: 0x343a96, seam: 0x6a72d6, star: 0xffd23f, cream: 0xfff3d2, coral: 0xff6b5b, mint: 0x7fd6c2, orange: 0xff8a3d, ink: '#1d2163' };
@@ -135,6 +135,12 @@
     if (!d.mig11) {
       if (d.lastWorld === 5) d.lastWorld = 6;
       d.mig11 = 1;
+    }
+    // once, for saves from before v1.3 (Pixel Land is world 6, Spooky moves from 6 to 7; hi-scores of Pixel Land duels)
+    if (!d.mig12) {
+      if (d.lastWorld === 6) d.lastWorld = 7;
+      if (!d.hi || typeof d.hi !== 'object') d.hi = {};
+      d.mig12 = 1;
     }
   };
   Save.migrate(Save.data);
@@ -250,6 +256,44 @@
     set(k, v) { return this.req('readwrite', s => s.put(v, k)); },
     del(k) { return this.req('readwrite', s => s.delete(k)); },
   };
+  // v1.3 Pixel Land: an 8-bit copy of a toy picture (docs/gdd/1.3-pixel-land.md 4c). Reads the texture, writes only 'px:<key>':
+  // average down to 68 px tall, 12 colours (k-means), hard alpha, a 1 px dark outline, 4x nearest. Never touches IDB or the save.
+  function pixelize(scene, key) {
+    const pk = 'px:' + key;
+    if (scene.textures.exists(pk)) return pk;
+    try {
+      if (window.__psPixFail) throw new Error('test');
+      const t0 = performance.now(), src = scene.textures.get(key).getSourceImage();
+      const h = 68, w = Math.max(8, Math.min(120, Math.round(src.width * h / src.height)));
+      const c = document.createElement('canvas'); c.width = w + 2; c.height = h + 2;
+      const x = c.getContext('2d'); x.drawImage(src, 1, 1, w, h);
+      const im = x.getImageData(0, 0, w + 2, h + 2), d = im.data, n = d.length / 4, on = [];
+      for (let i = 0; i < n; i++) { if (d[i * 4 + 3] >= 128) { d[i * 4 + 3] = 255; on.push(i); } else d[i * 4 + 3] = 0; }
+      const K = Math.min(12, on.length), cen = [];
+      for (let k = 0; k < K; k++) { const i = on[Math.floor((k + 0.5) * on.length / K)] * 4; cen.push([d[i], d[i + 1], d[i + 2]]); }
+      const lab = new Int8Array(n);
+      for (let it = 0; it < 6; it++) {
+        const sum = cen.map(() => [0, 0, 0, 0]);
+        on.forEach(i => { let b = 0, bd = 1e9; for (let k = 0; k < K; k++) { const q = cen[k], dr = d[i * 4] - q[0], dg = d[i * 4 + 1] - q[1], db = d[i * 4 + 2] - q[2], e = dr * dr + dg * dg + db * db; if (e < bd) { bd = e; b = k; } }
+          lab[i] = b; const S = sum[b]; S[0] += d[i * 4]; S[1] += d[i * 4 + 1]; S[2] += d[i * 4 + 2]; S[3]++; });
+        sum.forEach((S, k) => { if (S[3]) cen[k] = [S[0] / S[3], S[1] / S[3], S[2] / S[3]]; });
+      }
+      // a little more saturation and contrast, so the toy reads as 8-bit, not as a blurry photo
+      const pop = ([r, g, b]) => { const m = (r + g + b) / 3; return [r, g, b].map(v => Math.max(0, Math.min(255, Math.round((m + (v - m) * 1.25 - 128) * 1.08 + 128)))); };
+      const pal = cen.map(pop);
+      on.forEach(i => { const q = pal[lab[i]]; d[i * 4] = q[0]; d[i * 4 + 1] = q[1]; d[i * 4 + 2] = q[2]; });
+      const W2 = w + 2, solid = i => d[i * 4 + 3] === 255;
+      const edge = [];
+      for (let i = 0; i < n; i++) if (!solid(i)) { const xx = i % W2; if ((xx > 0 && solid(i - 1)) || (xx < W2 - 1 && solid(i + 1)) || (i >= W2 && solid(i - W2)) || (i + W2 < n && solid(i + W2))) edge.push(i); }
+      edge.forEach(i => { d[i * 4] = 16; d[i * 4 + 1] = 24; d[i * 4 + 2] = 48; d[i * 4 + 3] = 255; });
+      x.putImageData(im, 0, 0);
+      const T = scene.textures.createCanvas(pk, W2 * 4, (h + 2) * 4), tx = T.getContext();
+      tx.imageSmoothingEnabled = false; tx.drawImage(c, 0, 0, W2 * 4, (h + 2) * 4); T.refresh();
+      T.setFilter(Phaser.Textures.FilterMode.NEAREST);
+      window.__psPixMs = Math.round(performance.now() - t0);
+      return pk;
+    } catch (e) { return key; } // the duel runs with the normal picture
+  }
   function addTexture(scene, key, url) {
     return new Promise((res) => {
       if (scene.textures.exists(key)) scene.textures.remove(key);
@@ -270,10 +314,12 @@
   function iconScale(key, size) { // scale so the icon is ~size px
     if (!key) return 1;
     if (key.startsWith('i:') || key.startsWith('j:') || key.startsWith('e:')) return size / 144;
-    const base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, crab: 242, blowfish: 242, jellyfish: 240, compass: 242, ship: 242, bubbles: 242, thully: 380, fogcap: 250, nightcap: 230, hand: 242,
+    let base = { moose: 240, beaver: 242, bear: 242, sasquatch: 380, mapleleaf: 238, pine: 201, pancakes: 238, hockey: 238, glove: 238, toque: 230, crab: 242, blowfish: 242, jellyfish: 240, compass: 242, ship: 242, bubbles: 242, thully: 380, fogcap: 250, nightcap: 230, hand: 242,
       onion: 223, peapod: 243, garlic: 218, mushroom: 211, broccoli: 240, worm: 241, cheese: 238, bread: 242, sunflower: 242, brocklee: 380, mound: 200,
-      england: 300, spain: 300, japan: 300, usa: 300, poland: 400, teacup: 242, bull: 242, paella: 242, sushi: 242, burger: 242, globe: 242, balloon: 240, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key] || 220;
-    return size / base;
+      england: 300, spain: 300, japan: 300, usa: 300, poland: 400, teacup: 242, bull: 242, paella: 242, sushi: 242, burger: 242, globe: 242, balloon: 240, snowball: 120, puck: 100, polandball: 486, aliens: 385, mothership: 318, umbrella: 237, kraken: 235, pumpkin: 236, bat: 236, spider: 236, vampire: 235, candy: 235, lollipop: 236, web: 234, tophat: 234, witchhat: 230, gift: 234, robot: 242, ghost: 243, dragonboss: 285, owl: 299, tiger: 241, cow: 242, snake: 242, heart: 224, moon: 211, comet: 200, extinguisher: 224, rocket: 224, planet: 190, ufo: 224, pillow: 216, books: 224, snow: 214, zzz: 223, sparkles: 223, star: 224, dizzy: 224, dance: 223, shield: 179, note: 230, dumpling: 223, milk: 188, cloud: 224, feather: 120, dot: 64, spark: 80 }[key];
+    if (!base && key.startsWith('jack_px_')) base = 176;
+    if (!base && PX_KEYS.includes(key)) base = { leafy: 232, bolty: 160, bibi: 160, pipo: 160, pixeldragon: 240, chest: 96, chestopen: 96, heart8: 52, bitcap: 92, castle: 100, sun: 64 }[key.split('_')[0]];
+    return size / (base || 220);
   }
 
   // ---------- shared scenery
@@ -281,18 +327,24 @@
   const CANADA = 2; // v0.8
   const OCEAN = 3, VEGGIE = 4; // v1.0 (docs/gdd/1.0-ocean.md, 1.0-veggie.md)
   const BALLS = 5; // v1.1 Countryballs (docs/gdd/1.1-countryballs.md)
-  const SPOOKY = 6; // the October event (3 before v1.0, 5 in v1.0; see mig10, mig11)
+  const PIXEL = 6; // v1.3 Pixel Land (docs/gdd/1.3-pixel-land.md)
+  const SPOOKY = 7; // the October event (3 before v1.0, 5 in v1.0, 6 in v1.1; see mig10, mig11, mig12)
   // duel music per world (js/audio.js); the world map plays the quiet version (name + 'Map': slower, no drums)
-  const WORLD_TRACK = ['battle', 'space', 'north', 'sea', 'garden', 'parade', 'battle'];
-  const GROUND = { [SPACE]: 'ground2', [CANADA]: 'ground4', [OCEAN]: 'ground5', [VEGGIE]: 'ground6', [BALLS]: 'ground7', [SPOOKY]: 'ground3' };
-  const SKY = { [SPACE]: 'sky2', [CANADA]: 'sky4', [OCEAN]: 'sky5', [VEGGIE]: 'sky6', [BALLS]: 'sky7', [SPOOKY]: 'sky3' };
+  const WORLD_TRACK = ['battle', 'space', 'north', 'sea', 'garden', 'parade', 'pixel', 'battle'];
+  const GROUND = { [SPACE]: 'ground2', [CANADA]: 'ground4', [OCEAN]: 'ground5', [VEGGIE]: 'ground6', [BALLS]: 'ground7', [PIXEL]: 'ground8', [SPOOKY]: 'ground3' };
+  const SKY = { [SPACE]: 'sky2', [CANADA]: 'sky4', [OCEAN]: 'sky5', [VEGGIE]: 'sky6', [BALLS]: 'sky7', [PIXEL]: 'sky8', [SPOOKY]: 'sky3' };
+  // v1.3 Pixel Land sprites (assets/px, 4x, drawn with nearest-neighbour): Jack's and the rivals' battle frames, props
+  const PX_FRAMES = ['jack_px', 'leafy', 'bolty', 'bibi', 'pipo', 'pixeldragon'];
+  const PX_KEYS = PX_FRAMES.flatMap(k => ['idle1', 'idle2', 'attack', 'hit'].concat(k === 'jack_px' ? ['nap', 'front'] : []).map(f => k + '_' + f))
+    .concat(['chest', 'chestopen', 'heart8', 'bitcap', 'castle', 'sun']);
+  const PX_FONT = '"Press Start 2P", ' + 'Poppins, sans-serif';
   const groundKey = w => GROUND[w] || 'ground';
   function sky(scene, world = 0) {
     const sp = world === SPACE, spook = world === SPOOKY, can = world === CANADA;
     scene.add.image(BLEED.cx, BLEED.cy, SKY[world] || 'sky').setDisplaySize(GW, GH);
-    const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(0.55);
+    const g = scene.add.image(W * 0.5, PORTRAIT ? H * 0.27 : H * 0.3, 'glow').setScale(PORTRAIT ? 2.2 : 2.6).setAlpha(world === PIXEL ? 0 : 0.55);
     scene.tweens.add({ targets: g, alpha: 0.35, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    const few = world === OCEAN || world === VEGGIE ? 0.6 : world === BALLS ? 0.35 : 1; // foggy sea, moonlit garden, dusk picnic: fewer stars
+    const few = world === OCEAN || world === VEGGIE ? 0.6 : world === BALLS ? 0.35 : world === PIXEL ? 0 : 1; // foggy sea, moonlit garden, dusk picnic: fewer stars
     for (let i = 0; i < (PORTRAIT ? 70 : 90) * (sp ? 1.6 : few); i++) {
       const s = scene.add.image(Math.random() * W, Math.random() * H * (sp ? 0.75 : 0.62), 'dot')
         .setScale(0.12 + Math.random() * 0.22).setTint(Math.random() < 0.3 ? C.star : 0xffffff).setAlpha(0.3 + Math.random() * 0.6);
@@ -304,13 +356,14 @@
     else if (world === OCEAN) oceanDecor(scene);
     else if (world === VEGGIE) veggieDecor(scene);
     else if (world === BALLS) ballsDecor(scene);
+    else if (world === PIXEL) pixelDecor(scene);
     else for (let i = 0; i < 5; i++) {
       const cl = scene.add.image(Math.random() * W, H * (0.08 + Math.random() * 0.42), 'cloud')
         .setAlpha(0.13 + Math.random() * 0.12).setScale(0.8 + Math.random() * 1.3);
       const sp = 9000 + Math.random() * 12000;
       scene.tweens.add({ targets: cl, x: cl.x + W * 0.35, duration: sp * 2, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
-    scene.time.addEvent({ delay: 4200, loop: true, callback: () => { if (!calm() && Math.random() < 0.6) shootingStar(scene); } });
+    if (world !== PIXEL) scene.time.addEvent({ delay: 4200, loop: true, callback: () => { if (!calm() && Math.random() < 0.6) shootingStar(scene); } });
     bottomFade(scene);
   }
   // Halloween world: bats flapping across, an orange glow, cobwebs in the corners
@@ -384,6 +437,26 @@
       scene.tweens.add({ targets: sf, angle: { from: -4, to: 4 }, duration: 2600 + k * 300, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     });
     for (let i = 0; i < 14; i++) img(scene, W * (0.04 + i * 0.07), gy + 30 + (i % 2) * 24, 'i:leaf').setScale(0.18).setTint(0x8fe36a).setAlpha(0.7);
+  }
+  // Pixel Land (v1.3): blocky clouds that move in 4 px steps, two rows of pixel hills; on the map also the castle
+  function pixelDecor(scene) {
+    const map = scene.scene.key === 'map';
+    const hills = scene.add.graphics(), gy = PORTRAIT ? H * 0.62 : H * 0.6, q = 24;
+    [[0x00a800, 0, 7], [0x58d854, 3, 5]].forEach(([col, off, n]) => {
+      hills.fillStyle(col);
+      for (let i = -1; i < n + 1; i++) {
+        const cx = (i + 0.5 + off * 0.1) * W / n, r = W / n * 0.55;
+        for (let y = 0; y < r; y += q) { const half = Math.round(Math.sqrt(r * r - y * y) / q) * q; hills.fillRect(cx - half, gy - y - q - off * 6, half * 2, q); }
+      }
+    });
+    hills.fillRect(-W, gy - 6, W * 3, H);
+    for (let i = 0; i < (PORTRAIT ? 4 : 5); i++) {
+      const cl = scene.add.image(Math.random() * W, H * (0.1 + Math.random() * 0.3), 'cloud8').setScale(1 + Math.random() * 0.6);
+      if (calm()) continue;
+      scene.time.addEvent({ delay: 125, loop: true, callback: () => { cl.x += 4; if (cl.x > W + 200) cl.x = -200; } }); // 8 steps a second
+    }
+    if (!map) return;
+    const ca = img(scene, W - (PORTRAIT ? 120 : 170), gy - 10, 'castle').setOrigin(0.5, 1); ca.setScale(iconScale('castle', PORTRAIT ? 230 : 260));
   }
   // Countryballs (v1.1): a hot-air balloon drifting by now and then (off in calm mode); on the map also rainbow bunting (no real flags)
   function ballsDecor(scene) {
@@ -498,13 +571,16 @@
         // v1.1 Countryballs (the five balls from Kondrat's pictures; Fluent Emoji 3D props, MIT)
         'england', 'spain', 'japan', 'usa', 'poland', 'teacup', 'bull', 'paella', 'sushi', 'burger', 'globe']
         .forEach(k => this.load.image(k, 'assets/' + k + '.png'));
+      PX_KEYS.forEach(k => this.load.image(k, 'assets/px/' + k + '.png')); // v1.3 Pixel Land
       this.load.atlas('icons', 'assets/icons.webp', 'assets/icons.json');
       this.load.atlas('icons2', 'assets/icons2.webp', 'assets/icons2.json');
       this.load.atlas('icons3', 'assets/icons3.webp', 'assets/icons3.json'); // v1.2 emoji (Fluent Emoji 3D, MIT)
     }
     create() {
+      PX_KEYS.forEach(k => { if (this.textures.exists(k)) this.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST); });
       const g = this.make.graphics({ x: 0, y: 0, add: false });
       g.fillStyle(0xffffff); g.fillCircle(32, 32, 32); g.generateTexture('dot', 64, 64); g.clear();
+      g.fillStyle(0xffffff); g.fillRect(0, 0, 16, 16); g.generateTexture('sqdot', 16, 16); g.clear(); // v1.3: the square particle of Pixel Land
       // spark (4-point star)
       g.fillStyle(0xffffff); g.beginPath();
       for (let i = 0; i < 8; i++) { const a = Math.PI / 4 * i - Math.PI / 2, r = i % 2 ? 9 : 40; g.lineTo(40 + r * Math.cos(a), 40 + r * Math.sin(a)); }
@@ -684,6 +760,24 @@
         for (let i = -14; i <= 14; i++) { q.beginPath(); q.moveTo(GW / 2 + i * GW * 0.03, 0); q.lineTo(GW / 2 + i * GW * 0.1, GH); q.stroke(); }
         q.setLineDash([]);
       });
+      // v1.3 Pixel Land: a daytime sky in 5 flat bands, grass over brick rows, a blocky cloud
+      const s8 = this.textures.createCanvas('sky8', W, H), x8 = s8.getContext();
+      ['#3cbcfc', '#4cc4fc', '#68ccfc', '#88d8fc', '#a4e4fc'].forEach((c, i) => { x8.fillStyle = c; x8.fillRect(0, Math.round(H * i / 5), W, Math.ceil(H / 5) + 1); });
+      s8.refresh();
+      dome('ground8', [[0, '#58d854'], [1, '#58d854']], q => {
+        q.fillStyle = '#ac7c00'; q.fillRect(0, RY * 0.45 + 40, GW, GH);
+        q.fillStyle = '#503000';
+        const bh = 44, bw = 96;
+        for (let r = 0, y = RY * 0.45 + 40; y < GH; r++, y += bh) {
+          q.fillRect(0, y, GW, 6);
+          for (let x = (r % 2) * bw / 2; x < GW; x += bw) q.fillRect(x, y, 6, bh);
+        }
+        q.fillStyle = '#00a800'; q.fillRect(0, RY * 0.45 + 28, GW, 12);
+      });
+      const c8 = this.textures.createCanvas('cloud8', 160, 64), cx8 = c8.getContext();
+      [[32, 32, 96, 32], [16, 48, 128, 16], [56, 16, 48, 16], [0, 48, 160, 16]].forEach(([x, y, w, h]) => { cx8.fillStyle = '#ffffff'; cx8.fillRect(x, y, w, h); });
+      cx8.fillStyle = '#a4e4fc'; cx8.fillRect(16, 60, 128, 4); c8.refresh();
+      c8.setFilter(Phaser.Textures.FilterMode.NEAREST);
       // a striped hot-air balloon (the Countryballs sky extra)
       const bl = this.textures.createCanvas('balloon', 200, 240), bx = bl.getContext();
       bx.save(); bx.beginPath(); bx.ellipse(100, 92, 86, 90, 0, 0, Math.PI * 2); bx.clip();
@@ -723,6 +817,7 @@
     { name: 'OCEAN', tab: 'OCEAN', icon: 'compass' },
     { name: 'VEGGIE PATCH', tab: 'VEGGIES', icon: 'broccoli' },
     { name: 'COUNTRYBALLS', tab: 'FLAGS', icon: 'globe' }, // v1.1 (tab label: owner's decision, 17 Oct 2026)
+    { name: 'PIXEL LAND', tab: 'PIXEL', icon: 'j:game' }, // v1.3 (owner's decision, 4 Nov 2026)
   ].concat(EVENT_ON ? [{ name: 'SPOOKY', tab: 'SPOOKY', icon: 'pumpkin', event: true }] : []);
   const RIVALS = [
     { id: 'timmy', name: 'Timmy the Tiger', nick: 'Timmy', short: 'TIMMY', tex: 'tiger', scale: 2.0, color: C.orange, hp: 100, xp: 40,
@@ -919,6 +1014,46 @@
         { type: 'hop', word: 'BOING!', sound: 'bounce', dmg: [14, 21], w: 20, log: '{a} bounces like the roundest ball in the world!' },
         { type: 'copy', word: 'COPYCAT!', sound: 'paint', dmg: [8, 12], uses: 1, usesHard: 2, w: 20, log: '{a} paints himself green... JACKBALL!' },
         { type: 'heal', tex: 'dumpling', amt: 25, uses: 1, w: 10, log: '{a} eats one pierogi. Just one. Okay, five.' }] },
+    // ---- World 7: PIXEL LAND (v1.3, docs/gdd/1.3-pixel-land.md). +10 pep per slot over Countryballs, scaling from level 14.
+    // Everyone is 8-bit here (hand-made frames, px: the frame set). 1-UP: a chest opens and the first to claim the heart heals.
+    // The Pixel Dragon asks CONTINUE? after his first KO. Parodies of old game heroes: own names, colours and lines.
+    { id: 'leafy', world: PIXEL, name: 'Sir Leafy the Elf Knight', nick: 'Sir Leafy', short: 'SIR LEAFY', tex: 'leafy_idle1', px: 'leafy', color: 0x7fd65a, hp: 185, xp: 200,
+      intro: 'Sir Leafy raises his sword and his shield. He says nothing. His eyebrows say: "Pillow fight?"', laugh: 'Sir Leafy giggled so hard he dropped his sword. He held up Jack\'s pillow like a treasure. DA-DA-DA-DAAA!',
+      moves: [{ type: 'rush', word: 'HYAH!', sound: 'whoosh', dmg: [13, 21], w: 30, log: '{a} swings a big pillow-sword at {d}!' },
+        { type: 'spray', tex: 'spark', tint: [0xffffff, 0x9fdcff], word: 'SWORD BEAM!', sound: 'laser', dmg: [14, 22], w: 25, log: '{a} swings and a little beam zips out of his sword!' },
+        { type: 'throw', tex: 'pillow', sound: 'whoosh', dmg: [12, 19], w: 20, log: '{a} throws a boomerang pillow. It comes right back to him!' },
+        { type: 'shield', w: 20, log: '{a} raises his big round shield. Next hit only does half!' },
+        { type: 'heal', tex: 'milk', amt: 22, uses: 1, w: 10, log: '{a} drinks a bottle of warm milk. Quest fuel!' }] },
+    { id: 'bolty', world: PIXEL, name: 'Bolty the Blue Bot', nick: 'Bolty', short: 'BOLTY', tex: 'bolty_idle1', px: 'bolty', color: 0x4aa8ff, hp: 195, xp: 210,
+      intro: 'Bolty taps his arm cannon: "BEEP! Ready, Jack? Today I only have pillow-ammo!"', laugh: 'Bolty laughed so hard his helmet spun around. "Okay, okay! Power down!"',
+      moves: [{ type: 'volley', tex: 'sqdot', tint: 0x6ff7ff, word: 'PEW PEW PEW!', sound: 'laser', dmg: [14, 21], w: 30, log: '{a} fires three tiny buster shots at {d}!' },
+        { type: 'spray', inhale: true, tex: 'spark', tint: [0x6ff7ff, 0xffffff], word: 'CHAAARGE!', sound: 'laser', dmg: [16, 24], uses: 2, usesHard: 3, w: 20, log: '{a} charges his arm cannon... BIG SHOT!' },
+        { type: 'rush', word: 'SLIDE!', sound: 'whoosh', dmg: [13, 20], w: 20, log: '{a} slides in feet first!' },
+        { type: 'shield', w: 15, log: '{a} flips up a little shield. Next hit only does half!' },
+        { type: 'heal', tex: 'milk', amt: 22, uses: 1, w: 10, log: '{a} gulps an energy can. Full battery!' }] },
+    { id: 'bibi', world: PIXEL, name: 'Bibi the Bubble Dino', nick: 'Bibi', short: 'BIBI', tex: 'bibi_idle1', px: 'bibi', color: 0x7fe39a, hp: 205, xp: 220,
+      intro: 'Bibi blows a big, wobbly bubble: "Pop it if you can, Jack!"', laugh: 'Bibi giggled so hard she floated away in a bubble. "Bye-bye, bloop!"',
+      moves: [{ type: 'dizzy', tex: 'bubbles', color: 0x9fe3ff, word: 'BLUB!', sound: 'bubble', uses: 2, usesHard: 3, w: 20, log: '{a} blows a big bubble around {d}... trapped! Wobbly!' },
+        { type: 'volley', tex: 'bubbles', word: 'BUBBLES!', sound: 'whoosh', dmg: [13, 20], w: 30, log: '{a} blows a stream of bubbles at {d}. Pop pop pop!' },
+        { type: 'hop', word: 'BOING!', sound: 'bounce', dmg: [13, 21], w: 20, log: '{a} rides a bubble and bounces onto {d}!' },
+        { type: 'roar', word: 'BUUURP!', color: 0x7fe39a, sound: 'honk', dmg: [13, 21], w: 20, log: '{a} burps a bubble so big that {d} bounces away!' },
+        { type: 'shield', w: 12, log: '{a} hides in a bubble. Next hit only does half!' },
+        { type: 'heal', tex: 'i:apple', amt: 22, uses: 1, w: 10, log: '{a} munches a juicy fruit. Bonus points!' }] },
+    { id: 'pipo', world: PIXEL, name: 'Pipo the Plumber', nick: 'Pipo', short: 'PIPO', tex: 'pipo_idle1', px: 'pipo', color: 0xff8a3d, hp: 215, xp: 230, big: 1.05,
+      intro: 'Pipo twirls his big moustache: "Pipe time! Jump time! PILLOW time!"', laugh: 'Pipo laughed so hard his moustache curled up. "Okay, okay, you win this level!"',
+      moves: [{ type: 'hop', word: 'HUP HUP HUP!', sound: 'bounce', dmg: [14, 22], w: 28, log: '{a} jumps, jumps, JUMPS onto {d}\'s pillow!' },
+        { type: 'rush', word: 'STAR POWER!', sound: 'levelUp', dmg: [15, 23], uses: 2, usesHard: 3, w: 18, log: '{a} grabs a star and glows rainbow. Charge!' },
+        { type: 'spray', tex: 'sqdot', tint: [0xff8a3d, 0xffd23f], word: 'BOUNCE!', sound: 'whoosh', dmg: [13, 21], w: 22, log: '{a} bounces a handful of rubber balls at {d}!' },
+        { type: 'shield', w: 17, log: '{a} ducks into a green pipe. Next hit only does half!' },
+        { type: 'heal', tex: 'i:mushroom', amt: 25, uses: 1, w: 10, log: '{a} eats a spotty mushroom and grows BIG! Yum!' }] },
+    { id: 'pixeldragon', world: PIXEL, name: 'The Pixel Dragon', nick: 'Pixel Dragon', short: 'PIXEL DRAGON', tex: 'pixeldragon_idle1', px: 'pixeldragon', big: 1.15, color: 0xe0523c, hp: 260, xp: 270, boss: true, reward: 'bitcap', continues: 1, rainWord: 'FIRE BREATH!',
+      intro: 'The Pixel Dragon stomps out of the castle: "RAWR! I\'m a REAL dragon! From a cartridge! ...Why are YOU so fluffy?"', laugh: 'The Pixel Dragon giggled so hard he glitched into 16 colours. "Okay... fluffy dragons are cool too."',
+      moves: [{ type: 'rush', sound: 'whoosh', dmg: [14, 21], w: 24, log: '{a} swipes with a blocky claw at {d}!' },
+        { type: 'multi', hits: 3, dmg: [6, 9], sound: 'stomp', w: 18, log: '{a} sweeps his square tail: thump, thump, THUMP!' },
+        { type: 'rain', charge: true, tex: 'sqdot', dmg: [22, 28], uses: 2, usesEasy: 1, usesHard: 3, w: 26, log: '{a} takes a deep pixel breath... 8-BIT FIRE BREATH!' },
+        { type: 'nap', amt: 30, uses: 1, w: 8, log: '{a} curls up on his treasure pile for a power nap. Zzz!' },
+        { type: 'roar', word: 'RAWR-8!', color: 0xe0523c, sound: 'roar', dmg: [13, 21], w: 14, log: '{a} roars in three beeps!' },
+        { type: 'idle', word: 'LAG!', sound: 'glitch', w: 12, log: '{a} lags... the old cartridge needs a blow! He skips his turn.' }] },
   ].concat(EVENT_ON ? [
     // ---- Halloween event world: SPOOKY (open from the start while the event runs)
     { id: 'pumpkin', world: SPOOKY, event: true, name: 'Pumpkin Pete', nick: 'Pete', short: 'PUMPKIN PETE', tex: 'pumpkin', color: C.orange, hp: 110, xp: 50, reward: 'pumpkin',
@@ -961,6 +1096,7 @@
     { id: 'nightcap', name: 'Nightcap', tex: 'nightcap', w: 0.5 }, // v1.0: beat Sleepy Thully
     { id: 'brochair', name: 'Broccoli Hair', tex: 'broccoli', w: 0.55 }, // v1.0: beat Brock Lee
     { id: 'pierogi', name: 'Pierogi Hat', tex: 'dumpling', w: 0.42 }, // v1.1: beat Poland
+    { id: 'bitcap', name: '8-Bit Cap', tex: 'bitcap', w: 0.42 }, // v1.3: beat the Pixel Dragon
   ];
   // a costume image (with its tint) for the title, the duel and the Me screen
   const hatImage = (scene, x, y, c) => { const h = scene.add.image(x, y, c.tex); if (c.tint) h.setTint(c.tint); return h; };
@@ -971,7 +1107,7 @@
       { type: 'spray', tex: 'dot', tint: [0x3b2a6e, 0x6a4fb0], word: 'INK!', sound: 'whoosh', dmg: [12, 20], w: 25, log: '{a} squirts pillow ink at {d}!' },
       { type: 'tickle', dmg: [8, 26], w: 25 },
       { type: 'roar', word: 'BLUB BLUB!', color: 0xff9ed8, sound: 'boo', dmg: [13, 21], w: 20, log: '{a} bubbles a giant BLUB!' }] };
-  const SCALE_FROM = { [SPACE]: 4, [CANADA]: 6, [OCEAN]: 9, [VEGGIE]: 11, [BALLS]: 13 };
+  const SCALE_FROM = { [SPACE]: 4, [CANADA]: 6, [OCEAN]: 9, [VEGGIE]: 11, [BALLS]: 13, [PIXEL]: 14 };
   const DEF_W = { throw: 30, rush: 30, hop: 30, multi: 25, roar: 20, quake: 25, spray: 25, tickle: 25, volley: 25, rain: 30, beam: 30, slapshot: 30, heal: 15, nap: 15, shield: 15, dizzy: 15, dance: 12 };
   const isUnlocked = i => i === 0 || (RIVALS[i].event && !RIVALS[i - 1].event) || (Save.data.stars[RIVALS[i - 1].id] || 0) > 0;
   const worldOf = i => RIVALS[i] && RIVALS[i].world || 0;
@@ -1183,7 +1319,7 @@
       // v1.0, 5-6 worlds: the other tabs are icon-only at 110 px, the open tab takes the rest and shows its short name;
       // landscape with 6 tabs: all icon-only, the world's name moves into the level line (docs/gdd/1.0-ocean.md section 2)
       // v1.1, 6-7 worlds: 7 icon tabs are 890 px wide, more than a 4:3 iPad in landscape has: they shrink a little there (never under 90 px, B26)
-      const many = n >= 5, gap = many ? 20 : 30, ICON = many ? Math.max(90, Math.min(110, (room - (n - 1) * gap) / n)) : 110;
+      const many = n >= 5, gap = n >= 8 ? 14 : many ? 20 : 30, ICON = many ? Math.max(90, Math.min(110, (room - (n - 1) * gap) / n)) : 110;
       const openW = many ? Math.min(400, room - (n - 1) * (ICON + gap)) : 0, allIcons = many && (!PORTRAIT && n >= 6 || openW < 260);
       const wide = !many && tw0 - 140 < 230, tws = WORLDS.map((w, i) => many ? (i === this.world && !allIcons ? openW : ICON)
         : !wide ? tw0 : i === this.world ? Math.min(400, (room - 30 * (n - 1)) * 2 / (n + 1)) : Math.min(200, (room - 30 * (n - 1)) / (n + 1)));
@@ -1984,6 +2120,7 @@
       const zoom = compact ? 0.82 : (PORTRAIT ? clamp((groundY - 330) / 520, 0.55, 1) : 1);
       const moon = this.add.image(W / 2, PORTRAIT ? Math.max(H * 0.2, groundY - 760) : H * 0.24, space ? 'planet' : 'moon').setScale((PORTRAIT ? 0.6 : 0.62 * zoom) * (space ? 1.15 : 1)).setAlpha(0.95);
       if (this.world === SPOOKY) moon.setTint(0xffa64d).setScale(moon.scale * 1.3);
+      if (this.world === PIXEL) moon.setTexture('sun').setScale(iconScale('sun', 150)); // a pixel sun in Pixel Land
       if (this.world === CANADA) moon.setTint(0xd8ecff);
       if (this.world === OCEAN) moon.setTint(0xdff7f0);
       if (this.world === BALLS) moon.setTint(0xfff1c9);
@@ -2002,10 +2139,16 @@
       this.fireP = this.add.particles(0, 0, 'dot', { emitting: false, speed: { min: 200, max: 650 }, lifespan: 500, scale: { start: 0.55, end: 0 }, tint: [0xff6b2b, 0xffd23f, 0xff3b1f], blendMode: 'ADD' }).setDepth(28);
       this.confetti = this.add.particles(0, 0, 'conf', { emitting: false, speed: { min: 500, max: 1300 }, angle: { min: 230, max: 310 }, gravityY: 1100, lifespan: 2600, rotate: { min: 0, max: 360 }, scaleX: { start: 1, end: 0.2 }, tint: [0xff6b5b, 0xffd23f, 0x7fd6c2, 0x9aa2ff, 0xff9ed8] }).setDepth(40);
 
+      // v1.3 Pixel Land: campaign duels against its rivals are 8-bit (Jack's hand-made frames, toys through pixelize())
+      // (the scene object is reused: reset everything of the last Pixel Land duel)
+      Object.assign(this, { heart: null, chest: null, heartImg: null, heartLbl: null, oneBtn: null, scoreT: null, pxLoop: false, pxDmg: 0, oneups: 0,
+        contUsed: false, contRevived: false, contOpen: false, contChip: null, heartForgot: false });
+      const pxDuel = this.pxDuel = this.mode === 'campaign' && R.world === PIXEL && !!R.px;
+      if (pxDuel) this.H = this.H.isJack ? Object.assign({}, this.H, { tex: 'jack_px_idle1', napTex: 'jack_px_nap', px: 'jack_px' }) : Object.assign({}, this.H, { tex: pixelize(this, this.H.tex) });
       // fighters
       const fitScale = (key, hTarget, wMax) => { const f = this.textures.get(key).getSourceImage(); return Math.min(hTarget / f.height, wMax / f.width); };
       const hT = (PORTRAIT ? 520 : 465) * zoom, wM = (PORTRAIT ? 470 : 540) * zoom;
-      const heroScale = this.H.isJack ? (PORTRAIT ? 0.9 : 0.8) * zoom : fitScale(this.H.tex, hT, wM);
+      const heroScale = this.H.px ? hT * 0.8 / this.textures.get(this.H.tex).getSourceImage().height : this.H.isJack ? (PORTRAIT ? 0.9 : 0.8) * zoom : fitScale(this.H.tex, hT, wM);
       if (R.flip && R.tex === 'jack_side') R.scale = (PORTRAIT ? 0.9 : 0.8) / (PORTRAIT ? 1.1 : 1);
       const rivScale = (R.scale ? R.scale * (PORTRAIT ? 1.1 : 1) * zoom : fitScale(R.tex, hT, wM)) * (PORTRAIT ? 1 : (R.big || 1));
       const heroMax = this.H.hp + (boostId === 'breakfast' ? 25 : 0);
@@ -2017,6 +2160,12 @@
       if (golden(R)) this.goldCopy(this.rival, W * 0.73, PORTRAIT ? 200 : 150, false);
       if (R.ghostly) this.tweens.add({ targets: this.rival.spr, alpha: 0.6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.hero.name = this.H.name; this.hero.napTex = this.H.napTex; this.hero.isJack = this.H.isJack;
+      if (pxDuel) {
+        if (this.H.px) { this.hero.px = this.H.px; this.hero.pxState = 'idle'; }
+        this.rival.px = R.px; this.rival.pxState = 'idle';
+        this.pxLoop = true; this.time.addEvent({ delay: 400, loop: true, callback: () => this.pxIdle() });
+        if (!res) this.pxBoot();
+      }
       this.rival.name = R.nick || R.name;
       this.rmoves = R.moves.map((m, i) => {
         const o = Object.assign({ k: 'r' + i, w: DEF_W[m.type] || 20 }, m);
@@ -2089,6 +2238,7 @@
         const bi = img(this, -bc.w / 2 + 34, 0, boost.icon); bi.setScale(iconScale(boost.icon, 40)); bc.add(bi);
         this.boostChip = bc;
       }
+      if (this.pxDuel) this.pxInit(res);
       // coming back after the screen was rotated: restore the duel exactly
       if (res) {
         const put = (f, o) => { ['hp', 'max', 'used', 'dizzy', 'shield', 'spare', 'bonus', 'firstBonus', 'lastType', 'afterCharge', 'beamed', 'asleep', 'meter', 'orbit'].forEach(k => { if (o[k] !== undefined) f[k] = o[k]; }); f.bar.setMax(f.max); f.bar.set(f.hp, this); };
@@ -2122,7 +2272,8 @@
       const pick = f => ({ hp: f.hp, max: f.max, used: Object.assign({}, f.used), dizzy: f.dizzy, shield: f.shield, spare: f.spare, bonus: f.bonus, firstBonus: f.firstBonus, lastType: f.lastType, afterCharge: !!f.afterCharge, beamed: (f.beamed || []).slice(), asleep: !!f.asleep, meter: f.meter || 0, orbit: !!f.orbit });
       return { boost: this.boost ? this.boost.id : null, h: pick(this.hero), r: pick(this.rival), charging: this.rival.charging ? this.rmoves.indexOf(this.rival.charging) : -1, log: this.logT ? this.logT.text : '', acted: !!this.acted,
         spin: this.spin ? Object.assign({}, this.spin, { order: this.spin.order.slice() }) : null, hidden: this.hidden ? Object.assign({}, this.hidden) : null,
-        copy: this.copy ? { k: this.copy.k, mini: !!this.copy.mini } : null, emoLog: (this.emoLog || []).slice() };
+        copy: this.copy ? { k: this.copy.k, mini: !!this.copy.mini } : null, emoLog: (this.emoLog || []).slice(),
+        heart: this.heart ? Object.assign({}, this.heart) : null, contUsed: !!this.contUsed, pxDmg: this.pxDmg || 0, oneups: this.oneups || 0 };
     }
     // ---- v1.2 emoji chat (docs/gdd/1.2-emoji-chat.md): a smiley button, a tray of 16 pictures, speech bubbles, the rival answers.
     // It never costs the turn, never changes pep, and is only decoration plus a short list (emoLog) for the friend mail.
@@ -2499,6 +2650,7 @@
       }
       const crit = dmg >= 20;
       A.thump(crit ? 1.3 : (quiet ? 0.6 : 0.9)); buzz(crit ? 60 : 30);
+      if (target.px && !target.napping) { this.setFrame(target, 'hit'); this.time.delayedCall(300, () => { if (target.pxState === 'hit') this.setFrame(target, 'idle'); }); }
       target.spr.setTintFill(0xffffff);
       this.time.delayedCall(90, () => { target.spr.clearTint(); if (target.asleep) target.spr.setTint(0xc4ccff); else if (target === this.rival) this.rivalTint(); });
       this.sparks.explode(crit ? 26 : (quiet ? 8 : 14), p.x, p.y);
@@ -2509,6 +2661,7 @@
       if (crit) { A.crit(); this.cameras.main.zoomTo(1.05, 90); this.time.delayedCall(260, () => this.cameras.main.zoomTo(1, 260)); }
       await this.hitStop(crit ? 130 : 60);
       target.hp = Math.max(0, target.hp - dmg); target.bar.set(target.hp, this);
+      if (this.pxDuel && target === this.rival) { this.pxDmg = (this.pxDmg || 0) + dmg; this.pxScore(); }
       if (target === this.rival) { if (this.inMove) this.moveDmg += dmg; if (target.hp > 0 && dmg >= 0.9 * this.heroMaxDmg) this.time.delayedCall(500, () => this.emoSolo('hit')); } // v1.2
       if (this.copyRec && target === this.rival) this.copyRec.hits.push(dmg); // COPYCAT!: the number the player saw
       this.number(p.x + (quiet ? rnd(-60, 60) : 0), p.y - 120, '-' + dmg, target === this.rival ? '#ffd23f' : '#ff6b5b', quiet ? 90 : 120);
@@ -2662,6 +2815,7 @@
     }
     async flipNap(f, on) {
       if (f.hat) f.hat.setVisible(!on);
+      f.napping = on;
       if (f.napTex) {
         await tw(this, { targets: f.squash, scaleX: 0, duration: 130, ease: 'Quad.in' });
         f.spr.setTexture(on ? f.napTex : f.key);
@@ -2672,7 +2826,202 @@
     }
 
     // ---- the move engine: every move is data with a type
+    // v1.3 Pixel Land: hand-made frames (idle1/idle2 loop, attack during a move, hit on damage, nap for Jack's nap)
+    // ---- v1.3 Pixel Land extras (docs/gdd/1.3-pixel-land.md 4, 4b): the 1-UP chest, the score, CONTINUE? on the boss
+    pxInit(res) {
+      const P = this.hero, T = this.rival;
+      this.pxDmg = res ? res.pxDmg || 0 : 0; this.oneups = res ? res.oneups || 0 : 0; this.contUsed = !!(res && res.contUsed);
+      this.heart = res && res.heart ? res.heart : { at: rnd(3, 4), side: Math.random() < 0.5 ? 'p' : 'r', state: 'closed', n: { p: 0, r: 0 }, next: null, left: 0 };
+      if (DEBUG && window.__psHeart) { this.heart.at = 1; this.heart.side = window.__psHeart === 'rival' ? 'p' : 'r'; } // 'player': you choose first
+      this.chest = img(this, W / 2, this.groundY + 6, this.heart.state === 'closed' ? 'chest' : 'chestopen').setOrigin(0.5, 1).setDepth(9);
+      this.chest.setScale(iconScale('chest', PORTRAIT ? 150 : 130));
+      this.chest.setVisible(this.heart.state !== 'gone' || true);
+      if (!calm()) this.time.addEvent({ delay: 4000, loop: true, callback: () => { if (this.heart && this.heart.state === 'closed' && this.chest.active) this.tweens.add({ targets: this.chest, angle: { from: -6, to: 6 }, duration: 80, yoyo: true, repeat: 3, onComplete: () => this.chest.setAngle(0) }); } });
+      this.heartImg = null; if (this.heart.state === 'up') this.showHeart(true);
+      // the score chip under the VS badge
+      this.scoreT = this.add.text(W / 2, (this.hy || 150) + (PORTRAIT ? 120 : 110), '', { fontFamily: PX_FONT, fontSize: PORTRAIT ? 30 : 28, color: '#ffffff', stroke: '#101830', strokeThickness: 8 }).setOrigin(0.5).setDepth(30);
+      this.pxScore();
+      // the 1-UP button sits where BLOCK IT! goes
+      const b = this.oneBtn = button(this, W / 2, this.bby, 400, 130, '1-UP!', 0xff5050, () => this.playerOneUp(), { size: 50, color: '#fff3d2' }).setDepth(35).setVisible(false);
+      fit(b.list[1], 240); b.list[1].x = 50;
+      b.icon = img(this, -130, -10, 'heart8').setScale(iconScale('heart8', 100)); b.add(b.icon);
+      this.tweens.add({ targets: b, scale: 1.05, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+    pxScore() { if (this.scoreT && this.scoreT.active) this.scoreT.setText('SCORE ' + String(this.pxPoints(false)).padStart(6, '0')); }
+    pxPoints(won) { return (this.pxDmg || 0) * 10 + (this.oneups || 0) * 1000 + (won ? Math.max(0, this.hero.hp) * 10 + (this.R.boss && !this.contRevived ? 2000 : 0) : 0); }
+    // turn counting: after turn K of the chosen side the chest opens; the other side chooses first, then the next one; then it floats away
+    heartTurn(side) {
+      const h = this.heart; if (!h || this.over) return;
+      if (h.state === 'closed') {
+        h.n[side]++;
+        const P = this.hero, T = this.rival, low = f => f.hp < f.max * 0.15;
+        if (side === h.side && h.n[side] >= h.at && !T.charging && !T.dizzy && !P.dizzy && !low(P) && !low(T)) this.openChest(side === 'p' ? 'r' : 'p');
+        else if (side === h.side && h.n[side] >= h.at) h.at++; // waits one turn (never mid-charge, dizzy or when someone is very low)
+      } else if (h.state === 'up' && h.next === side) {
+        h.left--; h.next = side === 'p' ? 'r' : 'p';
+        if (h.left <= 0) this.heartAway();
+      }
+    }
+    openChest(first) {
+      const h = this.heart; h.state = 'up'; h.next = first; h.left = 2;
+      A.chest && A.chest(); this.chest.setTexture('chestopen');
+      this.showHeart(false);
+      const st = Save.data.stats || (Save.data.stats = {});
+      this.log(first === 'p' ? (!st.heartSeen ? 'A 1-UP! Tap the heart before the rival does!' : 'A 1-UP pops out! Grab it on your turn!') : 'A 1-UP pops out! ' + this.rival.name + ' gets the first try...');
+      st.heartSeen = 1; Save.store();
+    }
+    showHeart(instant) {
+      const y = this.groundY - (PORTRAIT ? 230 : 200);
+      const hi = this.heartImg = img(this, W / 2, instant ? y : this.groundY - 60, 'heart8').setDepth(27).setScale(iconScale('heart8', 96));
+      hi.setInteractive({ useHandCursor: true }).on('pointerup', () => this.playerOneUp());
+      if (!instant) this.tweens.add({ targets: hi, y, duration: 450, ease: 'Back.out' });
+      this.tweens.add({ targets: hi, alpha: 0.55, duration: calm() ? 900 : 300, yoyo: true, repeat: -1, ease: 'Stepped' });
+      this.heartLbl = this.add.text(W / 2, y - 80, '1-UP', { fontFamily: PX_FONT, fontSize: 34, color: '#ffffff', stroke: '#101830', strokeThickness: 8 }).setOrigin(0.5).setDepth(27);
+    }
+    heartGone() { [this.heartImg, this.heartLbl].forEach(o => o && o.destroy()); this.heartImg = this.heartLbl = null; this.heartBtnSync(); }
+    heartAway() {
+      const h = this.heart; h.state = 'gone';
+      const hi = this.heartImg, lb = this.heartLbl; this.heartImg = this.heartLbl = null;
+      if (hi) this.tweens.add({ targets: [hi, lb], y: '-=500', alpha: 0, duration: 900, onComplete: () => { hi.destroy(); lb && lb.destroy(); } });
+      A.bubble && A.bubble(); this.log('Nobody took the 1-UP... it floats away. Bloop!');
+      this.heartBtnSync();
+    }
+    heartBtnSync() {
+      if (!this.oneBtn) return;
+      const h = this.heart, on = !!(h && h.state === 'up' && h.next === 'p' && !this.busy && !this.over);
+      this.oneBtn.setVisible(on && !(this.rival.charging && !this.rival.charging.mini));
+      if (this.heartImg) this.heartImg.input && (this.heartImg.input.enabled = on);
+    }
+    heartHeal() { return this.easy ? 30 : this.hard ? 20 : 25; }
+    async claimHeart(f) {
+      const h = this.heart, hi = this.heartImg; h.state = 'gone';
+      this.heartImg = null; if (this.heartLbl) { this.heartLbl.destroy(); this.heartLbl = null; }
+      const own = f === this.hero, n = Math.min(own ? this.heartHeal() : Math.max(5, Math.round(f.max * 0.12 / 5) * 5), f.max - f.hp);
+      own ? A.oneup() : A.oneupRival();
+      if (hi) await tw(this, { targets: hi, x: f.center().x, y: f.center().y - 120, scale: hi.scale * 1.4, duration: 380, ease: 'Quad.in' });
+      if (hi) hi.destroy();
+      if (n > 0) this.heal(f, n);
+      this.popWord(f.center().x, f.center().y - 260, '1-UP! +' + n, '#ff5050', 80, -6);
+      const st = Save.data.stats || (Save.data.stats = {});
+      if (own) { st.oneups = (st.oneups || 0) + 1; this.oneups = (this.oneups || 0) + 1; this.pxScore(); this.log(f.name + ' grabs the 1-UP! +' + n + ' pep!'); }
+      else { st.rivalOneups = (st.rivalOneups || 0) + 1; this.log(f.name + ' dives for the 1-UP! Aw, too slow!'); }
+      Save.store(); this.heartBtnSync();
+      await wait(this, 700);
+    }
+    async playerOneUp() {
+      const h = this.heart;
+      if (this.busy || this.over || !h || h.state !== 'up' || h.next !== 'p') return;
+      this.busy = true; this.acted = true; this.setCards(false); this.unspin(true); this.heartBtnSync();
+      await this.claimHeart(this.hero);
+      await this.afterPlayer();
+    }
+    // the rival's choice: EASY never; NORMAL if its pep < 60 % (else 35 %); HARD if < 80 % (else 60 %); never if it can finish the hero now
+    async rivalOneUp() {
+      const T = this.rival, P = this.hero, hit = Math.min(...this.rmoves.filter(m => m.dmg).map(m => m.dmg[0]).concat([99]));
+      let take = false;
+      if (DEBUG && window.__psHeartTake !== undefined) take = !!window.__psHeartTake;
+      else if (!this.easy && P.hp > hit) take = T.hp < T.max * (this.hard ? 0.8 : 0.6) || Math.random() < (this.hard ? 0.6 : 0.35);
+      if (!take) {
+        if (this.easy && !this.heartForgot) { this.heartForgot = true; this.log(T.name + ' looks at the heart... and forgets it!'); }
+        return false;
+      }
+      await wait(this, 450);
+      this.banner(T.name.toUpperCase() + (/s$/i.test(T.name) ? '\' TURN' : '\'S TURN'), this.R.color);
+      await wait(this, 900);
+      await this.claimHeart(T);
+      return true;
+    }
+    // CONTINUE? (the Pixel Dragon's first KO): GAME OVER, then 9..0. NO! before 0 wins; otherwise he comes back once with 20 % (HARD 25 %)
+    async continuePrompt() {
+      this.busy = true; this.setCards(false); this.heartBtnSync(); this.contOpen = true;
+      const T = this.rival, st = Save.data.stats || (Save.data.stats = {});
+      const big = (t, y, size, col) => this.add.text(W / 2, y, t, { fontFamily: PX_FONT, fontSize: size, color: col, stroke: '#101830', strokeThickness: 12 }).setOrigin(0.5).setDepth(50);
+      A.gameover && A.gameover();
+      const go = big('GAME OVER', H * 0.3, PORTRAIT ? 76 : 70, '#ff5050');
+      this.tweens.add({ targets: T.spr, alpha: 0.3, duration: 120, yoyo: true, repeat: 3 });
+      await wait(this, 900);
+      if (this.easy) {
+        go.setText('NO CONTINUE!'); this.log(T.name + ': "GAME OVER... NO CONTINUE! Okay, I\'m tired."'); await wait(this, 900);
+        go.destroy(); this.contOpen = false; this.finish(true); return;
+      }
+      go.setText('CONTINUE?');
+      const num = big('9', H * 0.3 + (PORTRAIT ? 110 : 100), PORTRAIT ? 110 : 96, '#ffffff');
+      const kinds = this.hard ? Phaser.Utils.Array.Shuffle(['yes', 'maybe', 'no']) : ['no'];
+      const btns = kinds.map((k, i) => {
+        const x = kinds.length === 1 ? W / 2 : W / 2 + (i - 1) * (PORTRAIT ? 330 : 300), lbl = { yes: 'YES!', maybe: 'MAYBE?', no: 'NO!' }[k];
+        const b = button(this, x, this.bby, kinds.length === 1 ? 400 : (PORTRAIT ? 300 : 280), 130, lbl, k === 'no' ? 0x58d854 : k === 'yes' ? 0xff5050 : 0xbcbcbc, () => pick(k), { size: 50, color: '#fff3d2' }).setDepth(51);
+        return b;
+      });
+      const hand = !st.contSeen ? img(this, btns[kinds.indexOf('no')].x, this.bby - 150, 'hand').setScale(iconScale('hand', 110)).setDepth(52) : null;
+      if (hand) this.tweens.add({ targets: hand, y: this.bby - 120, duration: 450, yoyo: true, repeat: -1 });
+      st.contSeen = 1;
+      let left = 9, done = false;
+      const close = () => { done = true; ev.remove(false); [go, num, hand].concat(btns).forEach(o => o && o.destroy()); this.contOpen = false; };
+      const pick = k => {
+        if (done || k === 'maybe') return;
+        close();
+        if (k === 'no') { st.noContinue = (st.noContinue || 0) + 1; Save.store(); A.levelUp(); this.popWord(W / 2, H * 0.3, 'NO CONTINUES!', '#58d854', 80, -4); this.time.delayedCall(700, () => this.finish(true)); }
+        else revive();
+      };
+      const revive = async () => {
+        this.contRevived = true; A.continued && A.continued();
+        T.spr.setAlpha(1);
+        this.popWord(T.center().x, T.center().y - 260, 'CONTINUE!', '#ffd23f', 84, 6);
+        this.log(T.name + ' puts in another coin: "CONTINUE!" One more round!');
+        const n = Math.round(T.max * (this.hard ? 0.25 : 0.2)); this.heal(T, n);
+        this.contChip = chip(this, W * 0.73, (this.hy || 150) + (PORTRAIT ? 70 : 76), 'x1', 0xffd23f, 26).setDepth(30);
+        await wait(this, 900);
+        await this.afterPlayer();
+      };
+      const ev = this.time.addEvent({ delay: this.hard ? 330 : 550, loop: true, callback: () => {
+        if (done) return;
+        if (DEBUG && window.__psCont === 'no') { pick('no'); return; }
+        left--; A.tick && A.tick(); num.setText(String(Math.max(0, left)));
+        if (left <= 0) { close(); revive(); }
+      } });
+      if (DEBUG && window.__psCont === 'no') this.time.delayedCall(50, () => pick('no'));
+    }
+    // "NOW LOADING..." at the start of a Pixel Land duel: 8 blocks fill, a white flash, everyone is 8-bit (tap skips; short after 3 boots)
+    pxBoot() {
+      const st = Save.data.stats || (Save.data.stats = {}), n = st.pixBoots = (st.pixBoots || 0) + 1; Save.store();
+      const short = n > 3 || calm(), blocks = short ? 4 : 8, step = short ? 70 : 90;
+      const lay = this.add.container(0, 0).setDepth(60);
+      const bg = this.add.rectangle(W / 2, H / 2, W, H, 0x000000).setInteractive();
+      const t = this.add.text(W / 2, H * 0.44, 'NOW LOADING...', { fontFamily: PX_FONT, fontSize: PORTRAIT ? 56 : 52, color: '#ffffff' }).setOrigin(0.5);
+      lay.add([bg, t]);
+      const bw = PORTRAIT ? 90 : 80, x0 = W / 2 - (blocks * (bw + 12) - 12) / 2;
+      for (let i = 0; i < blocks; i++) {
+        const b = this.add.rectangle(x0 + i * (bw + 12) + bw / 2, H * 0.54, bw, bw * 0.6, 0x3cbcfc).setStrokeStyle(6, 0xffffff).setAlpha(0.15);
+        lay.add(b); this.time.delayedCall(i * step, () => { if (!b.active) return; b.setAlpha(1); A.blip && A.blip(i); });
+      }
+      if (!calm()) this.tweens.add({ targets: t, alpha: 0.3, duration: 200, yoyo: true, repeat: -1 });
+      let done = false;
+      const end = () => {
+        if (done || !lay.active) return; done = true;
+        if (!calm()) { const fl = this.add.rectangle(W / 2, H / 2, W, H, 0xffffff).setDepth(61); this.tweens.add({ targets: fl, alpha: 0, duration: 220, onComplete: () => fl.destroy() }); this.cameras.main.shake(120, 0.004); }
+        A.cartridge && A.cartridge(); lay.destroy();
+        if (n === 1 && this.hero.px) this.time.delayedCall(400, () => this.popWord(this.hero.root.x, this.hero.root.y - this.hero.height() - 60, "I'm... SQUARE?", '#ffffff', 56, -4));
+      };
+      bg.on('pointerup', end);
+      this.time.delayedCall(blocks * step + 120, end);
+    }
+    setFrame(f, fr) {
+      if (!f || !f.px || !f.spr.active) return;
+      f.pxState = fr === 'idle2' ? 'idle' : fr;
+      const k = f.px + '_' + (fr === 'idle' ? 'idle1' : fr);
+      if (this.textures.exists(k) && f.spr.texture.key !== k) f.spr.setTexture(k);
+    }
+    pxIdle() { // the 2-frame idle loop, every 400 ms
+      if (!this.pxLoop || calm()) return;
+      this.pxTick = !this.pxTick;
+      [this.hero, this.rival].forEach(f => { if (f && f.px && f.pxState === 'idle' && !f.napping) this.setFrame(f, this.pxTick ? 'idle2' : 'idle1'); });
+    }
     async doMove(m, att, def) {
+      if (!att.px) return this._doMove(m, att, def);
+      if (m.type !== 'nap' && m.type !== 'heal' && m.type !== 'shield' && m.type !== 'idle') this.setFrame(att, 'attack');
+      try { await this._doMove(m, att, def); } finally { if (!att.napping) this.setFrame(att, 'idle'); }
+    }
+    async _doMove(m, att, def) {
       const pl = def === this.rival && this.R.plural; // "Blips get dizzy" (QA B46)
       const L = s => this.log((pl ? s.replace(/\{d\} gets/g, '{d} get').replace(/\{d\} is /g, '{d} are ') : s).replace(/\{a\}/g, att.name).replace(/\{d\}/g, def.name));
       const DEF_LOG = { throw: '{a} uses ' + m.title + '!', tickle: '{a} sneaks in for a tickle!', heal: '{a} takes a snack break!', shield: '{a} hides behind a shield. Next hit only does half!', nap: '{a} takes a quick upside-down nap!' };
@@ -2838,6 +3187,13 @@
           }
           break;
         }
+        case 'idle': { // v1.3 LAG!: the Pixel Dragon skips his turn (the word, a glitch, nothing else)
+          this.sfx(m.sound || 'glitch');
+          this.popWord(att.center().x, att.center().y - 260, m.word || 'LAG!', '#ffffff', 96, rnd(-6, 6));
+          if (!calm()) for (let i = 0; i < 4; i++) this.time.delayedCall(i * 90, () => { if (att.spr.active) att.spr.x = i % 2 ? 0 : rnd(-14, 14); });
+          await new Promise(r => this.time.delayedCall(700, r)); if (att.spr.active) att.spr.x = 0;
+          break;
+        }
         default: await this.lunge(att, 60); await this.impact(def, d || 12); await this.back(att);
       }
     }
@@ -2845,7 +3201,7 @@
     async playerMove(k) {
       if (this.busy || this.over) return;
       const m = this.moves.find(x => x.k === k); if (!m || (this.hero.beamed || []).includes(k)) return;
-      this.busy = true; this.acted = true; this.setCards(false);
+      this.busy = true; this.acted = true; this.setCards(false); this.heartBtnSync();
       const P = this.hero, T = this.rival;
       P.used[k] = (P.used[k] || 0) + 1;
       this.moveDmg = 0; this.lastBig = false; this.inMove = true; // v1.2: the rival's emoji answer depends on the whole move
@@ -2871,6 +3227,7 @@
       P.lucky5 = 0;
       this.unspin(true);
       if (this.checkEnd()) return;
+      this.heartTurn('p');
       await this.afterPlayer();
     }
     async afterPlayer() {
@@ -2892,13 +3249,19 @@
       this.banner('YOUR TURN', C.star);
       if (this.spinNext) { const sp = this.spinNext; this.spinNext = null; this.startSpin(sp); }
       this.busy = false; this.setCards(true);
+      this.heartBtnSync();
       this.autoSeek(); this.autoPush();
       // a rotation that happened during the turn is applied now (QA B02)
       if (window.__psRotatePending) this.time.delayedCall(60, () => window.__psTryRebuild && window.__psTryRebuild());
     }
     async rivalTurn() {
+      if (this.heart && this.heart.state === 'up' && this.heart.next === 'r' && !this.rival.charging && !this.rival.dizzy && !this.rival.asleep && !this.rival.orbit && !this.copy) {
+        const took = await this.rivalOneUp(); // replaces the rival's move when it claims the heart
+        if (took) { this.heartTurn('r'); return; }
+      }
       await this.rivalTurn0();
       if (!this.rival.charging) this.dropExtinguisher();
+      this.heartTurn('r');
     }
     async rivalTurn0() {
       const T = this.rival;
@@ -2970,6 +3333,7 @@
         if (m.type === 'shield') return !T.shield;
         if (m.type === 'dizzy' || m.type === 'dance') return !P.dizzy && T.lastType !== m.type;
         if (m.charge) return T.lastType !== m.type && !T.afterCharge; // never two charged moves in a row
+        if (m.type === 'idle') return T.lastType !== 'idle' && !T.afterCharge; // v1.3 LAG!: never twice in a row
         if (m.type === 'whirl') return T.lastType !== 'whirl' && !T.afterCharge; // Compass Spin: never twice in a row, never right after a charge
         if (m.type === 'hide') return T.lastType !== 'hide' && !T.afterCharge && !P.dizzy; // PEEKABOO!: a seek turn always follows
         if (m.type === 'copy') return T.lastType !== 'copy' && !T.afterCharge && !P.dizzy && !this.copy; // COPYCAT!: never twice in a row, never after a charge
@@ -3128,7 +3492,7 @@
       // Jack's own Inferno Rain while the Mothership charges: keep her charge sky (a red sky would mean "grab FOAM!")
       const keepSky = !!(this.rival.charging && att !== this.rival);
       if (!keepSky) { this.fireFx.fillColor = 0xff3b1f; this.tweens.add({ targets: this.fireFx, fillAlpha: 0.28, duration: 300 }); }
-      this.popWord(W / 2, PORTRAIT ? H * 0.22 : H * 0.2, 'INFERNO RAIN!', '#ff8a3d', 100, -4);
+      this.popWord(W / 2, PORTRAIT ? H * 0.22 : H * 0.2, (att === this.rival && this.R.rainWord) || 'INFERNO RAIN!', '#ff8a3d', 100, -4);
       // who blocks? the hero holding the extinguisher, or a rival who still has milk
       let block = null;
       if (def.blocker === 'umb') {
@@ -3799,6 +4163,7 @@
       });
     }
     checkEnd() {
+      if (this.rival.hp <= 0 && this.pxDuel && this.R.continues && !this.contUsed) { this.contUsed = true; this.continuePrompt(); return true; } // v1.3 CONTINUE?
       if (this.rival.hp <= 0) { this.finish(true); return true; }
       if (this.hero.hp <= 0 && this.hero.spare) {
         // Spare Heart booster: bounce back once
@@ -3891,6 +4256,11 @@
 
       const notes = [];
       if (firstClear) notes.push('First win bonus +20 XP');
+      if (this.pxDuel) { // v1.3 arcade score; a hi-score per rival, wins only
+        const sc = this.pxPoints(won), hi = Save.data.hi || (Save.data.hi = {});
+        if (won && sc > (hi[id] || 0)) { hi[id] = sc; Save.store(); notes.push('HI-SCORE! ' + String(sc).padStart(6, '0')); }
+        else notes.push('SCORE ' + String(sc).padStart(6, '0') + (hi[id] ? '  ·  HI ' + String(hi[id]).padStart(6, '0') : ''));
+      }
       if (firstClear && id === 'beaver') notes.push('Bob challenges you to POND HOCKEY! Find it on the Canada map');
       if (unlockedNext && worldOf(nextIdx) !== this.world) notes.push('NEW WORLD: ' + WORLDS[worldOf(nextIdx)].name + '! Rival: ' + RIVALS[nextIdx].name);
       else if (unlockedNext) notes.push('New rival unlocked: ' + RIVALS[nextIdx].name + '!');
@@ -4145,7 +4515,7 @@
   // ---------- Comics: a short animated comic page the first time the player arrives in a world (#31, #62; docs/gdd/0.9-world-comics.md)
   // One script per comic: 3 panels (functions (scene, panel, instant) drawn with the scene helpers) + the title page.
   // Each panel function must also work with instant = true (fast taps, coming back after a rotation).
-  const COMIC_OF_WORLD = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'spooky'];
+  const COMIC_OF_WORLD = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'pixel', 'spooky'];
   const COMIC_SCRIPTS = {
     canada: {
       world: CANADA, title: 'CANADA!', len: [2700, 2500, 3500],
@@ -4556,6 +4926,47 @@
     },
     sting: s => s.time.delayedCall(1300, () => A.fizzle && A.fizzle()),
   };
+  // v1.3 "Press Start": Jack falls into an old cartridge and turns 8-bit (docs/gdd/1.3-pixel-land.md section 6)
+  COMIC_SCRIPTS.pixel = {
+    world: PIXEL, title: 'PIXEL LAND!', len: [2700, 2600, 3500],
+    confetti: { key: 'sqdot', tint: [0x3cbcfc, 0x58d854, 0xf8b800, 0xe40058, 0xffffff], speedY: { min: 250, max: 450 }, scale: { min: 0.6, max: 1.2 }, lifespan: 5000 },
+    panels: [
+      (s, c, instant) => {
+        s.bg(c, 'sky');
+        const cart = s.actor(c, 'gift', 0.68, 0.9, 0.34, 0.3);
+        s.anim({ targets: cart, alpha: { from: 0.75, to: 1 }, duration: 400, yoyo: true, repeat: -1 });
+        const jack = s.actor(c, 'jack_side', instant ? 0.3 : -0.3, 0.95, 0.5, 0.36);
+        if (!instant) { s.anim({ targets: jack, x: (0.3 - 0.5) * c.r.w, duration: 700, ease: 'Quad.out' }); A.whoosh(); }
+        s.caption(c, 'MEANWHILE, INSIDE AN OLD CARTRIDGE...', instant);
+        const say = inst => s.bubble(c, PORTRAIT ? 0.6 : 0.5, PORTRAIT ? 0.4 : 0.44, 'Why is it so... SQUARE in here?', -1, inst);
+        instant ? say(true) : s.at(1000, say);
+      },
+      (s, c, instant) => {
+        s.bg(c, 'sky8'); s.strip(c, 0x58d854, 0.82, 1);
+        const j = s.actor(c, 'jack_px_front', 0.28, 0.98, 0.5, 0.3);
+        if (!instant) { A.cartridge && A.cartridge(); s.at(250, () => A.glitch && A.glitch()); s.anim({ targets: j, alpha: { from: 0.2, to: 1 }, duration: 90, repeat: 3 }); }
+        s.actor(c, 'bolty_idle1', 0.72, 0.98, 0.36, 0.3);
+        const say = inst => s.bubble(c, PORTRAIT ? 0.62 : 0.66, PORTRAIT ? 0.3 : 0.26, 'BEEP! A new player has joined!', 0.6, inst);
+        instant ? say(true) : s.at(700, say);
+      },
+      (s, c, instant) => {
+        s.bg(c, 'sky8'); s.strip(c, 0x58d854, 0.82, 1);
+        s.peekObj = s.inside(c, s.actor(c, 'pixeldragon_idle1', 0.9, 0.62, 0.2, 0.16).setVisible(false));
+        s.actor(c, 'castle', 0.9, 0.8, 0.26, 0.2);
+        [['leafy_idle1', 0.5, 0.3], ['bibi_idle1', 0.66, 0.22], ['pipo_idle1', 0.8, 0.26]].forEach(([k, x, h], i) => {
+          const b = s.actor(c, k, instant ? x : x + 0.8, 0.98, h, 0.2);
+          if (!instant) s.anim({ targets: b, x: (x - 0.5) * c.r.w, duration: 700 + i * 150, ease: 'Back.out' });
+        });
+        s.actor(c, 'jack_px_front', 0.2, 0.98, 0.42, 0.24);
+        const s1 = inst => s.bubble(c, 0.7, PORTRAIT ? 0.16 : 0.2, 'Pipe time! Jump time! PILLOW time!', 0.6, inst);
+        const s2 = inst => s.bubble(c, 0.32, PORTRAIT ? 0.4 : 0.44, 'Let\'s PLAY!', -1, inst);
+        if (instant) { s1(true); s2(true); } else { s.at(300, s1); s.at(1400, s2); }
+      },
+    ],
+    // the Pixel Dragon peeks out over the castle and blinks
+    peek: s => { const o = s.peekObj; if (o) { o.setVisible(true); s.tweens.add({ targets: o, alpha: 0.2, duration: 180, yoyo: true, repeat: -1, repeatDelay: 1200 }); } },
+    sting: s => s.time.delayedCall(1300, () => A.glitch && A.glitch()),
+  };
   const comicSeen = id => !!(Save.data.comics && Save.data.comics[id]);
   const COMIC_DUE = {
     hills: () => !Object.keys(Save.data.stars).some(k => Save.data.stars[k] > 0), // new players only: saves that played before v0.9 are marked seen by mig09; XP from a toy duel or a quest does not count (QA B65)
@@ -4564,6 +4975,7 @@
     ocean: () => worldOpen(OCEAN),
     veggie: () => worldOpen(VEGGIE),
     countryballs: () => worldOpen(BALLS),
+    pixel: () => worldOpen(PIXEL),
     spooky: () => EVENT_ON && worldOpen(SPOOKY), // during the event only
   };
   // a comic plays once, the first time its world opens (docs/gdd/0.9-world-comics.md section 4)
@@ -5184,9 +5596,10 @@
 
   // ---------- start
   // helpers + data shared with plugin scenes (js/extra.js, js/net.js)
-  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, SPACE, CANADA, OCEAN, VEGGIE, BALLS,
+  PS = { VERSION, W, H, PORTRAIT, C, A, FONT, Save, IDB, TOYS, MOVES, RIVALS, WORLDS, BOOSTS, BOOST_BY_ID, RARITY, COSTUMES, KRAKEN, DIFFS, EVENT_ON, SPOOKY, PIXEL, SPACE, CANADA, OCEAN, VEGGIE, BALLS,
     txt, fit, tw, wait, rnd, clamp, buzz, img, iconScale, sky, groundKey, button, panel, chip, fitImage, starRow, fade, press, backButton, muteButton, capsuleButton, drawCapsule,
     addTexture, hatImage, levelOf, heroDef, jackDef, toyDef, toyById, totalStars, isUnlocked, emit, dailyStreak, worldOpen, bottomGround };
+  if (DEBUG) window.__PS = PS; // tests (v1.3)
   const EXTRA_SCENES = [].concat(...PLUGINS.map(p => { try { return p.scenes ? p.scenes(PS) : []; } catch (e) { console.warn('plugin scenes', e); return []; } }));
   function snapshot(game) {
     const sc = game.scene.getScenes(true).find(x => x.scene.key !== 'boot');

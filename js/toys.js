@@ -140,7 +140,8 @@
     moose: ['moose'], beaver: ['beaver'], mountie: ['bear'], sasquatch: ['sasquatch', 1], pumpkin: ['pumpkin'], batty: ['bat'], webster: ['spider'], fang: ['vampire', 1], kraken: ['kraken', 1],
     hermy: ['crab'], puff: ['blowfish'], jelly: ['jellyfish'], fog: ['fogcap'], thully: ['thully', 1], // v1.0 Ocean
     onion: ['onion'], peas: ['peapod'], garlic: ['garlic'], fungi: ['mushroom'], brocklee: ['brocklee', 1], // v1.0 Veggie Patch
-    england: ['england'], spain: ['spain'], japan: ['japan'], usa: ['usa'], poland: ['poland', 1] }; // v1.1 Countryballs
+    england: ['england'], spain: ['spain'], japan: ['japan'], usa: ['usa'], poland: ['poland', 1], // v1.1 Countryballs
+    leafy: ['leafy_idle1'], bolty: ['bolty_idle1'], bibi: ['bibi_idle1'], pipo: ['pipo_idle1'], pixeldragon: ['pixeldragon_idle1', 1] }; // v1.3 Pixel Land
   function pickQuirk(arch, r) {
     const sigType = (ARCH_BY_ID[arch] || ARCH_BY_ID.mystery).sig.type;
     for (let i = 0; i < 20; i++) {

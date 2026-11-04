@@ -83,8 +83,8 @@ test('map tabs (v1.1: 7 with the event): all icon tabs, the world name in the le
     await go(page, 'map', { world: 2 });
     const tabs = await page.evaluate(() => __game.scene.getScene('map').children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96)
       .map(c => ({ w: c.width, name: c.list.find(o => o.type === 'Text').visible })));
-    expect(tabs.length).toBe(7);
-    expect(tabs.filter(t => t.name).length).toBe(0); // 7 tabs: the name is in the level line
+    expect(tabs.length).toBe(8); // v1.3: Pixel Land + Spooky
+    expect(tabs.filter(t => t.name).length).toBe(0); // 8 tabs: the name is in the level line
     expect(await offscreen(page, 'map')).toEqual([]);
   }
   noErrors(page);

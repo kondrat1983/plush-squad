@@ -216,7 +216,7 @@ test('calm mode keeps the Big Yawn warning pulse (like the slapshot and beam cha
   noErrors(page);
 });
 
-test('applyCloud runs the save migrations: a v1.0 cloud save (lastWorld 5, no mig11) ends with lastWorld 6 and mig11', async ({ page }) => {
+test('applyCloud runs the save migrations: a v1.0 cloud save (lastWorld 5, no mig11) ends with lastWorld 7, mig11 and mig12', async ({ page }) => {
   await boot(page, SAVE);
   await seedToys(page, [], []);
   const r = await page.evaluate(async fs => {
@@ -224,9 +224,9 @@ test('applyCloud runs the save migrations: a v1.0 cloud save (lastWorld 5, no mi
     PSNet.synced = true;
     const cloud = { owner: 'u1', savedAt: 9, toys: [], away: [], stars: { timmy: 3 }, mig08: 1, mig09: 1, mig10: 1, lastWorld: 5 };
     await PSNet.applyCloud(cloud);
-    return { mem: [__save.data.lastWorld, __save.data.mig11], ls: (d => [d.lastWorld, d.mig11])(JSON.parse(localStorage.getItem('plushsquad_v1'))) };
+    return { mem: [__save.data.lastWorld, __save.data.mig11, __save.data.mig12], ls: (d => [d.lastWorld, d.mig11, d.mig12])(JSON.parse(localStorage.getItem('plushsquad_v1'))) };
   }, fakeSb.toString());
-  expect(r.mem).toEqual([6, 1]);
-  expect(r.ls).toEqual([6, 1]);
+  expect(r.mem).toEqual([7, 1, 1]);
+  expect(r.ls).toEqual([7, 1, 1]);
   noErrors(page);
 });
