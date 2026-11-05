@@ -35,6 +35,7 @@ async function resultWith(page, primary, nextIdx) {
 }
 
 test('each comic starts by its id: panels, taps, SKIP (top right, 90 px+) sets only its flag; an unknown id goes to the map', async ({ page }) => {
+  test.setTimeout(720000); // v1.3: 8 comics, one after the other, at 2-3 fps (the 6 min default ran out on CI)
   await boot(page, save({ comics: {} }));
   for (const id of IDS) {
     await startComic(page, { world: id, then: { key: 'album', data: { tab: 'comics' } } });
