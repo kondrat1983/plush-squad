@@ -4,7 +4,7 @@ const { BASE_SAVE, boot, go, wait, fast, offscreen, noErrors } = require('./help
 
 const IDS = ['hills', 'space', 'canada', 'ocean', 'veggie', 'countryballs', 'pixel', 'spooky']; // v1.0: Ocean and Veggie Patch; v1.1: Countryballs; v1.3: Pixel Land
 const TITLES = { hills: 'PILLOW HILLS!', space: 'SPACE!', canada: 'CANADA!', ocean: 'OCEAN!', veggie: 'VEGGIE PATCH!', countryballs: 'COUNTRYBALLS!', pixel: 'PIXEL LAND!', spooky: 'SPOOKY!' };
-const COVERS = ['Pillows at Dawn', 'Beam Me Up... Oops', 'Welcome to Canada!', 'Foggy Business', 'Who Planted Jack?', 'The Great Round Picnic', 'Hats for Everyone'];
+const COVERS = ['Pillows at Dawn', 'Beam Me Up... Oops', 'Welcome to Canada!', 'Foggy Business', 'Who Planted Jack?', 'The Great Round Picnic', 'Press Start', 'Hats for Everyone'];
 const OPEN = { timmy: 3, moo: 3, sly: 3, hoot: 3, robot: 3, polandball: 3, ghost: 3, dragonboss: 1, moose: 1, beaver: 1, bear: 1, sasquatch: 1 };
 const save = extra => Object.assign({}, BASE_SAVE, extra);
 const scenes = page => page.evaluate(() => __game.scene.getScenes(true).map(s => s.scene.key));
@@ -59,7 +59,7 @@ test('each comic starts by its id: panels, taps, SKIP (top right, 90 px+) sets o
     expect(words.length).toBeGreaterThanOrEqual(5);
     for (const [s, fs] of words) { expect(s.length, s).toBeLessThan(42); expect(fs, s).toBeGreaterThanOrEqual(30); }
   }
-  expect(await flags(page)).toEqual({ hills: true, space: true, canada: true, ocean: true, veggie: true, countryballs: true, spooky: true });
+  expect(await flags(page)).toEqual({ hills: true, space: true, canada: true, ocean: true, veggie: true, countryballs: true, pixel: true, spooky: true });
   await page.evaluate(() => __game.scene.getScenes(true)[0].scene.start('comic', { world: 'nope' }));
   await until(page, () => scenes(page), ['map']);
   noErrors(page);
@@ -158,7 +158,7 @@ test('no comic in or after a duel: REMATCH of a Space duel and of a friend duel 
   noErrors(page);
 });
 
-test('?halloween: the Spooky tab plays the Spooky comic; NEXT RIVAL after Poland (v1.1: the last world before the event) to Pumpkin Pete goes through it', async ({ page }) => {
+test('?halloween: the Spooky tab plays the Spooky comic; NEXT RIVAL after the Pixel Dragon (v1.3: the last world before the event) to Pumpkin Pete goes through it', async ({ page }) => {
   await boot(page, save({ stars: OPEN, comics: { hills: true, space: true, canada: true } }), '&halloween');
   await go(page, 'map', { world: 2 });
   await tapTab(page, 'SPOOKY');
@@ -167,9 +167,9 @@ test('?halloween: the Spooky tab plays the Spooky comic; NEXT RIVAL after Poland
   await page.evaluate(() => __game.scene.getScene('comic').skipBtn.emit('pointerup'));
   await tapLabel(page, 'comic', 'LET\'S GO!');
   await until(page, () => scenes(page), ['map']);
-  expect(await page.evaluate(() => [__game.scene.getScene('map').world, __save.data.comics.spooky])).toEqual([6, true]); // Spooky is world 6 since v1.1
+  expect(await page.evaluate(() => [__game.scene.getScene('map').world, __save.data.comics.spooky])).toEqual([7, true]); // Spooky is world 7 since v1.3
   await page.evaluate(() => { __save.data.comics.spooky = false; });
-  const sq = await idx(page, 'poland'), pete = await idx(page, 'pumpkin');
+  const sq = await idx(page, 'pixeldragon'), pete = await idx(page, 'pumpkin');
   await go(page, 'battle', { rival: sq });
   await resultWith(page, 'next', pete);
   await tapLabel(page, 'battle', 'NEXT RIVAL');

@@ -125,7 +125,7 @@ test('CONTINUE?: the Pixel Dragon comes back once with 20 % unless you tap NO; t
   await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.rival.hp = 1; b.rival.bar.set(1, b); b.playerMove('pillow'); });
   await page.waitForFunction(() => __game.scene.getScene('battle').contUsed, null, { timeout: 60000 });
   await page.waitForFunction(() => !__game.scene.getScene('battle').contOpen && !__game.scene.getScene('battle').busy, null, { timeout: 90000 });
-  expect(await B(page, b => [b.contRevived, b.rival.hp === Math.round(b.rival.max * 0.2), !!b.contChip, b.over])).toEqual([true, true, true, false]);
+  expect(await B(page, b => [b.contRevived, b.contHp === Math.round(b.rival.max * 0.2), !!b.contChip, b.over])).toEqual([true, true, true, false]); // (his own turn may heal him after that)
   await page.evaluate(() => { const b = __game.scene.getScene('battle'); b.rival.hp = 1; b.rival.bar.set(1, b); b.playerMove('pillow'); });
   await page.waitForFunction(() => { const b = __game.scene.getScene('battle'); return b.over && b.shown; }, null, { timeout: 90000 });
   const r = await page.evaluate(() => [__save.data.stars.pixeldragon > 0, !!__save.data.costumes.bitcap, (__save.data.hi.pixeldragon || 0) > 0]);

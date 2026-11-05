@@ -41,8 +41,8 @@ test('Countryballs: 5 rivals after Brock Lee (ids, numbers, pictures), polandbal
   expect(r).toEqual([['england', 175, 190, false, 1, true], ['spain', 185, 200, false, 1, true], ['japan', 195, 210, false, 1, true], ['usa', 205, 220, false, 1.05, true], ['poland', 250, 260, true, 1.15, true]]);
   const order = await page.evaluate(() => __RIVALS.map(r => r.id));
   const i = order.indexOf('england');
-  expect(order.slice(i - 1, i + 6)).toEqual(['brocklee', 'england', 'spain', 'japan', 'usa', 'poland', 'pumpkin']);
-  expect(await page.evaluate(() => { const b = __RIVALS.find(r => r.id === 'polandball'); return [b.name, b.world, __RIVALS.find(r => r.id === 'pumpkin').world, __RIVALS.find(r => r.id === 'poland').reward]; })).toEqual(['The Blips', 1, 6, 'pierogi']);
+  expect(order.slice(i - 1, i + 6)).toEqual(['brocklee', 'england', 'spain', 'japan', 'usa', 'poland', 'leafy']); // v1.3: Pixel Land comes next
+  expect(await page.evaluate(() => { const b = __RIVALS.find(r => r.id === 'polandball'); return [b.name, b.world, __RIVALS.find(r => r.id === 'pumpkin').world, __RIVALS.find(r => r.id === 'poland').reward]; })).toEqual(['The Blips', 1, 7, 'pierogi']); // Spooky is world 7 since v1.3
   expect(await page.evaluate(() => ['teacup', 'bull', 'paella', 'sushi', 'burger', 'globe', 'balloon', 'sky7', 'ground7'].filter(k => !__game.textures.exists(k)))).toEqual([]);
   await go(page, 'map', { world: 5 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).not.toBe(5);

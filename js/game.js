@@ -1320,7 +1320,8 @@
       // v1.0, 5-6 worlds: the other tabs are icon-only at 110 px, the open tab takes the rest and shows its short name;
       // landscape with 6 tabs: all icon-only, the world's name moves into the level line (docs/gdd/1.0-ocean.md section 2)
       // v1.1, 6-7 worlds: 7 icon tabs are 890 px wide, more than a 4:3 iPad in landscape has: they shrink a little there (never under 90 px, B26)
-      const many = n >= 5, gap = n >= 8 ? 14 : many ? 20 : 30, ICON = many ? Math.max(90, Math.min(110, (room - (n - 1) * gap) / n)) : 110;
+      // v1.3, 7 worlds out of season: the icons shrink a little in portrait so the open tab keeps its name (280 px)
+      const many = n >= 5, gap = n >= 8 ? 14 : many ? 20 : 30, ICON = many ? Math.max(90, Math.min(110, (room - (n - 1) * gap) / n, PORTRAIT && n === 7 ? (room - 280 - (n - 1) * gap) / (n - 1) : 110)) : 110;
       const openW = many ? Math.min(400, room - (n - 1) * (ICON + gap)) : 0, allIcons = many && (!PORTRAIT && n >= 6 || openW < 260);
       const wide = !many && tw0 - 140 < 230, tws = WORLDS.map((w, i) => many ? (i === this.world && !allIcons ? openW : ICON)
         : !wide ? tw0 : i === this.world ? Math.min(400, (room - 30 * (n - 1)) * 2 / (n + 1)) : Math.min(200, (room - 30 * (n - 1)) / (n + 1)));
@@ -2842,7 +2843,7 @@
       if (!calm()) this.time.addEvent({ delay: 4000, loop: true, callback: () => { if (this.heart && this.heart.state === 'closed' && this.chest.active) this.tweens.add({ targets: this.chest, angle: { from: -6, to: 6 }, duration: 80, yoyo: true, repeat: 3, onComplete: () => this.chest.setAngle(0) }); } });
       this.heartImg = null; if (this.heart.state === 'up') this.showHeart(true);
       // the score chip under the VS badge
-      this.scoreT = this.add.text(W / 2, (this.hy || 150) + (PORTRAIT ? 120 : this.diffChip ? 160 : 110), '', // landscape: below the EASY / HARD chip { fontFamily: PX_FONT, fontSize: PORTRAIT ? 30 : 28, color: '#ffffff', stroke: '#101830', strokeThickness: 8 }).setOrigin(0.5).setDepth(30);
+      this.scoreT = this.add.text(W / 2, (this.hy || 150) + (PORTRAIT ? 120 : this.diffChip ? 160 : 110), '', { fontFamily: PX_FONT, fontSize: PORTRAIT ? 30 : 28, color: '#ffffff', stroke: '#101830', strokeThickness: 8 }).setOrigin(0.5).setDepth(30); // landscape: below the EASY / HARD chip
       this.pxScore();
       // the 1-UP button sits where BLOCK IT! goes
       const oy = this.oneY = Math.max(this.bby, this.scoreT.y + 120); // under the SCORE chip and the VS badge (QA B80)
@@ -2974,7 +2975,7 @@
         T.spr.setAlpha(1);
         this.popWord(T.center().x, T.center().y - 260, 'CONTINUE!', '#ffd23f', 84, 6);
         this.log(T.name + ' puts in another coin: "CONTINUE!" One more round!');
-        const n = Math.round(T.max * (this.hard ? 0.25 : 0.2)); this.heal(T, n);
+        const n = this.contHp = Math.round(T.max * (this.hard ? 0.25 : 0.2)); this.heal(T, n);
         this.contChip = chip(this, W * 0.73, (this.hy || 150) + (PORTRAIT ? 70 : 76), 'x1', 0xffd23f, 26).setDepth(30);
         await wait(this, 900);
         await this.afterPlayer();
