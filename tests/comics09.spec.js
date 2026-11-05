@@ -61,7 +61,7 @@ test('each comic starts by its id: panels, taps, SKIP (top right, 90 px+) sets o
     for (const [s, fs] of words) { expect(s.length, s).toBeLessThan(42); expect(fs, s).toBeGreaterThanOrEqual(30); }
   }
   expect(await flags(page)).toEqual({ hills: true, space: true, canada: true, ocean: true, veggie: true, countryballs: true, pixel: true, spooky: true });
-  await page.evaluate(() => __game.scene.getScenes(true)[0].scene.start('comic', { world: 'nope' }));
+  await page.evaluate(() => { void __game.scene.getScenes(true)[0].scene.start('comic', { world: 'nope' }); }); // void: the ScenePlugin is too big to send back
   await until(page, () => scenes(page), ['map']);
   noErrors(page);
 });
