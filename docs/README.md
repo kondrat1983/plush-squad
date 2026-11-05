@@ -18,6 +18,9 @@ These pages are read from the repo, so they are always the latest version. Use t
 - [Canada](gdd/0.8-canada.md): Sasquatch, SAVE IT!, Pond Hockey, the comic popup.
 - [Space rework](gdd/0.8-space-rework.md): The Blips, The Mothership, boss hats.
 
+## v1.x
+- [Pixel Land (v1.3)](gdd/1.3-pixel-land.md): the 8-bit world, 1-UP, CONTINUE?, the automatic pixel look, the chiptune.
+
 ## QA reports
 - [v0.7.8](qa/Plush_Squad_v0.7.8_QA_Report.md)
 - [v0.7.6](qa/Plush_Squad_v0.7.6_QA_Report.md)

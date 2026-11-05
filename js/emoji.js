@@ -20,6 +20,7 @@
     hermy: 'shy', puff: 'grumpy', jelly: 'kind', fog: 'grumpy', thully: 'kind',
     onion: 'shy', peas: 'cheeky', garlic: 'grumpy', fungi: 'cheeky', brocklee: 'kind',
     england: 'kind', spain: 'cheeky', japan: 'shy', usa: 'cheeky', poland: 'kind',
+    leafy: 'shy', bolty: 'cheeky', bibi: 'kind', pipo: 'cheeky', pixeldragon: 'grumpy', // v1.3
     pumpkin: 'cheeky', batty: 'shy', webster: 'shy', fang: 'grumpy', kraken: 'cheeky',
   };
   const tagOf = id => TAGS[id] || 'kind';

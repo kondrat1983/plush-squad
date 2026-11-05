@@ -28,7 +28,7 @@ test('Ocean sits after Canada: 5 rivals in order, opens after Sasquatch, Veggie 
   const ids = r.map(x => x[0]), i = ids.indexOf('hermy');
   expect(ids.slice(i - 1, i + 11)).toEqual(['sasquatch', 'hermy', 'puff', 'jelly', 'fog', 'thully', 'onion', 'peas', 'garlic', 'fungi', 'brocklee', 'england']);
   expect(r.slice(i, i + 5)).toEqual([['hermy', 3, 155, 150, false], ['puff', 3, 165, 160, false], ['jelly', 3, 175, 170, false], ['fog', 3, 185, 180, false], ['thully', 3, 220, 220, true]]);
-  expect(await page.evaluate(() => __RIVALS.find(r => r.id === 'pumpkin').world)).toBe(6); // v1.1: Countryballs is 5
+  expect(await page.evaluate(() => __RIVALS.find(r => r.id === 'pumpkin').world)).toBe(7); // v1.1: Countryballs is 5; v1.3: Pixel Land is 6
   // locked: the tab says who opens it
   await go(page, 'map', { world: 3 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).not.toBe(3);
@@ -268,12 +268,12 @@ test('beating Sleepy Thully: Nightcap costume (first win only), crown on the map
   noErrors(page);
 });
 
-test('save migration mig10 + mig11: an old Spooky lastWorld (3) becomes 6; players past Sasquatch find Ocean open', async ({ page }) => {
+test('save migration mig10 + mig11 + mig12: an old Spooky lastWorld (3) becomes 7; players past Sasquatch find Ocean open', async ({ page }) => {
   const old = save({ stars: CANADA_DONE, lastWorld: 3 }); delete old.mig10;
   await boot(page, old, '&halloween');
-  expect(await page.evaluate(() => [__save.data.lastWorld, __save.data.mig10, __save.data.mig11])).toEqual([6, 1, 1]);
+  expect(await page.evaluate(() => [__save.data.lastWorld, __save.data.mig10, __save.data.mig11, __save.data.mig12])).toEqual([7, 1, 1, 1]);
   await go(page, 'map');
-  expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(6);
+  expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(7);
   await go(page, 'map', { world: 3 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).toBe(3);
   noErrors(page);
@@ -308,7 +308,7 @@ for (const [tag, vp] of Object.entries(SIZES)) test(`map: 5 Ocean nodes and 7 ta
       const tabs = s.children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96).map(c => ({ w: c.width, x: c.x, name: c.list.find(o => o.type === 'Text').visible, size: c.list.find(o => o.type === 'Text').scaleX * 40 }));
       return { nodes, tabs };
     });
-    expect(r.tabs.length).toBe(7); // v1.1: Countryballs + Spooky; all icon tabs, 90 px+ (a 4:3 iPad in landscape squeezes them a little)
+    expect(r.tabs.length).toBe(8); // v1.3: Countryballs, Pixel Land + Spooky; all icon tabs, 90 px+ (a 4:3 iPad in landscape squeezes them a little)
     r.tabs.forEach(t => expect(t.w).toBeGreaterThanOrEqual(90));
     expect(r.tabs.filter(t => t.name).length).toBe(0);
     expect(r.nodes.length).toBe(w === 3 ? 6 : 5); // nodes + the hero marker
@@ -333,7 +333,7 @@ test('map out of season: 6 tabs, the open one shows its name (>= 28 px) in portr
   for (const w of [3, 2]) {
     await go(page, 'map', { world: w });
     const tabs = await page.evaluate(() => __game.scene.getScene('map').children.list.filter(o => o.type === 'Container' && o.depth === 6 && o.height === 96).map(c => ({ w: c.width, name: c.list.find(o => o.type === 'Text').visible, size: c.list.find(o => o.type === 'Text').scaleX * 40 })));
-    expect(tabs.length).toBe(6);
+    expect(tabs.length).toBe(7); // v1.3: Pixel Land
     tabs.forEach(t => expect(t.w).toBeGreaterThanOrEqual(90));
     const named = tabs.filter(t => t.name);
     expect(named.length).toBe(1);

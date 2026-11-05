@@ -146,6 +146,15 @@
     fizzle() { for (let i = 0; i < 5; i++) this.noise(0.06, { f: 1800 - i * 250, q: 3, vol: 0.2, delay: i * 0.09 }); this.tone(500, 0.5, { type: 'sawtooth', vol: 0.05, slide: 0.3 }); this.tone(220, 0.3, { vol: 0.25, slide: 2.2, delay: 0.55 }); },
     catchStar() { this.tone(1319 + Math.random() * 300, 0.18, { type: 'triangle', vol: 0.16 }); this.tone(1760, 0.2, { type: 'sine', vol: 0.08, delay: 0.05 }); },
     levelUp() { [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.2, delay: i * 0.09 })); },
+    // v1.3 Pixel Land: loading blips, the cartridge thunk, a glitch, the chest, the 1-UP jingles (original notes), GAME OVER and CONTINUE!
+    blip(i = 0) { this.tone(440 * Math.pow(1.12, i % 12), 0.06, { type: 'square', vol: 0.06 }); },
+    cartridge() { this.tone(90, 0.3, { slide: 0.55, vol: 0.45 }); this.noise(0.12, { f: 1200, vol: 0.2 }); },
+    glitch() { for (let i = 0; i < 4; i++) this.tone(200 + Math.random() * 1600, 0.03, { type: 'square', vol: 0.06, delay: i * 0.05 }); this.noise(0.2, { type: 'highpass', f: 3000, vol: 0.08 }); },
+    chest() { this.tone(160, 0.3, { type: 'sawtooth', vol: 0.08, slide: 2.2, attack: 0.05 }); [988, 1319].forEach((f, i) => this.tone(f, 0.1, { type: 'square', vol: 0.07, delay: 0.32 + i * 0.1 })); },
+    oneup(low) { const k = low ? 0.5 : 1, sp = low ? 0.11 : 0.09; [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.tone(f * k, i === 5 ? 0.45 : 0.1, { type: 'square', vol: 0.07, delay: i * sp })); },
+    oneupRival() { this.oneup(true); },
+    gameover() { [784, 659, 523, 440, 330].forEach((f, i) => this.tone(f, i === 4 ? 0.6 : 0.16, { type: 'square', vol: 0.08, delay: i * 0.17 })); },
+    continued() { [660, 990].forEach((f, i) => this.tone(f, 0.08, { type: 'square', vol: 0.08, delay: i * 0.1 })); this.tone(110, 0.3, { vol: 0.4, slide: 0.5, delay: 0.25 }); },
 
     // ---- music: procedural tracks (hop main theme on the title, calm lullaby for other menus, battle, boss, north for Canada, v1.0 sea and garden, lullaby while Sleepy Thully sleeps, v1.1 parade)
     // music(name) picks the track (crossfade); startMusic() starts the scheduler after the first tap.
@@ -155,7 +164,8 @@
     voice(m, at, dur, o = {}) {
       const c = this.ctx, bus = o.dest || this._bus; if (!c || !bus) return;
       const osc = c.createOscillator(), g = c.createGain();
-      osc.type = o.type || 'triangle'; osc.frequency.setValueAtTime(this.mtof(m), at);
+      if (o.wave) osc.setPeriodicWave(o.wave); else osc.type = o.type || 'triangle';
+      osc.frequency.setValueAtTime(this.mtof(m), at);
       if (o.det) osc.detune.setValueAtTime(o.det, at);
       if (o.slide) osc.frequency.exponentialRampToValueAtTime(this.mtof(m) * o.slide, at + Math.max(0.01, dur));
       const v = o.vol == null ? 0.05 : o.vol, a = o.a || 0.008, r = o.r == null ? 0.08 : o.r;
@@ -170,6 +180,18 @@
       }
       out.connect(g); g.connect(bus); osc.start(at); osc.stop(at + Math.max(a, dur) + r + 0.05);
     },
+    // v1.3 a pulse wave with a duty cycle (12.5 / 25 / 50 %), like the old game consoles: a PeriodicWave per duty, cached per context
+    pwave(duty) {
+      const c = this.ctx; if (!c) return null;
+      if (!this._pw || this._pw.c !== c) this._pw = { c, w: {} };
+      if (!this._pw.w[duty]) {
+        const N = 32, re = new Float32Array(N), im = new Float32Array(N);
+        for (let n = 1; n < N; n++) im[n] = 2 / (n * Math.PI) * Math.sin(n * Math.PI * duty);
+        this._pw.w[duty] = c.createPeriodicWave(re, im);
+      }
+      return this._pw.w[duty];
+    },
+    pulse(m, at, dur, duty, o = {}) { this.voice(m, at, dur, Object.assign({ wave: this.pwave(duty) }, o)); },
     hit(at, dur, o = {}) { // filtered noise burst for drums
       const c = this.ctx, bus = this._bus; if (!c || !bus || this._soft) return;
       const src = c.createBufferSource(); src.buffer = this.noiseBuf;
@@ -451,6 +473,43 @@
           A.voice(TH[b8][s / 8], t, sp * 7, { type: 'sine', vol: 0.045, a: 0.08, r: 0.2, det: s ? 10 : -10 });
         }
       } },
+      // v1.3 Pixel Land: an original chiptune like the old consoles (2 pulse waves + triangle bass + noise drums), G major 150 bpm, 16 bars;
+      // A = 50 % lead over G D Em C, B = the lead an octave up with a minor turn; pulse 2 (25 %) arpeggios, an echo in part B
+      pixel: { bpm: 150, div: 4, len: 256, gain: 0.6, play(A, n, t, sp) {
+        const bar = Math.floor(n / 16), s = n % 16, partB = bar >= 8;
+        const root = [43, 38, 40, 36, 43, 38, 36, 38, 40, 36, 38, 35, 40, 36, 45, 38][bar];
+        const third = [4, 4, 3, 4, 4, 4, 4, 4, 3, 4, 4, 4, 3, 4, 3, 4][bar];
+        if (s === 0 || s === 8 || (s === 14 && bar % 2)) A.drum('kick', t, 0.8);
+        if (s === 4 || s === 12) A.hit(t, 0.07, { f: 2200, q: 0.8, vol: 0.16 });
+        if (s % 2 === 1) A.hit(t, 0.025, { type: 'highpass', f: 8000, vol: 0.04 });
+        if (bar === 15 && s >= 8) A.hit(t, 0.06, { f: 2200, q: 0.8, vol: 0.08 + (s - 8) * 0.015 });
+        if (n === 0 || n === 128) A.drum('crash', t, 0.6);
+        if (s % 2 === 0) A.voice(root + [0, 12, 7, 12, 0, 12, 7, 12][s / 2], t, sp * 1.7, { type: 'triangle', vol: 0.12, r: 0.02 });
+        const arp = [0, third, 7, 12];
+        A.pulse(root + 36 + arp[s % 4], t, sp * 0.6, 0.25, { vol: partB ? 0.012 : 0.009, r: 0.02 });
+        const MEL = [
+          [[0, 71, 2], [2, 74, 2], [4, 79, 2], [6, 74, 2], [8, 76, 2], [10, 74, 2], [12, 71, 4]],
+          [[0, 69, 2], [2, 74, 2], [4, 78, 4], [8, 76, 2], [10, 74, 2], [12, 69, 4]],
+          [[0, 71, 2], [2, 76, 2], [4, 79, 2], [6, 76, 2], [8, 74, 2], [10, 71, 2], [12, 67, 4]],
+          [[0, 72, 4], [4, 76, 2], [6, 79, 2], [8, 84, 6], [14, 83, 2]],
+          [[0, 71, 2], [2, 74, 2], [4, 79, 2], [6, 74, 2], [8, 76, 2], [10, 74, 2], [12, 71, 4]],
+          [[0, 78, 2], [2, 81, 2], [4, 86, 4], [8, 84, 2], [10, 81, 2], [12, 78, 4]],
+          [[0, 76, 2], [2, 79, 2], [4, 84, 2], [6, 79, 2], [8, 76, 2], [10, 72, 2], [12, 74, 4]],
+          [[0, 78, 4], [4, 74, 2], [6, 78, 2], [8, 81, 8]],
+          [[0, 83, 4], [4, 79, 2], [6, 83, 2], [8, 88, 4], [12, 86, 4]],
+          [[0, 84, 4], [4, 79, 2], [6, 76, 2], [8, 79, 8]],
+          [[0, 81, 2], [2, 78, 2], [4, 81, 2], [6, 86, 2], [8, 84, 4], [12, 81, 4]],
+          [[0, 78, 4], [4, 75, 2], [6, 78, 2], [8, 83, 8]],
+          [[0, 88, 2], [2, 86, 2], [4, 83, 2], [6, 79, 2], [8, 83, 4], [12, 88, 4]],
+          [[0, 84, 2], [2, 83, 2], [4, 79, 2], [6, 76, 2], [8, 79, 4], [12, 84, 4]],
+          [[0, 81, 4], [4, 84, 4], [8, 88, 4], [12, 86, 4]],
+          [[0, 86, 6], [6, 84, 2], [8, 81, 2], [10, 78, 2], [12, 74, 4]],
+        ];
+        MEL[bar].forEach(([st, m, l]) => {
+          if (st === s) A.pulse(m - (partB ? 12 : 0), t, sp * l * 0.7, 0.5, { vol: 0.03, r: 0.04 });
+          if (partB && st + 3 === s) A.pulse(m - 12, t, sp * Math.min(l, 2) * 0.6, 0.25, { vol: 0.01, r: 0.03 }); // echo
+        });
+      } },
     },
     music(name) {
       if (name === undefined) name = 'calm';
@@ -480,6 +539,6 @@
     },
   };
   // the world map plays a quiet version of its world's duel track: 80 % tempo, a bit softer, no drums (soft: drum() and hit() do nothing)
-  ['battle', 'space', 'north', 'sea', 'garden', 'parade'].forEach(k => { const T = Audio.TRACKS[k]; Audio.TRACKS[k + 'Map'] = { bpm: Math.round(T.bpm * 0.8), div: T.div, len: T.len, gain: T.gain * 0.75, soft: true, play: T.play }; });
+  ['battle', 'space', 'north', 'sea', 'garden', 'parade', 'pixel'].forEach(k => { const T = Audio.TRACKS[k]; Audio.TRACKS[k + 'Map'] = { bpm: Math.round(T.bpm * 0.8), div: T.div, len: T.len, gain: T.gain * 0.75, soft: true, play: T.play }; });
   window.PSAudio = Audio;
 })();

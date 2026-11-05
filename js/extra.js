@@ -123,6 +123,10 @@
     { id: 'poland', name: 'Liftoff!', desc: 'Beat Poland', icon: 'poland', title: 'Rocket Pal', ok: d => (d.stars.poland || 0) > 0 },
     { id: 'push5', name: 'Mission Control', desc: 'Help Poland into space 5 times', icon: 'rocket', title: 'Mission Control', ok: d => (d.stats.pushes || 0) >= 5 },
     { id: 'copycat5', name: 'Mirror Master', desc: 'Make 5 copies flop (nap, dance)', icon: 'j:cool', title: 'Mirror Master', ok: d => (d.stats.copyFlops || 0) >= 5 },
+    // v1.3 Pixel Land
+    { id: 'pdragon', name: 'Player 1 Wins!', desc: 'Beat the Pixel Dragon', icon: 'pixeldragon_idle1', title: 'Retro Champ', ok: d => (d.stars.pixeldragon || 0) > 0 },
+    { id: 'oneup5', name: 'Extra Life!', desc: 'Grab 5 hearts (1-UP)', icon: 'heart8', title: 'Extra Life', ok: d => (d.stats.oneups || 0) >= 5 },
+    { id: 'nocont', name: 'No Continues!', desc: 'Tap NO on CONTINUE? 3 times', icon: 'j:game', title: 'Game Over Pal', ok: d => (d.stats.noContinue || 0) >= 3 },
   ];
   const ACH_BY_ID = {}; ACH.forEach(a => ACH_BY_ID[a.id] = a);
   const titles = () => ['Plush Friend'].concat(ACH.filter(a => a.title && S().ach && S().ach[a.id]).map(a => a.title));
@@ -161,6 +165,10 @@
     { id: 'hello3', text: 'Learn to say "hello" in 3 languages', icon: 'j:friends' }, { id: 'globe', text: 'Find 3 countries on a map with a grown-up', icon: 'j:pencil' },
     { id: 'teaparty', text: 'Have a tea party with your toys (milk or juice is fine!)', icon: 'milk' }, { id: 'cookworld', text: 'Help cook dumplings, pasta or rice with a grown-up', icon: 'dumpling' },
     { id: 'catch', text: 'Play catch with a ball outside', icon: 'i:ball' }, { id: 'myflag', text: 'Draw a flag for your toy squad', icon: 'j:pencil' },
+    // v1.3 (Pixel Land)
+    { id: 'retro', text: 'Ask a grown-up which game they played as a kid', icon: 'j:game' }, { id: 'squares', text: 'Draw a picture with squares on graph paper (or colour a grid)', icon: 'j:pencil' },
+    { id: 'bricks', text: 'Build something small from blocks or bricks', icon: 'j:puzzle' }, { id: 'levelup', text: 'Beat a chore like a game level: set a timer, then beat your time', icon: 'j:alarm' },
+    { id: 'bubbles', text: 'Blow bubbles outside (or make bubbles in the bath)', icon: 'bubbles' }, { id: 'hop20', text: 'Hop 20 times on one foot, then 20 on the other', icon: 'j:run' },
   ];
   const QBY = {}; QUESTS.forEach(q => QBY[q.id] = q);
   function todaysQuests() {
@@ -293,6 +301,11 @@
 
   // ---------- "What's new" popup: shows once per version (CLOSE = see it again next time, DON'T SHOW AGAIN = hide until the next update)
   const WHATS_NEW = {
+    '1.3': [
+      { icon: 'j:game', title: 'PIXEL LAND', text: 'Everyone turns into 8-bit! Meet Sir Leafy, Bolty, Bibi and Pipo.' },
+      { icon: 'heart8', title: '1-UP', text: 'A heart pops out of the chest. Tap it first to heal!' },
+      { icon: 'bitcap', title: '8-Bit Cap', text: 'Beat the Pixel Dragon for a blocky orange cap!' },
+    ],
     '1.2': [
       { icon: 'e:grin', title: 'EMOJI', text: 'Tap the smiley in a duel and send an emoji. Your rival answers back!' },
     ],
@@ -519,6 +532,7 @@
       { id: 'ocean', title: 'Foggy Business', icon: 'nightcap', bg: 'sky5', jack: 'jack_side', hint: 'Reach the Ocean to unlock' },
       { id: 'veggie', title: 'Who Planted Jack?', icon: 'broccoli', bg: 'sky6', jack: 'jack_side', hint: 'Reach the Veggie Patch to unlock' },
       { id: 'countryballs', title: 'The Great Round Picnic', icon: 'globe', bg: 'sky7', jack: 'jack_side', hint: 'Reach COUNTRYBALLS to unlock' },
+      { id: 'pixel', title: 'Press Start', icon: 'j:game', bg: 'sky8', jack: 'jack_side', hint: 'Reach PIXEL LAND to unlock' },
       { id: 'spooky', title: 'Hats for Everyone', icon: 'pumpkin', bg: 'sky3', jack: 'jack_upside', hint: 'Visit Spooky to unlock' },
     ];
     class AlbumScene extends Phaser.Scene {

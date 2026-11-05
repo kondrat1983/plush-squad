@@ -68,7 +68,7 @@ test('map versions are soft copies of the duel tracks', async ({ page }) => {
   await boot(page);
   const r = await page.evaluate(() => {
     const A = PSAudio, out = {};
-    for (const k of ['battle', 'space', 'north', 'sea', 'garden', 'parade']) {
+    for (const k of ['battle', 'space', 'north', 'sea', 'garden', 'parade', 'pixel']) {
       const T = A.TRACKS[k], M = A.TRACKS[k + 'Map'];
       out[k] = [M.play === T.play, M.bpm < T.bpm, M.gain < T.gain, M.soft === true];
     }
@@ -95,7 +95,7 @@ test('map versions are soft copies of the duel tracks', async ({ page }) => {
 test('B79: every world maps to an existing duel track and map track', async ({ page }) => {
   await boot(page);
   const r = await page.evaluate(() => __WORLD_TRACK.map(k => [k, !!PSAudio.TRACKS[k], !!PSAudio.TRACKS[k + 'Map']]));
-  expect(r.map(x => x[0])).toEqual(['battle', 'space', 'north', 'sea', 'garden', 'parade', 'battle']); // hills, space, canada, ocean, veggie, countryballs, spooky
+  expect(r.map(x => x[0])).toEqual(['battle', 'space', 'north', 'sea', 'garden', 'parade', 'pixel', 'battle']); // hills, space, canada, ocean, veggie, countryballs, pixel land, spooky
   for (const [k, duel, map] of r) expect([k, duel, map]).toEqual([k, true, true]);
   noErrors(page);
 });

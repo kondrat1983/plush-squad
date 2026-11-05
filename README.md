@@ -41,6 +41,8 @@ Change files, bump `CACHE` in `sw.js` (e.g. `plushsquad-v0.2.1`) so devices pick
 - `sw.js`, `manifest.json` — offline + install
 
 ## Versions
+- **v1.3**
+  - **Pixel Land**, an 8-bit world: Sir Leafy, Bolty, Bibi, Pipo and the Pixel Dragon. Jack and your toys turn 8-bit, grab the 1-UP heart, beat the HI-SCORE, say NO to CONTINUE?. 8-Bit Cap.
 - **v1.2**
   - **Emoji in duels**: tap the smiley, send one of 16 emoji, the rival answers in character. Friends see your emoji after you beat them. EMOJI ON / OFF in Settings.
 - **v1.1**

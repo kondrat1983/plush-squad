@@ -41,8 +41,8 @@ test('Countryballs: 5 rivals after Brock Lee (ids, numbers, pictures), polandbal
   expect(r).toEqual([['england', 175, 190, false, 1, true], ['spain', 185, 200, false, 1, true], ['japan', 195, 210, false, 1, true], ['usa', 205, 220, false, 1.05, true], ['poland', 250, 260, true, 1.15, true]]);
   const order = await page.evaluate(() => __RIVALS.map(r => r.id));
   const i = order.indexOf('england');
-  expect(order.slice(i - 1, i + 6)).toEqual(['brocklee', 'england', 'spain', 'japan', 'usa', 'poland', 'pumpkin']);
-  expect(await page.evaluate(() => { const b = __RIVALS.find(r => r.id === 'polandball'); return [b.name, b.world, __RIVALS.find(r => r.id === 'pumpkin').world, __RIVALS.find(r => r.id === 'poland').reward]; })).toEqual(['The Blips', 1, 6, 'pierogi']);
+  expect(order.slice(i - 1, i + 6)).toEqual(['brocklee', 'england', 'spain', 'japan', 'usa', 'poland', 'leafy']); // v1.3: Pixel Land comes next
+  expect(await page.evaluate(() => { const b = __RIVALS.find(r => r.id === 'polandball'); return [b.name, b.world, __RIVALS.find(r => r.id === 'pumpkin').world, __RIVALS.find(r => r.id === 'poland').reward]; })).toEqual(['The Blips', 1, 7, 'pierogi']); // Spooky is world 7 since v1.3
   expect(await page.evaluate(() => ['teacup', 'bull', 'paella', 'sushi', 'burger', 'globe', 'balloon', 'sky7', 'ground7'].filter(k => !__game.textures.exists(k)))).toEqual([]);
   await go(page, 'map', { world: 5 });
   expect(await page.evaluate(() => __game.scene.getScene('map').world)).not.toBe(5);
@@ -220,12 +220,12 @@ test('no PUSH!: the rocket fizzles and Poland falls on the hero (24-30); EASY: o
   noErrors(page);
 });
 
-test('save migration mig11: lastWorld 5 (Spooky in v1.0) becomes 6; a v1.1 save keeps 5 (Countryballs)', async ({ page }) => {
+test('save migration mig11 + mig12: lastWorld 5 (Spooky in v1.0) becomes 7; a v1.1 save keeps 5 (Countryballs)', async ({ page }) => {
   const old = save({ stars: BALLS_OPEN, lastWorld: 5 }); delete old.mig11;
   await boot(page, old, '&halloween');
-  expect(await page.evaluate(() => [__save.data.lastWorld, __save.data.mig11])).toEqual([6, 1]);
+  expect(await page.evaluate(() => [__save.data.lastWorld, __save.data.mig11, __save.data.mig12])).toEqual([7, 1, 1]);
   await go(page, 'map');
-  expect(await page.evaluate(() => [__game.scene.getScene('map').world, __game.scene.getScene('map').children.list.filter(o => o.type === 'Container' && o.depth === 4).some(c => c.list.some(x => x.texture && x.texture.key === 'pumpkin'))])).toEqual([6, true]);
+  expect(await page.evaluate(() => [__game.scene.getScene('map').world, __game.scene.getScene('map').children.list.filter(o => o.type === 'Container' && o.depth === 4).some(c => c.list.some(x => x.texture && x.texture.key === 'pumpkin'))])).toEqual([7, true]);
   await page.evaluate(() => { __save.data.lastWorld = 5; __save.store(); });
   await page.reload();
   await page.waitForFunction(() => window.__game && __game.scene.getScenes(true).length > 0, null, { timeout: 60000 }); await fast(page);
@@ -307,9 +307,9 @@ test('rotation with a COPYCAT! armed: the copy, the chip and the strips come bac
   noErrors(page);
 });
 
-// the map during the event: 7 tabs (Countryballs + Spooky), 90 px+, no overlaps, nothing off screen; the 5 Countryballs nodes do not overlap
+// the map during the event: 8 tabs (Countryballs, Pixel Land + Spooky), 90 px+, no overlaps, nothing off screen; the 5 Countryballs nodes do not overlap
 const SIZES = { 'iPhone portrait': { width: 390, height: 844 }, 'iPhone landscape': { width: 844, height: 390 }, 'iPad portrait': { width: 768, height: 1024 }, 'iPad landscape': { width: 1024, height: 768 } };
-for (const [tag, vp] of Object.entries(SIZES)) test(`map with ?halloween: 7 tabs and 5 Countryballs nodes fit, nothing overlaps (${tag})`, async ({ page }) => {
+for (const [tag, vp] of Object.entries(SIZES)) test(`map with ?halloween: 8 tabs and 5 Countryballs nodes fit, nothing overlaps (${tag})`, async ({ page }) => {
   await page.setViewportSize(vp);
   await boot(page, save({ stars: BALLS_OPEN }), '&halloween');
   await go(page, 'map', { world: 5 });
@@ -323,7 +323,7 @@ for (const [tag, vp] of Object.entries(SIZES)) test(`map with ?halloween: 7 tabs
     const lvl = s.children.list.find(o => o.type === 'Text' && /Level/.test(o.text)).text;
     return { tabs, nodes, lvl };
   });
-  expect(r.tabs.length).toBe(7);
+  expect(r.tabs.length).toBe(8);
   r.tabs.forEach(t => expect(t.w).toBeGreaterThanOrEqual(90));
   for (let i = 1; i < r.tabs.length; i++) expect(r.tabs[i].l).toBeGreaterThanOrEqual(r.tabs[i - 1].r + 10);
   expect(r.lvl).toContain('FLAGS');
@@ -401,7 +401,7 @@ test('Save.migrate survives partial saves (B76)', async ({ page }) => {
     for (const d of [{}, { xp: 5, wins: 1 }, { lastWorld: 5 }]) { try { __save.migrate(d); out.push([Object.keys(d.stars).length, Array.isArray(d.toys), d.lastWorld]); } catch (e) { out.push('throw ' + e.message); } }
     return out;
   });
-  expect(r).toEqual([[0, true, undefined], [0, true, undefined], [0, true, 6]]);
+  expect(r).toEqual([[0, true, undefined], [0, true, undefined], [0, true, 7]]); // 5 (v1.0 Spooky) -> 6 (mig11) -> 7 (mig12)
 });
 
 // regression (v1.1 B77 fix): the map of every world opens without a page error (a decor change once broke the Veggie Patch fence)
